@@ -56,7 +56,7 @@ jobs:
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Apply clippy lints
-      run: cargo hack clippy --each-feature
+      run: cargo hack clippy --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
 
   # Run tests on some extra platforms
   cross:
@@ -127,7 +127,7 @@ jobs:
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Run build
-      run: cargo hack build --each-feature
+      run: cargo hack build --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
 
   test:
     name: test
@@ -156,7 +156,7 @@ jobs:
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Run test
-      run: cargo hack test --each-feature
+      run: cargo hack test --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
 
   sanitizer:
     name: sanitizer

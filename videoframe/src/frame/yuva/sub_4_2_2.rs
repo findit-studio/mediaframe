@@ -1,7 +1,7 @@
 use crate::frame::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
 };
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Errors returned by [`Yuva422pFrame::try_new`].
@@ -10,8 +10,10 @@ use thiserror::Error;
 /// difference is that 4:2:2 chroma is full-height, so plane-size
 /// validation uses `u_stride * height` / `v_stride * height` rather
 /// than `_stride * height.div_ceil(2)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva422pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -290,8 +292,10 @@ impl<'a> Yuva422pFrame<'a> {
 /// chroma row count (4:2:2 chroma is full-height; the
 /// `InsufficientUPlane` / `InsufficientVPlane` docs document
 /// `_stride * height` rather than `_stride * height.div_ceil(2)`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva422pFrame16Error {
   /// `BITS` was not one of the supported depths (9, 10, 12, 16).
   /// FFmpeg ships `yuva422p9le`, `yuva422p10le`, `yuva422p12le`,

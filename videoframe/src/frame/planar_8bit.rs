@@ -411,6 +411,8 @@ impl<'a> Yuv422pFrame<'a> {
 /// Errors returned by [`Yuv422pFrame::try_new`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv422pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -626,6 +628,8 @@ impl<'a> Yuv444pFrame<'a> {
 /// Errors returned by [`Yuv444pFrame::try_new`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv444pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -855,8 +859,10 @@ impl<'a> Yuv440pFrame<'a> {
 pub type Yuv440pFrameError = Yuv444pFrameError;
 
 /// Errors returned by [`Yuv420pFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv420pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -1130,8 +1136,10 @@ impl<'a> Yuv410pFrame<'a> {
 }
 
 /// Errors returned by [`Yuv410pFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv410pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -1390,8 +1398,10 @@ impl<'a> Yuv411pFrame<'a> {
 }
 
 /// Errors returned by [`Yuv411pFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv411pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

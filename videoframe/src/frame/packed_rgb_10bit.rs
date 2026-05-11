@@ -17,13 +17,15 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Errors returned by [`X2Rgb10Frame::try_new`]. Variant shape mirrors
 /// the `RgbaFrameError` family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum X2Rgb10FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -161,8 +163,10 @@ impl<'a, const BE: bool> X2Rgb10Frame<'a, BE> {
 }
 
 /// Errors returned by [`X2Bgr10Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum X2Bgr10FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

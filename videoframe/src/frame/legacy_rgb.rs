@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ============================================================
@@ -14,8 +14,10 @@ use thiserror::Error;
 /// All six frame types (`Rgb565Frame`, `Bgr565Frame`, `Rgb555Frame`,
 /// `Bgr555Frame`, `Rgb444Frame`, `Bgr444Frame`) share this error enum and
 /// perform validation in the same order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum LegacyRgbFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

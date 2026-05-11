@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated Bayer-mosaic frame at 8 bits per sample.
@@ -328,8 +328,10 @@ pub type Bayer14Frame<'a> = BayerFrame16<'a, 14>;
 pub type Bayer16Frame<'a> = BayerFrame16<'a, 16>;
 
 /// Errors returned by [`BayerFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum BayerFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -350,8 +352,10 @@ pub enum BayerFrameError {
 }
 
 /// Errors returned by [`BayerFrame16::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum BayerFrame16Error {
   /// `BITS` const-generic parameter is not one of `{10, 12, 14, 16}`.
   #[error(transparent)]

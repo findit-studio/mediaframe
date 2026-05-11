@@ -45,7 +45,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Validated wrapper around a packed `v210` plane.
@@ -84,8 +84,10 @@ pub type V210LeFrame<'a> = V210Frame<'a, false>;
 pub type V210BeFrame<'a> = V210Frame<'a, true>;
 
 /// Errors returned by [`V210Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum V210FrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]

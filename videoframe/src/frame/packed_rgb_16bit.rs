@@ -36,14 +36,16 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ---- Rgb48Frame --------------------------------------------------------------
 
 /// Errors returned by [`Rgb48Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Rgb48FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -190,8 +192,10 @@ impl<'a, const BE: bool> Rgb48Frame<'a, BE> {
 // ---- Bgr48Frame --------------------------------------------------------------
 
 /// Errors returned by [`Bgr48Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Bgr48FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -325,8 +329,10 @@ impl<'a, const BE: bool> Bgr48Frame<'a, BE> {
 // ---- Rgba64Frame -------------------------------------------------------------
 
 /// Errors returned by [`Rgba64Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Rgba64FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -459,8 +465,10 @@ impl<'a, const BE: bool> Rgba64Frame<'a, BE> {
 // ---- Bgra64Frame -------------------------------------------------------------
 
 /// Errors returned by [`Bgra64Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Bgra64FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

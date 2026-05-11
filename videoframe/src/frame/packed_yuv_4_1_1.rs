@@ -2,7 +2,7 @@ use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthNotMultipleOf4, WidthOverflow,
   ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ============================================================
@@ -32,8 +32,10 @@ use thiserror::Error;
 // [`super::packed_yuv_8bit`].
 
 /// Errors returned by [`Uyyvyy411Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Uyyvyy411FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

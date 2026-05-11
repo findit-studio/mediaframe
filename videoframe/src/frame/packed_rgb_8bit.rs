@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ============================================================
@@ -9,8 +9,10 @@ use thiserror::Error;
 // ============================================================
 
 /// Errors returned by [`Rgb24Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Rgb24FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -126,8 +128,10 @@ impl<'a> Rgb24Frame<'a> {
 
 /// Errors returned by [`Bgr24Frame::try_new`]. Variant shape mirrors
 /// [`Rgb24FrameError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Bgr24FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -253,8 +257,10 @@ impl<'a> Bgr24Frame<'a> {
 // case so callers can't accidentally treat padding as alpha.
 
 /// Errors returned by [`RgbaFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum RgbaFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -373,8 +379,10 @@ impl<'a> RgbaFrame<'a> {
 
 /// Errors returned by [`BgraFrame::try_new`]. Variant shape mirrors
 /// [`RgbaFrameError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum BgraFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -492,8 +500,10 @@ impl<'a> BgraFrame<'a> {
 /// Errors returned by [`ArgbFrame::try_new`]. Variant shape mirrors
 /// [`RgbaFrameError`] — only the channel order on the four bytes
 /// per pixel differs at the kernel level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum ArgbFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -613,8 +623,10 @@ impl<'a> ArgbFrame<'a> {
 
 /// Errors returned by [`AbgrFrame::try_new`]. Variant shape mirrors
 /// [`ArgbFrameError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum AbgrFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -731,8 +743,10 @@ impl<'a> AbgrFrame<'a> {
 
 /// Errors returned by [`XrgbFrame::try_new`]. Variant shape mirrors
 /// the [`RgbaFrameError`] family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum XrgbFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -848,8 +862,10 @@ impl<'a> XrgbFrame<'a> {
 }
 
 /// Errors returned by [`RgbxFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum RgbxFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -964,8 +980,10 @@ impl<'a> RgbxFrame<'a> {
 }
 
 /// Errors returned by [`XbgrFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum XbgrFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -1081,8 +1099,10 @@ impl<'a> XbgrFrame<'a> {
 }
 
 /// Errors returned by [`BgrxFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum BgrxFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

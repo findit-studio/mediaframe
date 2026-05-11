@@ -38,7 +38,7 @@
 //! prohibitive — same rationale as `Yuv420pFrame16`.
 
 use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated planar GBR frame at high bit depth (`AV_PIX_FMT_GBRP{9,10,12,14,16}{LE,BE}`).
@@ -293,8 +293,10 @@ impl<'a, const BITS: u32, const BE: bool> GbrpHighBitFrame<'a, BITS, BE> {
 ///
 /// Variant shape mirrors [`super::GbrpFrameError`] but with all sizes
 /// expressed in **samples** (`u16` elements) instead of bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GbrpHighBitFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -646,8 +648,10 @@ impl<'a, const BITS: u32, const BE: bool> GbrapHighBitFrame<'a, BITS, BE> {
 /// Errors returned by [`GbrapHighBitFrame::try_new`].
 ///
 /// Mirrors [`GbrpHighBitFrameError`] extended with `A`-plane variants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GbrapHighBitFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

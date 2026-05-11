@@ -1,7 +1,7 @@
 use crate::frame::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, ZeroDimension,
 };
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Errors returned by [`Yuva444pFrame16::try_new`] and
@@ -11,8 +11,10 @@ use thiserror::Error;
 /// `UnsupportedBits`, `SampleOutOfRange`, plane-too-short),
 /// extended with the `A`-plane variants ([`Self::InsufficientAStride`],
 /// [`Self::InsufficientAPlane`]) for the 4:4:4 alpha plane.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva444pFrame16Error {
   /// `BITS` was not one of the supported depths. Yuva444p shipped
   /// progressively — 8b‑1 (10), 8b‑3 (9), 8b‑4 (12 / 14), 8b‑5a (16,
@@ -468,8 +470,10 @@ pub type Yuva444p16BeFrame<'a> = Yuva444pFrame16<'a, 16, true>;
 /// `InsufficientAStride` / `InsufficientAPlane` for the alpha plane) but
 /// without `OddWidth` because 4:4:4 has no chroma subsampling, so any
 /// width is valid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva444pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

@@ -1,5 +1,5 @@
 use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, ZeroDimension};
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated NV12 (semi‑planar 4:2:0) frame.
@@ -179,8 +179,10 @@ impl<'a> Nv12Frame<'a> {
 }
 
 /// Errors returned by [`Nv12Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Nv12FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -391,8 +393,10 @@ impl<'a> Nv16Frame<'a> {
 }
 
 /// Errors returned by [`Nv16Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Nv16FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -593,8 +597,10 @@ impl<'a> Nv24Frame<'a> {
 }
 
 /// Errors returned by [`Nv24Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Nv24FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -773,8 +779,10 @@ impl<'a> Nv42Frame<'a> {
 }
 
 /// Errors returned by [`Nv42Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Nv42FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -968,8 +976,10 @@ impl<'a> Nv21Frame<'a> {
 /// Errors returned by [`Nv21Frame::try_new`]. Variant shape is
 /// identical to [`Nv12FrameError`] — only the "UV" → "VU" naming
 /// changes to match the plane's byte order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Nv21FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

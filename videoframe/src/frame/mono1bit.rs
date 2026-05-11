@@ -10,7 +10,7 @@
 //! FFmpeg names: `AV_PIX_FMT_MONOBLACK`, `AV_PIX_FMT_MONOWHITE`.
 
 use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated 1-bit-per-pixel monochrome frame.
@@ -134,8 +134,10 @@ pub type MonoblackFrame<'a> = MonoFrame<'a, false>;
 pub type MonowhiteFrame<'a> = MonoFrame<'a, true>;
 
 /// Errors returned by [`MonoFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum MonoFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

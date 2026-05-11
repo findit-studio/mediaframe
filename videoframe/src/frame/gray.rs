@@ -37,7 +37,7 @@ use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthOverflow,
   ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ---- Gray8Frame -----------------------------------------------------------
@@ -138,8 +138,10 @@ impl<'a> Gray8Frame<'a> {
 }
 
 /// Errors returned by [`Gray8Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Gray8FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -303,8 +305,10 @@ pub type Gray14LeFrame<'a> = GrayNFrame<'a, 14, false>;
 pub type Gray14BeFrame<'a> = GrayNFrame<'a, 14, true>;
 
 /// Errors returned by [`GrayNFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GrayNFrameError {
   /// `BITS` must be 9, 10, 12, or 14.
   #[error(transparent)]
@@ -438,8 +442,10 @@ impl<'a, const BE: bool> Gray16Frame<'a, BE> {
 }
 
 /// Errors returned by [`Gray16Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Gray16FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -584,8 +590,10 @@ impl<'a, const BE: bool> Grayf32Frame<'a, BE> {
 }
 
 /// Errors returned by [`Grayf32Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Grayf32FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -711,8 +719,10 @@ impl<'a> Ya8Frame<'a> {
 }
 
 /// Errors returned by [`Ya8Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Ya8FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -865,8 +875,10 @@ impl<'a, const BE: bool> Ya16Frame<'a, BE> {
 }
 
 /// Errors returned by [`Ya16Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Ya16FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

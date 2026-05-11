@@ -1,7 +1,7 @@
 use crate::frame::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
 };
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Errors returned by [`Yuva420pFrame::try_new`].
@@ -10,8 +10,10 @@ use thiserror::Error;
 /// extended with [`Self::InsufficientAStride`] / [`Self::InsufficientAPlane`]
 /// for the 4:2:0 alpha plane (full-width × full-height — alpha is at
 /// luma resolution, only chroma is subsampled).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva420pFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -294,8 +296,10 @@ impl<'a> Yuva420pFrame<'a> {
 /// Variant shape mirrors `Yuv420pFrame16Error` extended with the
 /// `A`-plane variants ([`Self::InsufficientAStride`] /
 /// [`Self::InsufficientAPlane`]) for the 4:2:0 alpha plane.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuva420pFrame16Error {
   /// `BITS` was not one of the supported depths (9, 10, 16). FFmpeg
   /// only ships `yuva420p9le`, `yuva420p10le`, `yuva420p16le` — no

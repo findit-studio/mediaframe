@@ -80,8 +80,10 @@ pub type V410LeFrame<'a> = V410Frame<'a, false>;
 pub type V410BeFrame<'a> = V410Frame<'a, true>;
 
 /// Errors returned by [`V410Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum V410FrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]
@@ -225,8 +227,10 @@ pub struct V30XFrame<'a> {
 }
 
 /// Errors returned by [`V30XFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum V30XFrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]
@@ -382,6 +386,8 @@ pub type Xv36BeFrame<'a> = Xv36Frame<'a, true>;
 /// [`Xv36Frame::try_new_checked`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Xv36FrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]
@@ -613,8 +619,10 @@ pub struct VuyaFrame<'a> {
 }
 
 /// Errors returned by [`VuyaFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum VuyaFrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]
@@ -755,8 +763,10 @@ pub struct VuyxFrame<'a> {
 }
 
 /// Errors returned by [`VuyxFrame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum VuyxFrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]
@@ -918,8 +928,10 @@ pub type Ayuv64LeFrame<'a> = Ayuv64Frame<'a, false>;
 pub type Ayuv64BeFrame<'a> = Ayuv64Frame<'a, true>;
 
 /// Errors returned by [`Ayuv64Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Ayuv64FrameError {
   /// `width == 0` or `height == 0`.
   #[error(transparent)]

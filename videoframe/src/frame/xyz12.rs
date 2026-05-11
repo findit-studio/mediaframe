@@ -39,15 +39,17 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// Errors returned by [`Xyz12Frame::try_new`].
 ///
 /// Variant shape mirrors [`super::Rgbf32FrameError`] but with all sizes
 /// expressed in **samples** (`u16` elements) instead of bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Xyz12FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

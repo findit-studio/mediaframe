@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
 };
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated YUV 4:2:0 planar frame at bit depths > 8 (10/12/14).
@@ -459,8 +459,10 @@ pub type Yuv420p16BeFrame<'a> = Yuv420pFrame16<'a, 16, true>;
 /// mirrors `Yuv420pFrameError`, with `UnsupportedBits` added for
 /// the new `BITS` parameter and all sizes expressed in **samples**
 /// (`u16` elements) instead of bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuv420pFrame16Error {
   /// `BITS` was not one of the supported depths (10, 12, 14, 16).
   /// 8‑bit frames should use `Yuv420pFrame`; 16‑bit is supported,

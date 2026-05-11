@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthOverflow, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ============================================================
@@ -22,8 +22,10 @@ use thiserror::Error;
 // packed-RGB frame types.
 
 /// Errors returned by [`Yuyv422Frame::try_new`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yuyv422FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -148,8 +150,10 @@ impl<'a> Yuyv422Frame<'a> {
 
 /// Errors returned by [`Uyvy422Frame::try_new`]. Variant shape
 /// mirrors [`Yuyv422FrameError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Uyvy422FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -272,8 +276,10 @@ impl<'a> Uyvy422Frame<'a> {
 
 /// Errors returned by [`Yvyu422Frame::try_new`]. Variant shape
 /// mirrors [`Yuyv422FrameError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Yvyu422FrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

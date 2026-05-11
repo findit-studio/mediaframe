@@ -10,7 +10,7 @@
 //! by definition), so widths and heights have no parity constraint.
 
 use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated 8-bit planar GBR frame (`AV_PIX_FMT_GBRP`).
@@ -242,8 +242,10 @@ impl<'a> GbrpFrame<'a> {
 /// Variant shape mirrors [`super::Yuv444pFrameError`] — same full-width
 /// per-plane validation, no width-parity constraint — but with `G` /
 /// `B` / `R` plane names instead of `Y` / `U` / `V`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GbrpFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]
@@ -530,8 +532,10 @@ impl<'a> GbrapFrame<'a> {
 /// Variant shape mirrors [`GbrpFrameError`] extended with `A`-plane
 /// variants (matching the YUVA-pattern from
 /// [`super::Yuva444pFrameError`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GbrapFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

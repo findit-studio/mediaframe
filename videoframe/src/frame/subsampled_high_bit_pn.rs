@@ -1,7 +1,7 @@
 use super::{
   GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
 };
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 /// A validated P010 (semi‑planar 4:2:0, 10‑bit `u16`) frame.
@@ -924,8 +924,10 @@ pub type P010FramePlane = PnFramePlane;
 
 /// Errors returned by [`PnFrame::try_new`] and
 /// [`PnFrame::try_new_checked`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum PnFrameError {
   /// `BITS` was not one of the supported high‑bit‑packed depths
   /// (10, 12, 16). 14 exists in the planar `yuv420p14le` family but

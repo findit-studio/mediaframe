@@ -22,7 +22,7 @@
 use super::{
   DimensionOverflow, GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension,
 };
-use derive_more::IsVariant;
+use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 // ---------------------------------------------------------------------------
@@ -31,8 +31,10 @@ use thiserror::Error;
 
 /// Errors returned by the `try_new` constructors on the four float-domain
 /// planar GBR frame types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum GbrFloatFrameError {
   /// `width` or `height` was zero.
   #[error(transparent)]

@@ -123,6 +123,8 @@ pub type Y216BeFrame<'a> = Y2xxFrame<'a, 16, true>;
 /// [`Y2xxFrame::try_new_checked`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 pub enum Y2xxFrameError {
   /// `BITS ∉ {10, 12, 16}`.
   #[error(transparent)]

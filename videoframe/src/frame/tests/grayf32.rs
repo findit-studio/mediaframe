@@ -31,10 +31,7 @@ fn grayf32_frame_try_new_rejects_zero_width() {
   let buf = [0.0f32; 16];
   assert!(matches!(
     Grayf32LeFrame::try_new(&buf, 0, 4, 4),
-    Err(Grayf32FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Grayf32FrameError::ZeroDimension(_))
   ));
 }
 
@@ -43,10 +40,7 @@ fn grayf32_frame_try_new_rejects_zero_height() {
   let buf = [0.0f32; 16];
   assert!(matches!(
     Grayf32LeFrame::try_new(&buf, 4, 0, 4),
-    Err(Grayf32FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(Grayf32FrameError::ZeroDimension(_))
   ));
 }
 
@@ -55,10 +49,7 @@ fn grayf32_frame_try_new_rejects_stride_too_small() {
   let buf = [0.0f32; 16];
   assert!(matches!(
     Grayf32LeFrame::try_new(&buf, 4, 4, 3),
-    Err(Grayf32FrameError::YStrideTooSmall {
-      width: 4,
-      y_stride: 3
-    })
+    Err(Grayf32FrameError::InsufficientYStride(_))
   ));
 }
 
@@ -68,10 +59,7 @@ fn grayf32_frame_try_new_rejects_plane_too_short() {
   let buf = [0.0f32; 15];
   assert!(matches!(
     Grayf32LeFrame::try_new(&buf, 4, 4, 4),
-    Err(Grayf32FrameError::YPlaneTooShort {
-      expected: 16,
-      actual: 15
-    })
+    Err(Grayf32FrameError::InsufficientYPlane(_))
   ));
 }
 

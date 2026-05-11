@@ -33,6 +33,10 @@
 //! 8-bit formats (`Gray8`, `Ya8`) are **not** const-generic on `BE` because
 //! single-byte values have no byte order to swap.
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthOverflow,
+  ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -67,25 +71,28 @@ impl<'a> Gray8Frame<'a> {
     y_stride: u32,
   ) -> Result<Self, Gray8FrameError> {
     if width == 0 || height == 0 {
-      return Err(Gray8FrameError::ZeroDimension { width, height });
+      return Err(Gray8FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(Gray8FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Gray8FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Gray8FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Gray8FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Gray8FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Gray8FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     Ok(Self {
       y,
@@ -135,37 +142,20 @@ impl<'a> Gray8Frame<'a> {
 #[non_exhaustive]
 pub enum Gray8FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 // ---- GrayNFrame<BITS> ------------------------------------------------------
@@ -205,28 +195,31 @@ impl<'a, const BITS: u32, const BE: bool> GrayNFrame<'a, BITS, BE> {
     y_stride: u32,
   ) -> Result<Self, GrayNFrameError> {
     if BITS != 9 && BITS != 10 && BITS != 12 && BITS != 14 {
-      return Err(GrayNFrameError::UnsupportedBits { bits: BITS });
+      return Err(GrayNFrameError::UnsupportedBits(UnsupportedBits::new(BITS)));
     }
     if width == 0 || height == 0 {
-      return Err(GrayNFrameError::ZeroDimension { width, height });
+      return Err(GrayNFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(GrayNFrameError::YStrideTooSmall { width, y_stride });
+      return Err(GrayNFrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GrayNFrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(GrayNFrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(GrayNFrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(GrayNFrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     Ok(Self {
       y,
@@ -314,43 +307,24 @@ pub type Gray14BeFrame<'a> = GrayNFrame<'a, 14, true>;
 #[non_exhaustive]
 pub enum GrayNFrameError {
   /// `BITS` must be 9, 10, 12, or 14.
-  #[error("unsupported bit depth {bits}; GrayNFrame supports 9, 10, 12, or 14")]
-  UnsupportedBits {
-    /// The unsupported bit depth.
-    bits: u32,
-  },
+  #[error("unsupported bit depth {}; GrayNFrame supports 9, 10, 12, or 14", .0.bits())]
+  UnsupportedBits(UnsupportedBits),
+
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride (in u16 elements).
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {actual} elements but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 // ---- Gray16Frame -----------------------------------------------------------
@@ -391,25 +365,27 @@ impl<'a, const BE: bool> Gray16Frame<'a, BE> {
     y_stride: u32,
   ) -> Result<Self, Gray16FrameError> {
     if width == 0 || height == 0 {
-      return Err(Gray16FrameError::ZeroDimension { width, height });
+      return Err(Gray16FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(Gray16FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Gray16FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Gray16FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Gray16FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Gray16FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Gray16FrameError::InsufficientYPlane(
+        InsufficientPlane::new(y_min, y.len()),
+      ));
     }
     Ok(Self {
       y,
@@ -466,37 +442,20 @@ impl<'a, const BE: bool> Gray16Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Gray16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride (in u16 elements).
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {actual} elements but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 // ---- Grayf32Frame -----------------------------------------------------------
@@ -550,25 +509,27 @@ impl<'a, const BE: bool> Grayf32Frame<'a, BE> {
     y_stride: u32,
   ) -> Result<Self, Grayf32FrameError> {
     if width == 0 || height == 0 {
-      return Err(Grayf32FrameError::ZeroDimension { width, height });
+      return Err(Grayf32FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(Grayf32FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Grayf32FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Grayf32FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Grayf32FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Grayf32FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Grayf32FrameError::InsufficientYPlane(
+        InsufficientPlane::new(y_min, y.len()),
+      ));
     }
     Ok(Self {
       y,
@@ -627,37 +588,20 @@ impl<'a, const BE: bool> Grayf32Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Grayf32FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride (in f32 elements).
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` f32 elements.
-  #[error("Y plane has {actual} elements but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum elements required.
-    expected: usize,
-    /// Actual elements supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 // ---- Ya8Frame ---------------------------------------------------------------
@@ -693,35 +637,34 @@ impl<'a> Ya8Frame<'a> {
     stride: u32,
   ) -> Result<Self, Ya8FrameError> {
     if width == 0 || height == 0 {
-      return Err(Ya8FrameError::ZeroDimension { width, height });
+      return Err(Ya8FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
       None => {
-        return Err(Ya8FrameError::WidthOverflow { width });
+        return Err(Ya8FrameError::WidthOverflow(WidthOverflow::new(width)));
       }
     };
     if stride < min_stride {
-      return Err(Ya8FrameError::StrideTooSmall {
-        width,
-        stride,
-        min_stride,
-      });
+      return Err(Ya8FrameError::InsufficientStride(InsufficientStride::new(
+        stride, min_stride,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Ya8FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Ya8FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(Ya8FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(Ya8FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -772,45 +715,24 @@ impl<'a> Ya8Frame<'a> {
 #[non_exhaustive]
 pub enum Ya8FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width * 2` (too narrow to fit 2 bytes per pixel).
-  #[error("stride ({stride}) is smaller than width ({width}) × 2 = {min_stride}")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied row stride in bytes.
-    stride: u32,
-    /// Minimum required stride (`width * 2`).
-    min_stride: u32,
-  },
+  #[error("stride ({}) is smaller than width × 2 = {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Packed plane is shorter than `stride * height` bytes.
-  #[error("packed plane has {actual} bytes but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("packed plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `width * 2` overflows `u32` (only reachable when `width > 2^31`).
-  #[error("width ({width}) × 2 overflows u32")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) × 2 overflows u32", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 // ---- Ya16Frame --------------------------------------------------------------
@@ -861,35 +783,34 @@ impl<'a, const BE: bool> Ya16Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Ya16FrameError> {
     if width == 0 || height == 0 {
-      return Err(Ya16FrameError::ZeroDimension { width, height });
+      return Err(Ya16FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
       None => {
-        return Err(Ya16FrameError::WidthOverflow { width });
+        return Err(Ya16FrameError::WidthOverflow(WidthOverflow::new(width)));
       }
     };
     if stride < min_stride {
-      return Err(Ya16FrameError::StrideTooSmall {
-        width,
-        stride,
-        min_stride,
-      });
+      return Err(Ya16FrameError::InsufficientStride(InsufficientStride::new(
+        stride, min_stride,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Ya16FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Ya16FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(Ya16FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(Ya16FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -948,43 +869,22 @@ impl<'a, const BE: bool> Ya16Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Ya16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width * 2` (too narrow to fit 2 u16 per pixel).
-  #[error("stride ({stride}) is smaller than width ({width}) × 2 = {min_stride}")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied row stride in u16 elements.
-    stride: u32,
-    /// Minimum required stride (`width * 2`).
-    min_stride: u32,
-  },
+  #[error("stride ({}) is smaller than width × 2 = {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Packed plane is shorter than `stride * height` u16 elements.
-  #[error("packed plane has {actual} elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum elements required.
-    expected: usize,
-    /// Actual elements supplied.
-    actual: usize,
-  },
+  #[error("packed plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `width * 2` overflows `u32` (only reachable when `width > 2^31`).
-  #[error("width ({width}) × 2 overflows u32")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) × 2 overflows u32", .0.width())]
+  WidthOverflow(WidthOverflow),
 }

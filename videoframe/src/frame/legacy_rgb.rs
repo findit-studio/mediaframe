@@ -1,3 +1,6 @@
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -15,43 +18,24 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum LegacyRgbFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 2 * width`.
-  #[error("stride ({stride}) is smaller than 2 * width ({min_stride})")]
-  StrideTooSmall {
-    /// Required minimum stride (`2 * width`).
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 2 * width ({})", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` bytes.
-  #[error("plane has {actual} bytes but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `2 * width` overflows `u32`.
-  #[error("2 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("2 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 // ---- Rgb565Frame -----------------------------------------------------------
@@ -78,29 +62,35 @@ impl<'a> Rgb565Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if rgb565.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgb565.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb565.len()),
+      ));
     }
     Ok(Self {
       rgb565,
@@ -168,29 +158,35 @@ impl<'a> Bgr565Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if bgr565.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: bgr565.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr565.len()),
+      ));
     }
     Ok(Self {
       bgr565,
@@ -259,29 +255,35 @@ impl<'a> Rgb555Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if rgb555.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgb555.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb555.len()),
+      ));
     }
     Ok(Self {
       rgb555,
@@ -350,29 +352,35 @@ impl<'a> Bgr555Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if bgr555.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: bgr555.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr555.len()),
+      ));
     }
     Ok(Self {
       bgr555,
@@ -441,29 +449,35 @@ impl<'a> Rgb444Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if rgb444.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgb444.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb444.len()),
+      ));
     }
     Ok(Self {
       rgb444,
@@ -532,29 +546,35 @@ impl<'a> Bgr444Frame<'a> {
     stride: u32,
   ) -> Result<Self, LegacyRgbFrameError> {
     if width == 0 || height == 0 {
-      return Err(LegacyRgbFrameError::ZeroDimension { width, height });
+      return Err(LegacyRgbFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
-      None => return Err(LegacyRgbFrameError::WidthOverflow { width }),
+      None => {
+        return Err(LegacyRgbFrameError::WidthOverflow(WidthOverflow::new(
+          width,
+        )));
+      }
     };
     if stride < min_stride {
-      return Err(LegacyRgbFrameError::StrideTooSmall { min_stride, stride });
+      return Err(LegacyRgbFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as u64).checked_mul(height as u64) {
       Some(v) if v <= usize::MAX as u64 => v as usize,
       _ => {
-        return Err(LegacyRgbFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(LegacyRgbFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
       }
     };
     if bgr444.len() < plane_min {
-      return Err(LegacyRgbFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: bgr444.len(),
-      });
+      return Err(LegacyRgbFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr444.len()),
+      ));
     }
     Ok(Self {
       bgr444,

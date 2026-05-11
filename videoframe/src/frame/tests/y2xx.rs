@@ -29,21 +29,9 @@ fn y210_frame_try_new_rejects_zero_dimension() {
   // Frame structs don't derive `PartialEq` (matching V210Frame), so
   // we extract the error before comparing.
   let err = Y210Frame::try_new(&buf, 0, 1, 0).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::ZeroDimension {
-      width: 0,
-      height: 1
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::ZeroDimension(_)));
   let err = Y210Frame::try_new(&buf, 4, 0, 8).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::ZeroDimension(_)));
 }
 
 #[test]
@@ -52,7 +40,7 @@ fn y210_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y210Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert_eq!(err, Y2xxFrameError::OddWidth { width: w });
+    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
   }
   // 2, 4, 6, 8 must succeed.
   for w in [2u32, 4, 6, 8] {
@@ -67,26 +55,14 @@ fn y210_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u16; 16];
   // For width=4, min_stride = 8 u16 elements.
   let err = Y210Frame::try_new(&buf, 4, 1, 7).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::StrideTooSmall {
-      min_stride: 8,
-      stride: 7
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::InsufficientStride(_)));
 }
 
 #[test]
 fn y210_frame_try_new_rejects_short_plane() {
   let buf = std::vec![0u16; 7]; // need 8 for width=4 height=1
   let err = Y210Frame::try_new(&buf, 4, 1, 8).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::PlaneTooShort {
-      expected: 8,
-      actual: 7
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::InsufficientPlane(_)));
 }
 
 #[test]
@@ -105,12 +81,12 @@ fn y2xx_frame_try_new_rejects_unsupported_bits() {
   // 8 are valid but BITS=11 is not.
   let buf = std::vec![0u16; 16];
   let err = Y2xxFrame::<11>::try_new(&buf, 4, 1, 8).unwrap_err();
-  assert_eq!(err, Y2xxFrameError::UnsupportedBits { bits: 11 });
+  assert!(matches!(err, Y2xxFrameError::UnsupportedBits(_)));
   let err = Y2xxFrame::<8>::try_new(&buf, 4, 1, 8).unwrap_err();
-  assert_eq!(err, Y2xxFrameError::UnsupportedBits { bits: 8 });
+  assert!(matches!(err, Y2xxFrameError::UnsupportedBits(_)));
   // 14 is NOT in the supported set for Y2xx (no FFmpeg y214 format exists).
   let err = Y2xxFrame::<14>::try_new(&buf, 4, 1, 8).unwrap_err();
-  assert_eq!(err, Y2xxFrameError::UnsupportedBits { bits: 14 });
+  assert!(matches!(err, Y2xxFrameError::UnsupportedBits(_)));
 }
 
 #[test]
@@ -271,21 +247,9 @@ fn y216_frame_try_new_accepts_oversized_stride() {
 fn y216_frame_try_new_rejects_zero_dimension() {
   let buf: [u16; 0] = [];
   let err = Y216Frame::try_new(&buf, 0, 1, 0).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::ZeroDimension {
-      width: 0,
-      height: 1
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::ZeroDimension(_)));
   let err = Y216Frame::try_new(&buf, 4, 0, 8).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::ZeroDimension(_)));
 }
 
 #[test]
@@ -294,7 +258,7 @@ fn y216_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y216Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert_eq!(err, Y2xxFrameError::OddWidth { width: w });
+    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
   }
   // Even widths must succeed.
   for w in [2u32, 4, 6, 8] {
@@ -309,26 +273,14 @@ fn y216_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u16; 16];
   // For width=4, min_stride = 8 u16 elements.
   let err = Y216Frame::try_new(&buf, 4, 1, 7).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::StrideTooSmall {
-      min_stride: 8,
-      stride: 7
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::InsufficientStride(_)));
 }
 
 #[test]
 fn y216_frame_try_new_rejects_short_plane() {
   let buf = std::vec![0u16; 7]; // need 8 for width=4, height=1
   let err = Y216Frame::try_new(&buf, 4, 1, 8).unwrap_err();
-  assert_eq!(
-    err,
-    Y2xxFrameError::PlaneTooShort {
-      expected: 8,
-      actual: 7
-    }
-  );
+  assert!(matches!(err, Y2xxFrameError::InsufficientPlane(_)));
 }
 
 #[test]

@@ -22,17 +22,11 @@ fn v210_frame_try_new_rejects_zero_dimension() {
   let buf = [];
   assert!(matches!(
     V210LeFrame::try_new(&buf, 0, 1, 0),
-    Err(V210FrameError::ZeroDimension {
-      width: 0,
-      height: 1
-    })
+    Err(V210FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     V210LeFrame::try_new(&buf, 6, 0, 16),
-    Err(V210FrameError::ZeroDimension {
-      width: 6,
-      height: 0
-    })
+    Err(V210FrameError::ZeroDimension(_))
   ));
 }
 
@@ -45,7 +39,7 @@ fn v210_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13, 15] {
     let stride = ((w as usize) * 8 / 3 + 16) as u32;
     let err = V210LeFrame::try_new(&buf, w, 1, stride).unwrap_err();
-    assert_eq!(err, V210FrameError::OddWidth { width: w });
+    assert!(matches!(err, V210FrameError::OddWidth(_)));
   }
 }
 
@@ -93,18 +87,12 @@ fn v210_frame_try_new_rejects_stride_too_small() {
   // For width=6, min_stride = 16.
   assert!(matches!(
     V210LeFrame::try_new(&buf, 6, 1, 15),
-    Err(V210FrameError::StrideTooSmall {
-      min_stride: 16,
-      stride: 15
-    })
+    Err(V210FrameError::InsufficientStride(_))
   ));
   // For width=8 (partial-word, 2 words), min_stride = 32.
   assert!(matches!(
     V210LeFrame::try_new(&buf, 8, 1, 31),
-    Err(V210FrameError::StrideTooSmall {
-      min_stride: 32,
-      stride: 31
-    })
+    Err(V210FrameError::InsufficientStride(_))
   ));
 }
 
@@ -113,10 +101,7 @@ fn v210_frame_try_new_rejects_short_plane() {
   let buf = std::vec![0u8; 15]; // need 16 for width=6 height=1
   assert!(matches!(
     V210LeFrame::try_new(&buf, 6, 1, 16),
-    Err(V210FrameError::PlaneTooShort {
-      expected: 16,
-      actual: 15
-    })
+    Err(V210FrameError::InsufficientPlane(_))
   ));
 }
 

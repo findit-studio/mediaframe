@@ -36,6 +36,223 @@
 
 // === Primitives (always available) ===
 
+// ---- Shared error payload structs (used by per-family `*FrameError` enums) ----
+//
+// Variant names carry the per-plane / per-axis semantics
+// (`InsufficientYStride`, `InsufficientUPlane`, …); the payload carries the
+// shape-only data (the offending number + the reference number).
+// Each payload has:
+//   - private fields,
+//   - a `pub const fn new(...)` constructor,
+//   - one `pub const fn field(&self) -> T` getter per field,
+//   - `#[inline]` on all methods.
+// thiserror `#[error("...", .0.field())]` routes Display lookups
+// through the getters so the original messages are preserved
+// verbatim.
+
+/// `width × height` carried by zero-dimension errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ZeroDimension {
+  width: u32,
+  height: u32,
+}
+
+impl ZeroDimension {
+  /// Constructs a `ZeroDimension` payload.
+  #[inline]
+  pub const fn new(width: u32, height: u32) -> Self {
+    Self { width, height }
+  }
+  /// Returns the supplied width.
+  #[inline]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+  /// Returns the supplied height.
+  #[inline]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+}
+
+/// `width × height` carried by dimension-overflow errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DimensionOverflow {
+  width: u32,
+  height: u32,
+}
+
+impl DimensionOverflow {
+  /// Constructs a `DimensionOverflow` payload.
+  #[inline]
+  pub const fn new(width: u32, height: u32) -> Self {
+    Self { width, height }
+  }
+  /// Returns the supplied width.
+  #[inline]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+  /// Returns the supplied height.
+  #[inline]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+}
+
+/// Plane stride is smaller than what the declared geometry requires.
+/// The variant name (e.g. `InsufficientYStride` vs `InsufficientUvStride`)
+/// tells the caller which plane and what unit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InsufficientStride {
+  stride: u32,
+  min: u32,
+}
+
+impl InsufficientStride {
+  /// Constructs a `InsufficientStride` payload.
+  #[inline]
+  pub const fn new(stride: u32, min: u32) -> Self {
+    Self { stride, min }
+  }
+  /// Returns the caller-supplied stride.
+  #[inline]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+  /// Returns the required minimum.
+  #[inline]
+  pub const fn min(&self) -> u32 {
+    self.min
+  }
+}
+
+/// Plane buffer is shorter than the declared geometry requires.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InsufficientPlane {
+  expected: usize,
+  actual: usize,
+}
+
+impl InsufficientPlane {
+  /// Constructs a `InsufficientPlane` payload.
+  #[inline]
+  pub const fn new(expected: usize, actual: usize) -> Self {
+    Self { expected, actual }
+  }
+  /// Returns the minimum required length.
+  #[inline]
+  pub const fn expected(&self) -> usize {
+    self.expected
+  }
+  /// Returns the actual length supplied.
+  #[inline]
+  pub const fn actual(&self) -> usize {
+    self.actual
+  }
+}
+
+/// Declared geometry (`stride × rows`) doesn't fit in `usize`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GeometryOverflow {
+  stride: u32,
+  rows: u32,
+}
+
+impl GeometryOverflow {
+  /// Constructs a `GeometryOverflow` payload.
+  #[inline]
+  pub const fn new(stride: u32, rows: u32) -> Self {
+    Self { stride, rows }
+  }
+  /// Returns the stride that overflowed.
+  #[inline]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+  /// Returns the row count that overflowed.
+  #[inline]
+  pub const fn rows(&self) -> u32 {
+    self.rows
+  }
+}
+
+/// Frame `width` value carried by odd-width errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct OddWidth {
+  width: u32,
+}
+
+impl OddWidth {
+  /// Constructs an `OddWidth` payload.
+  #[inline]
+  pub const fn new(width: u32) -> Self {
+    Self { width }
+  }
+  /// Returns the supplied width.
+  #[inline]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+}
+
+/// Frame `width` value carried by width-not-a-multiple-of-4 errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WidthNotMultipleOf4 {
+  width: u32,
+}
+
+impl WidthNotMultipleOf4 {
+  /// Constructs a `WidthNotMultipleOf4` payload.
+  #[inline]
+  pub const fn new(width: u32) -> Self {
+    Self { width }
+  }
+  /// Returns the supplied width.
+  #[inline]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+}
+
+/// Frame `width` value carried by per-row width-overflow errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WidthOverflow {
+  width: u32,
+}
+
+impl WidthOverflow {
+  /// Constructs a `WidthOverflow` payload.
+  #[inline]
+  pub const fn new(width: u32) -> Self {
+    Self { width }
+  }
+  /// Returns the supplied width.
+  #[inline]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+}
+
+/// `BITS` const-generic value carried by unsupported-bits errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UnsupportedBits {
+  bits: u32,
+}
+
+impl UnsupportedBits {
+  /// Constructs an `UnsupportedBits` payload.
+  #[inline]
+  pub const fn new(bits: u32) -> Self {
+    Self { bits }
+  }
+  /// Returns the supplied `BITS` value.
+  #[inline]
+  pub const fn bits(&self) -> u32 {
+    self.bits
+  }
+}
+
 /// A `(width, height)` pair in pixels.
 ///
 /// Lives alongside the rest of the frame primitives because the same

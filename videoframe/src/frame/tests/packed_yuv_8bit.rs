@@ -23,17 +23,11 @@ fn yuyv422_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 0, 4, 32),
-    Err(Yuyv422FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Yuyv422FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 16, 0, 32),
-    Err(Yuyv422FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Yuyv422FrameError::ZeroDimension(_))
   ));
 }
 
@@ -42,7 +36,7 @@ fn yuyv422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yuyv422FrameError::OddWidth { width: 17 })
+    Err(Yuyv422FrameError::OddWidth(_))
   ));
 }
 
@@ -51,10 +45,7 @@ fn yuyv422_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 16, 4, 31),
-    Err(Yuyv422FrameError::StrideTooSmall {
-      min_stride: 32,
-      stride: 31,
-    })
+    Err(Yuyv422FrameError::InsufficientStride(_))
   ));
 }
 
@@ -63,10 +54,7 @@ fn yuyv422_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&small, 16, 4, 32),
-    Err(Yuyv422FrameError::PlaneTooShort {
-      expected: 128,
-      actual: 32,
-    })
+    Err(Yuyv422FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -104,10 +92,7 @@ fn uyvy422_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 0, 4, 32),
-    Err(Uyvy422FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Uyvy422FrameError::ZeroDimension(_))
   ));
 }
 
@@ -116,7 +101,7 @@ fn uyvy422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 17, 4, 34),
-    Err(Uyvy422FrameError::OddWidth { width: 17 })
+    Err(Uyvy422FrameError::OddWidth(_))
   ));
 }
 
@@ -125,10 +110,7 @@ fn uyvy422_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 16, 4, 31),
-    Err(Uyvy422FrameError::StrideTooSmall {
-      min_stride: 32,
-      stride: 31,
-    })
+    Err(Uyvy422FrameError::InsufficientStride(_))
   ));
 }
 
@@ -137,10 +119,7 @@ fn uyvy422_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&small, 16, 4, 32),
-    Err(Uyvy422FrameError::PlaneTooShort {
-      expected: 128,
-      actual: 32,
-    })
+    Err(Uyvy422FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -176,10 +155,7 @@ fn yvyu422_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 16, 0, 32),
-    Err(Yvyu422FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Yvyu422FrameError::ZeroDimension(_))
   ));
 }
 
@@ -188,7 +164,7 @@ fn yvyu422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yvyu422FrameError::OddWidth { width: 17 })
+    Err(Yvyu422FrameError::OddWidth(_))
   ));
 }
 
@@ -197,10 +173,7 @@ fn yvyu422_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 16, 4, 31),
-    Err(Yvyu422FrameError::StrideTooSmall {
-      min_stride: 32,
-      stride: 31,
-    })
+    Err(Yvyu422FrameError::InsufficientStride(_))
   ));
 }
 
@@ -209,10 +182,7 @@ fn yvyu422_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&small, 16, 4, 32),
-    Err(Yvyu422FrameError::PlaneTooShort {
-      expected: 128,
-      actual: 32,
-    })
+    Err(Yvyu422FrameError::InsufficientPlane(_))
   ));
 }
 

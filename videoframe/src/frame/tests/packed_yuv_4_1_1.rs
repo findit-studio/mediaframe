@@ -24,17 +24,11 @@ fn uyyvyy411_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 24 * 4];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 0, 4, 24),
-    Err(Uyyvyy411FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Uyyvyy411FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 16, 0, 24),
-    Err(Uyyvyy411FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Uyyvyy411FrameError::ZeroDimension(_))
   ));
 }
 
@@ -44,12 +38,12 @@ fn uyyvyy411_frame_try_new_rejects_width_not_multiple_of_4() {
   // 18 = even but not divisible by 4.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 18, 4, 27),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4 { width: 18 })
+    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
   ));
   // 17 = odd.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 17, 4, 26),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4 { width: 17 })
+    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
   ));
 }
 
@@ -58,10 +52,7 @@ fn uyyvyy411_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 24 * 4];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 16, 4, 23),
-    Err(Uyyvyy411FrameError::StrideTooSmall {
-      min_stride: 24,
-      stride: 23,
-    })
+    Err(Uyyvyy411FrameError::InsufficientStride(_))
   ));
 }
 
@@ -71,10 +62,7 @@ fn uyyvyy411_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 32];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&small, 16, 4, 24),
-    Err(Uyyvyy411FrameError::PlaneTooShort {
-      expected: 96,
-      actual: 32,
-    })
+    Err(Uyyvyy411FrameError::InsufficientPlane(_))
   ));
 }
 

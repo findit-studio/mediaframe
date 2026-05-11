@@ -42,6 +42,9 @@
 //! packed buffer and then byte-compares against an FFmpeg-produced
 //! reference at the canonical stride.
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthOverflow, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -85,58 +88,37 @@ pub type V210BeFrame<'a> = V210Frame<'a, true>;
 #[non_exhaustive]
 pub enum V210FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V210Frame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("V210Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width % 2 != 0`. v210 is 4:2:2 (chroma pair), so width must be
   /// even. Partial last words (widths not divisible by 6) are supported
   /// — the last word emits 2 or 4 valid pixels — so only the chroma-pair
   /// constraint applies.
-  #[error("V210Frame: width {width} is odd; v210 is 4:2:2 and requires even width")]
-  OddWidth {
-    /// Configured width.
-    width: u32,
-  },
+  #[error("V210Frame: width {} is odd; v210 is 4:2:2 and requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `stride < width.div_ceil(6) * 16`. Each row needs at least
   /// `ceil(width / 6) * 16` bytes to hold all pixels (the final partial
   /// word still occupies 16 bytes even if only 2 or 4 samples are
   /// valid).
-  #[error("V210Frame: stride {stride} is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in bytes (`ceil(width / 6) * 16`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("V210Frame: stride {} is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `v210.len() < expected`. The packed plane is too short for the
   /// declared geometry.
-  #[error("V210Frame: plane too short: expected >= {expected} bytes, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in bytes (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length.
-    actual: usize,
-  },
+  #[error("V210Frame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V210Frame: stride×height overflows u32 (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("V210Frame: stride×height overflows u32 (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `ceil(width / 6) * 16` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme widths.
   #[error("V210Frame: row size in bytes (ceil(width / 6) × 16) overflows u32")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
+  WidthOverflow(WidthOverflow),
 }
 
 impl<'a, const BE: bool> V210Frame<'a, BE> {
@@ -149,35 +131,38 @@ impl<'a, const BE: bool> V210Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, V210FrameError> {
     if width == 0 || height == 0 {
-      return Err(V210FrameError::ZeroDimension { width, height });
+      return Err(V210FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if !width.is_multiple_of(2) {
-      return Err(V210FrameError::OddWidth { width });
+      return Err(V210FrameError::OddWidth(OddWidth::new(width)));
     }
     // `width.div_ceil(6) * 16` — partial last words are supported, so
     // the row byte count rounds up to the next complete word.
     let words = width.div_ceil(6);
     let min_stride = match words.checked_mul(16) {
       Some(n) => n,
-      None => return Err(V210FrameError::WidthOverflow { width }),
+      None => return Err(V210FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(V210FrameError::StrideTooSmall { min_stride, stride });
+      return Err(V210FrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(V210FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(V210FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if v210.len() < plane_min {
-      return Err(V210FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: v210.len(),
-      });
+      return Err(V210FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        v210.len(),
+      )));
     }
     Ok(Self {
       v210,
@@ -195,14 +180,14 @@ impl<'a, const BE: bool> V210Frame<'a, BE> {
       Err(e) => {
         // const-context-compatible panic message.
         match e {
-          V210FrameError::ZeroDimension { .. } => panic!("invalid V210Frame: zero dimension"),
-          V210FrameError::OddWidth { .. } => panic!("invalid V210Frame: odd width"),
-          V210FrameError::StrideTooSmall { .. } => panic!("invalid V210Frame: stride too small"),
-          V210FrameError::PlaneTooShort { .. } => panic!("invalid V210Frame: plane too short"),
-          V210FrameError::GeometryOverflow { .. } => {
+          V210FrameError::ZeroDimension(_) => panic!("invalid V210Frame: zero dimension"),
+          V210FrameError::OddWidth(_) => panic!("invalid V210Frame: odd width"),
+          V210FrameError::InsufficientStride(_) => panic!("invalid V210Frame: stride too small"),
+          V210FrameError::InsufficientPlane(_) => panic!("invalid V210Frame: plane too short"),
+          V210FrameError::GeometryOverflow(_) => {
             panic!("invalid V210Frame: geometry overflow")
           }
-          V210FrameError::WidthOverflow { .. } => panic!("invalid V210Frame: width overflow"),
+          V210FrameError::WidthOverflow(_) => panic!("invalid V210Frame: width overflow"),
         }
       }
     }

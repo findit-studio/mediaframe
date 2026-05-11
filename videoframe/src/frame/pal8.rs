@@ -3,6 +3,7 @@
 //! Each pixel is a `u8` index into a 256-entry BGRA palette carried
 //! alongside the pixel buffer. See [`Pal8Frame::try_new`] for layout details.
 
+use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -11,37 +12,20 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Pal8FrameError {
   /// `width` or `height` was zero.
-  #[error("zero width or height: {width}×{height}")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("zero width or height: {}×{}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width`.
-  #[error("stride {stride} < width {width}")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied plane stride.
-    stride: u32,
-  },
+  #[error("stride {} < width {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `stride * height` overflows `usize` (can only fire on 32-bit targets).
-  #[error("geometry overflow: stride {stride} × rows {rows} exceeds usize")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("geometry overflow: stride {} × rows {} exceeds usize", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// Pixel data is shorter than `stride * height` bytes.
-  #[error("pixel data too short: expected >= {expected} bytes, got {actual}")]
-  PlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("pixel data too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
 }
 
 /// A validated 8-bit indexed-color (`AV_PIX_FMT_PAL8`) source frame.
@@ -79,25 +63,28 @@ impl<'a> Pal8Frame<'a> {
     stride: u32,
   ) -> Result<Self, Pal8FrameError> {
     if width == 0 || height == 0 {
-      return Err(Pal8FrameError::ZeroDimension { width, height });
+      return Err(Pal8FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if stride < width {
-      return Err(Pal8FrameError::StrideTooSmall { width, stride });
+      return Err(Pal8FrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Pal8FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Pal8FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if data.len() < min {
-      return Err(Pal8FrameError::PlaneTooShort {
-        expected: min,
-        actual: data.len(),
-      });
+      return Err(Pal8FrameError::InsufficientPlane(InsufficientPlane::new(
+        min,
+        data.len(),
+      )));
     }
     Ok(Self {
       data,

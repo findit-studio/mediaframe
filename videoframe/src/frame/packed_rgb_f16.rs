@@ -1,3 +1,6 @@
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -10,44 +13,25 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Rgbf16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 3 * width` `f16` elements. Each row needs `3 * width`
   /// `f16` samples for packed RGB half-precision float.
-  #[error("stride ({stride}) is smaller than 3 * width ({min_stride}) f16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride (`3 * width`) in `f16` elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 3 * width ({}) f16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` `f16` elements.
-  #[error("RGBF16 plane has {actual} f16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum `f16` elements required.
-    expected: usize,
-    /// Actual `f16` elements supplied.
-    actual: usize,
-  },
+  #[error("RGBF16 plane has {} f16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **RGBF16** frame (FFmpeg `AV_PIX_FMT_RGBF16{LE,BE}`).
@@ -130,29 +114,32 @@ impl<'a, const BE: bool> Rgbf16Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Rgbf16FrameError> {
     if width == 0 || height == 0 {
-      return Err(Rgbf16FrameError::ZeroDimension { width, height });
+      return Err(Rgbf16FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(3) {
       Some(v) => v,
-      None => return Err(Rgbf16FrameError::WidthOverflow { width }),
+      None => return Err(Rgbf16FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Rgbf16FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Rgbf16FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Rgbf16FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Rgbf16FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if rgb.len() < plane_min {
-      return Err(Rgbf16FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgb.len(),
-      });
+      return Err(Rgbf16FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        rgb.len(),
+      )));
     }
     Ok(Self {
       rgb,

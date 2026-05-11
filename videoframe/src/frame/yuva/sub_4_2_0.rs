@@ -1,103 +1,63 @@
+use crate::frame::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
+};
 use derive_more::{Display, IsVariant};
 use thiserror::Error;
 
 /// Errors returned by [`Yuva420pFrame::try_new`].
 ///
 /// Variant shape mirrors `Yuv420pFrameError` (geometry, plane-too-short)
-/// extended with [`Self::AStrideTooSmall`] / [`Self::APlaneTooShort`]
+/// extended with [`Self::InsufficientAStride`] / [`Self::InsufficientAPlane`]
 /// for the 4:2:0 alpha plane (full-width × full-height — alpha is at
 /// luma resolution, only chroma is subsampled).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
 #[non_exhaustive]
 pub enum Yuva420pFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd. YUVA420p / 4:2:0 subsamples chroma 2:1 in width.
-  #[error("width ({width}) is odd; YUVA420p / 4:2:0 requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; YUVA420p / 4:2:0 requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `u_stride < ceil(width / 2)`.
-  #[error("u_stride ({u_stride}) is smaller than chroma width ({chroma_width})")]
-  UStrideTooSmall {
-    /// The required minimum chroma-plane stride.
-    chroma_width: u32,
-    /// The supplied U-plane stride.
-    u_stride: u32,
-  },
+  #[error("u_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  InsufficientUStride(InsufficientStride),
+
   /// `v_stride < ceil(width / 2)`.
-  #[error("v_stride ({v_stride}) is smaller than chroma width ({chroma_width})")]
-  VStrideTooSmall {
-    /// The required minimum chroma-plane stride.
-    chroma_width: u32,
-    /// The supplied V-plane stride.
-    v_stride: u32,
-  },
+  #[error("v_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  InsufficientVStride(InsufficientStride),
+
   /// `a_stride < width`. The alpha plane is full-width × full-height
   /// (1:1 with Y, like Yuv444p planes — only chroma is subsampled in
   /// 4:2:0).
-  #[error("a_stride ({a_stride}) is smaller than width ({width})")]
-  AStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied A-plane stride.
-    a_stride: u32,
-  },
+  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientAStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// U plane is shorter than `u_stride * height.div_ceil(2)` bytes.
-  #[error("U plane has {actual} bytes but at least {expected} are required")]
-  UPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("U plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUPlane(InsufficientPlane),
+
   /// V plane is shorter than `v_stride * height.div_ceil(2)` bytes.
-  #[error("V plane has {actual} bytes but at least {expected} are required")]
-  VPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("V plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientVPlane(InsufficientPlane),
+
   /// A plane is shorter than `a_stride * height` bytes.
-  #[error("A plane has {actual} bytes but at least {expected} are required")]
-  APlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("A plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientAPlane(InsufficientPlane),
+
   /// `stride * rows` overflows `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// A validated YUVA 4:2:0 planar frame at 8 bits per sample
@@ -152,92 +112,90 @@ impl<'a> Yuva420pFrame<'a> {
     a_stride: u32,
   ) -> Result<Self, Yuva420pFrameError> {
     if width == 0 || height == 0 {
-      return Err(Yuva420pFrameError::ZeroDimension { width, height });
+      return Err(Yuva420pFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(Yuva420pFrameError::OddWidth { width });
+      return Err(Yuva420pFrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(Yuva420pFrameError::YStrideTooSmall { width, y_stride });
+      return Err(Yuva420pFrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let chroma_width = width.div_ceil(2);
     if u_stride < chroma_width {
-      return Err(Yuva420pFrameError::UStrideTooSmall {
-        chroma_width,
-        u_stride,
-      });
+      return Err(Yuva420pFrameError::InsufficientUStride(
+        InsufficientStride::new(u_stride, chroma_width),
+      ));
     }
     if v_stride < chroma_width {
-      return Err(Yuva420pFrameError::VStrideTooSmall {
-        chroma_width,
-        v_stride,
-      });
+      return Err(Yuva420pFrameError::InsufficientVStride(
+        InsufficientStride::new(v_stride, chroma_width),
+      ));
     }
     // Alpha is full-width (1:1 with Y).
     if a_stride < width {
-      return Err(Yuva420pFrameError::AStrideTooSmall { width, a_stride });
+      return Err(Yuva420pFrameError::InsufficientAStride(
+        InsufficientStride::new(a_stride, width),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Yuva420pFrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Yuva420pFrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Yuva420pFrameError::InsufficientYPlane(
+        InsufficientPlane::new(y_min, y.len()),
+      ));
     }
     let chroma_height = height.div_ceil(2);
     let u_min = match (u_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrameError::GeometryOverflow {
-          stride: u_stride,
-          rows: chroma_height,
-        });
+        return Err(Yuva420pFrameError::GeometryOverflow(GeometryOverflow::new(
+          u_stride,
+          chroma_height,
+        )));
       }
     };
     if u.len() < u_min {
-      return Err(Yuva420pFrameError::UPlaneTooShort {
-        expected: u_min,
-        actual: u.len(),
-      });
+      return Err(Yuva420pFrameError::InsufficientUPlane(
+        InsufficientPlane::new(u_min, u.len()),
+      ));
     }
     let v_min = match (v_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrameError::GeometryOverflow {
-          stride: v_stride,
-          rows: chroma_height,
-        });
+        return Err(Yuva420pFrameError::GeometryOverflow(GeometryOverflow::new(
+          v_stride,
+          chroma_height,
+        )));
       }
     };
     if v.len() < v_min {
-      return Err(Yuva420pFrameError::VPlaneTooShort {
-        expected: v_min,
-        actual: v.len(),
-      });
+      return Err(Yuva420pFrameError::InsufficientVPlane(
+        InsufficientPlane::new(v_min, v.len()),
+      ));
     }
     let a_min = match (a_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrameError::GeometryOverflow {
-          stride: a_stride,
-          rows: height,
-        });
+        return Err(Yuva420pFrameError::GeometryOverflow(GeometryOverflow::new(
+          a_stride, height,
+        )));
       }
     };
     if a.len() < a_min {
-      return Err(Yuva420pFrameError::APlaneTooShort {
-        expected: a_min,
-        actual: a.len(),
-      });
+      return Err(Yuva420pFrameError::InsufficientAPlane(
+        InsufficientPlane::new(a_min, a.len()),
+      ));
     }
 
     Ok(Self {
@@ -334,120 +292,67 @@ impl<'a> Yuva420pFrame<'a> {
 /// [`Yuva420pFrame16::try_new_checked`].
 ///
 /// Variant shape mirrors `Yuv420pFrame16Error` extended with the
-/// `A`-plane variants ([`Self::AStrideTooSmall`] /
-/// [`Self::APlaneTooShort`]) for the 4:2:0 alpha plane.
+/// `A`-plane variants ([`Self::InsufficientAStride`] /
+/// [`Self::InsufficientAPlane`]) for the 4:2:0 alpha plane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Error)]
 #[non_exhaustive]
 pub enum Yuva420pFrame16Error {
   /// `BITS` was not one of the supported depths (9, 10, 16). FFmpeg
   /// only ships `yuva420p9le`, `yuva420p10le`, `yuva420p16le` — no
   /// 12/14-bit YUVA 4:2:0 pixel formats exist.
-  #[error("unsupported BITS ({bits}) for Yuva420pFrame16; must be 9, 10, or 16")]
-  UnsupportedBits {
-    /// The unsupported value of the `BITS` const parameter.
-    bits: u32,
-  },
+  #[error("unsupported BITS ({}) for Yuva420pFrame16; must be 9, 10, or 16", .0.bits())]
+  UnsupportedBits(UnsupportedBits),
+
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd.
-  #[error("width ({width}) is odd; YUVA420p / 4:2:0 requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; YUVA420p / 4:2:0 requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width` (in samples).
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y-plane stride (samples).
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `u_stride < ceil(width / 2)` (in samples).
-  #[error("u_stride ({u_stride}) is smaller than chroma width ({chroma_width})")]
-  UStrideTooSmall {
-    /// Required minimum chroma-plane stride.
-    chroma_width: u32,
-    /// The supplied U-plane stride (samples).
-    u_stride: u32,
-  },
+  #[error("u_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  InsufficientUStride(InsufficientStride),
+
   /// `v_stride < ceil(width / 2)` (in samples).
-  #[error("v_stride ({v_stride}) is smaller than chroma width ({chroma_width})")]
-  VStrideTooSmall {
-    /// Required minimum chroma-plane stride.
-    chroma_width: u32,
-    /// The supplied V-plane stride (samples).
-    v_stride: u32,
-  },
+  #[error("v_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  InsufficientVStride(InsufficientStride),
+
   /// `a_stride < width` (in samples).
-  #[error("a_stride ({a_stride}) is smaller than width ({width})")]
-  AStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied A-plane stride (samples).
-    a_stride: u32,
-  },
+  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientAStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {actual} samples but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// U plane is shorter than `u_stride * ceil(height / 2)` samples.
-  #[error("U plane has {actual} samples but at least {expected} are required")]
-  UPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("U plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUPlane(InsufficientPlane),
+
   /// V plane is shorter than `v_stride * ceil(height / 2)` samples.
-  #[error("V plane has {actual} samples but at least {expected} are required")]
-  VPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("V plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientVPlane(InsufficientPlane),
+
   /// A plane is shorter than `a_stride * height` samples.
-  #[error("A plane has {actual} samples but at least {expected} are required")]
-  APlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("A plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientAPlane(InsufficientPlane),
+
   /// `stride * rows` overflows `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// A plane sample exceeds `(1 << BITS) - 1`. Only
   /// [`Yuva420pFrame16::try_new_checked`] can produce this error.
   #[error(
-    "sample {value} on plane {plane} at element {index} exceeds {max_valid} ((1 << BITS) - 1)"
+    "sample {} on plane {} at element {} exceeds {} ((1 << BITS) - 1)", .0.value(), .0.plane(), .0.index(), .0.max_valid()
   )]
-  SampleOutOfRange {
-    /// Which plane the offending sample lives on.
-    plane: Yuva420pFrame16Plane,
-    /// Element index within that plane's slice.
-    index: usize,
-    /// The offending sample value.
-    value: u16,
-    /// The maximum allowed value for this `BITS` (`(1 << BITS) - 1`).
-    max_valid: u16,
-  },
+  SampleOutOfRange(Yuva420pFrame16SampleOutOfRange),
 }
 
 /// Identifies which plane of a [`Yuva420pFrame16`] an error refers to.
@@ -505,94 +410,92 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
     // FFmpeg's only YUVA 4:2:0 high-bit pixel formats: yuva420p9le,
     // yuva420p10le, yuva420p16le. No 12/14-bit variants exist.
     if BITS != 9 && BITS != 10 && BITS != 16 {
-      return Err(Yuva420pFrame16Error::UnsupportedBits { bits: BITS });
+      return Err(Yuva420pFrame16Error::UnsupportedBits(UnsupportedBits::new(
+        BITS,
+      )));
     }
     if width == 0 || height == 0 {
-      return Err(Yuva420pFrame16Error::ZeroDimension { width, height });
+      return Err(Yuva420pFrame16Error::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(Yuva420pFrame16Error::OddWidth { width });
+      return Err(Yuva420pFrame16Error::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(Yuva420pFrame16Error::YStrideTooSmall { width, y_stride });
+      return Err(Yuva420pFrame16Error::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let chroma_width = width.div_ceil(2);
     if u_stride < chroma_width {
-      return Err(Yuva420pFrame16Error::UStrideTooSmall {
-        chroma_width,
-        u_stride,
-      });
+      return Err(Yuva420pFrame16Error::InsufficientUStride(
+        InsufficientStride::new(u_stride, chroma_width),
+      ));
     }
     if v_stride < chroma_width {
-      return Err(Yuva420pFrame16Error::VStrideTooSmall {
-        chroma_width,
-        v_stride,
-      });
+      return Err(Yuva420pFrame16Error::InsufficientVStride(
+        InsufficientStride::new(v_stride, chroma_width),
+      ));
     }
     if a_stride < width {
-      return Err(Yuva420pFrame16Error::AStrideTooSmall { width, a_stride });
+      return Err(Yuva420pFrame16Error::InsufficientAStride(
+        InsufficientStride::new(a_stride, width),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrame16Error::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Yuva420pFrame16Error::GeometryOverflow(
+          GeometryOverflow::new(y_stride, height),
+        ));
       }
     };
     if y.len() < y_min {
-      return Err(Yuva420pFrame16Error::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Yuva420pFrame16Error::InsufficientYPlane(
+        InsufficientPlane::new(y_min, y.len()),
+      ));
     }
     let chroma_height = height.div_ceil(2);
     let u_min = match (u_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrame16Error::GeometryOverflow {
-          stride: u_stride,
-          rows: chroma_height,
-        });
+        return Err(Yuva420pFrame16Error::GeometryOverflow(
+          GeometryOverflow::new(u_stride, chroma_height),
+        ));
       }
     };
     if u.len() < u_min {
-      return Err(Yuva420pFrame16Error::UPlaneTooShort {
-        expected: u_min,
-        actual: u.len(),
-      });
+      return Err(Yuva420pFrame16Error::InsufficientUPlane(
+        InsufficientPlane::new(u_min, u.len()),
+      ));
     }
     let v_min = match (v_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrame16Error::GeometryOverflow {
-          stride: v_stride,
-          rows: chroma_height,
-        });
+        return Err(Yuva420pFrame16Error::GeometryOverflow(
+          GeometryOverflow::new(v_stride, chroma_height),
+        ));
       }
     };
     if v.len() < v_min {
-      return Err(Yuva420pFrame16Error::VPlaneTooShort {
-        expected: v_min,
-        actual: v.len(),
-      });
+      return Err(Yuva420pFrame16Error::InsufficientVPlane(
+        InsufficientPlane::new(v_min, v.len()),
+      ));
     }
     let a_min = match (a_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Yuva420pFrame16Error::GeometryOverflow {
-          stride: a_stride,
-          rows: height,
-        });
+        return Err(Yuva420pFrame16Error::GeometryOverflow(
+          GeometryOverflow::new(a_stride, height),
+        ));
       }
     };
     if a.len() < a_min {
-      return Err(Yuva420pFrame16Error::APlaneTooShort {
-        expected: a_min,
-        actual: a.len(),
-      });
+      return Err(Yuva420pFrame16Error::InsufficientAPlane(
+        InsufficientPlane::new(a_min, a.len()),
+      ));
     }
 
     Ok(Self {
@@ -681,12 +584,14 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
         // range check (no-op on LE host, byte-swap on BE host).
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical > max_valid {
-          return Err(Yuva420pFrame16Error::SampleOutOfRange {
-            plane: Yuva420pFrame16Plane::Y,
-            index: start + col,
-            value: logical,
-            max_valid,
-          });
+          return Err(Yuva420pFrame16Error::SampleOutOfRange(
+            Yuva420pFrame16SampleOutOfRange::new(
+              Yuva420pFrame16Plane::Y,
+              start + col,
+              logical,
+              max_valid,
+            ),
+          ));
         }
       }
     }
@@ -695,12 +600,14 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
       for (col, &s) in u[start..start + chroma_w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical > max_valid {
-          return Err(Yuva420pFrame16Error::SampleOutOfRange {
-            plane: Yuva420pFrame16Plane::U,
-            index: start + col,
-            value: logical,
-            max_valid,
-          });
+          return Err(Yuva420pFrame16Error::SampleOutOfRange(
+            Yuva420pFrame16SampleOutOfRange::new(
+              Yuva420pFrame16Plane::U,
+              start + col,
+              logical,
+              max_valid,
+            ),
+          ));
         }
       }
     }
@@ -709,12 +616,14 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
       for (col, &s) in v[start..start + chroma_w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical > max_valid {
-          return Err(Yuva420pFrame16Error::SampleOutOfRange {
-            plane: Yuva420pFrame16Plane::V,
-            index: start + col,
-            value: logical,
-            max_valid,
-          });
+          return Err(Yuva420pFrame16Error::SampleOutOfRange(
+            Yuva420pFrame16SampleOutOfRange::new(
+              Yuva420pFrame16Plane::V,
+              start + col,
+              logical,
+              max_valid,
+            ),
+          ));
         }
       }
     }
@@ -723,12 +632,14 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
       for (col, &s) in a[start..start + w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical > max_valid {
-          return Err(Yuva420pFrame16Error::SampleOutOfRange {
-            plane: Yuva420pFrame16Plane::A,
-            index: start + col,
-            value: logical,
-            max_valid,
-          });
+          return Err(Yuva420pFrame16Error::SampleOutOfRange(
+            Yuva420pFrame16SampleOutOfRange::new(
+              Yuva420pFrame16Plane::A,
+              start + col,
+              logical,
+              max_valid,
+            ),
+          ));
         }
       }
     }
@@ -823,3 +734,45 @@ pub type Yuva420p10BeFrame<'a> = Yuva420pFrame16<'a, 10, true>;
 pub type Yuva420p16LeFrame<'a> = Yuva420pFrame16<'a, 16, false>;
 /// BE-encoded `Yuva420p16Frame` (`AV_PIX_FMT_YUVA420P16BE`).
 pub type Yuva420p16BeFrame<'a> = Yuva420pFrame16<'a, 16, true>;
+
+/// Payload struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Yuva420pFrame16SampleOutOfRange {
+  plane: Yuva420pFrame16Plane,
+  index: usize,
+  value: u16,
+  max_valid: u16,
+}
+
+impl Yuva420pFrame16SampleOutOfRange {
+  /// Constructs a new `Yuva420pFrame16SampleOutOfRange`.
+  #[inline]
+  pub const fn new(plane: Yuva420pFrame16Plane, index: usize, value: u16, max_valid: u16) -> Self {
+    Self {
+      plane,
+      index,
+      value,
+      max_valid,
+    }
+  }
+  /// Returns the `plane` field.
+  #[inline]
+  pub const fn plane(&self) -> Yuva420pFrame16Plane {
+    self.plane
+  }
+  /// Returns the `index` field.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+  /// Returns the `value` field.
+  #[inline]
+  pub const fn value(&self) -> u16 {
+    self.value
+  }
+  /// Returns the `max_valid` field.
+  #[inline]
+  pub const fn max_valid(&self) -> u16 {
+    self.max_valid
+  }
+}

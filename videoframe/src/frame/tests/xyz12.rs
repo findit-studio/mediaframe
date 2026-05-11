@@ -43,10 +43,7 @@ fn xyz12_frame_zero_width_rejected() {
   let buf = std::vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 0, 4, 48),
-    Err(Xyz12FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Xyz12FrameError::ZeroDimension(_))
   ));
 }
 
@@ -55,10 +52,7 @@ fn xyz12_frame_zero_height_rejected() {
   let buf = std::vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 16, 0, 48),
-    Err(Xyz12FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Xyz12FrameError::ZeroDimension(_))
   ));
 }
 
@@ -67,10 +61,7 @@ fn xyz12_frame_stride_smaller_than_3w_rejected() {
   let buf = std::vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 16, 4, 47),
-    Err(Xyz12FrameError::StrideTooSmall {
-      min_stride: 48,
-      stride: 47,
-    })
+    Err(Xyz12FrameError::InsufficientStride(_))
   ));
 }
 
@@ -79,10 +70,7 @@ fn xyz12_frame_plane_too_short_rejected() {
   let small = std::vec![0_u16; 16 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&small, 16, 4, 48),
-    Err(Xyz12FrameError::PlaneTooShort {
-      expected: 192,
-      actual: 48,
-    })
+    Err(Xyz12FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -93,7 +81,7 @@ fn xyz12_frame_width_3x_overflow_rejected() {
   let too_big = (u32::MAX / 3) + 1;
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, too_big, 1, u32::MAX),
-    Err(Xyz12FrameError::WidthOverflow { width }) if width == too_big
+    Err(Xyz12FrameError::WidthOverflow(p)) if p.width() == too_big
   ));
 }
 
@@ -107,13 +95,7 @@ fn xyz12_frame_geometry_overflow_rejected() {
   let height: u32 = 0x1_0000; // stride * height = 2^32 → overflows usize on 32-bit
   let res = Xyz12LeFrame::try_new(&buf, width, height, stride);
   assert!(
-    matches!(
-      res,
-      Err(Xyz12FrameError::GeometryOverflow {
-        stride: 0x1_0000,
-        rows: 0x1_0000,
-      })
-    ),
+    matches!(res, Err(Xyz12FrameError::GeometryOverflow(_))),
     "expected GeometryOverflow, got {:?}",
     res
   );

@@ -43,6 +43,10 @@
 //! Used by Ship 11b (Y210), Ship 11c (Y212 — wiring-only), and
 //! Ship 11d (Y216 — separate kernel family with i64 chroma path).
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits,
+  WidthOverflow, ZeroDimension,
+};
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
@@ -120,75 +124,39 @@ pub type Y216BeFrame<'a> = Y2xxFrame<'a, 16, true>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
 pub enum Y2xxFrameError {
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
   /// `BITS ∉ {10, 12, 16}`.
-  #[error("Y2xxFrame: unsupported BITS {bits}; must be 10, 12, or 16")]
-  UnsupportedBits {
-    /// `BITS` const-generic value.
-    bits: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: unsupported BITS {}; must be 10, 12, or 16", .0.bits())]
+  UnsupportedBits(UnsupportedBits),
+
   /// `width == 0` or `height == 0`.
-  #[error("Y2xxFrame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width % 2 != 0`. 4:2:2 subsampling requires even width.
-  #[error("Y2xxFrame: width {width} is odd; 4:2:2 chroma subsampling requires even width")]
-  OddWidth {
-    /// Configured width.
-    width: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: width {} is odd; 4:2:2 chroma subsampling requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `stride < width * 2` (u16 elements). Each row needs at least
   /// `width × 2` u16 elements (= `width × 4` bytes) to hold all
   /// pixels.
-  #[error("Y2xxFrame: stride {stride} u16 elements is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in u16 elements (`width × 2`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry (in u16 elements).
-  #[error("Y2xxFrame: plane too short: expected >= {expected} u16 elements, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in u16 elements (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in u16 elements.
-    actual: usize,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Y2xxFrame: stride × height overflows u32 (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Y2xxFrame: stride × height overflows u32 (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `width × 2` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Y2xxFrame: width {width} × 2 overflows u32 (per-row u16 element count)")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
+  #[error("Y2xxFrame: width {} × 2 overflows u32 (per-row u16 element count)", .0.width())]
+  WidthOverflow(WidthOverflow),
+
   /// `try_new_checked` only: a sample's low `(16 - BITS)` bits are
   /// non-zero. Diagnoses callers feeding non-MSB-aligned data
   /// (e.g. low-bit-packed yuv422p10le mistakenly handed to a Y210
@@ -207,35 +175,38 @@ impl<'a, const BITS: u32, const BE: bool> Y2xxFrame<'a, BITS, BE> {
     stride: u32,
   ) -> Result<Self, Y2xxFrameError> {
     if BITS != 10 && BITS != 12 && BITS != 16 {
-      return Err(Y2xxFrameError::UnsupportedBits { bits: BITS });
+      return Err(Y2xxFrameError::UnsupportedBits(UnsupportedBits::new(BITS)));
     }
     if width == 0 || height == 0 {
-      return Err(Y2xxFrameError::ZeroDimension { width, height });
+      return Err(Y2xxFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if !width.is_multiple_of(2) {
-      return Err(Y2xxFrameError::OddWidth { width });
+      return Err(Y2xxFrameError::OddWidth(OddWidth::new(width)));
     }
     let min_stride = match width.checked_mul(2) {
       Some(n) => n,
-      None => return Err(Y2xxFrameError::WidthOverflow { width }),
+      None => return Err(Y2xxFrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Y2xxFrameError::StrideTooSmall { min_stride, stride });
+      return Err(Y2xxFrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(Y2xxFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Y2xxFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(Y2xxFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(Y2xxFrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -304,13 +275,13 @@ impl<'a, const BITS: u32, const BE: bool> Y2xxFrame<'a, BITS, BE> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        Y2xxFrameError::UnsupportedBits { .. } => panic!("invalid Y2xxFrame: unsupported BITS"),
-        Y2xxFrameError::ZeroDimension { .. } => panic!("invalid Y2xxFrame: zero dimension"),
-        Y2xxFrameError::OddWidth { .. } => panic!("invalid Y2xxFrame: odd width"),
-        Y2xxFrameError::StrideTooSmall { .. } => panic!("invalid Y2xxFrame: stride too small"),
-        Y2xxFrameError::PlaneTooShort { .. } => panic!("invalid Y2xxFrame: plane too short"),
-        Y2xxFrameError::GeometryOverflow { .. } => panic!("invalid Y2xxFrame: geometry overflow"),
-        Y2xxFrameError::WidthOverflow { .. } => panic!("invalid Y2xxFrame: width overflow"),
+        Y2xxFrameError::UnsupportedBits(_) => panic!("invalid Y2xxFrame: unsupported BITS"),
+        Y2xxFrameError::ZeroDimension(_) => panic!("invalid Y2xxFrame: zero dimension"),
+        Y2xxFrameError::OddWidth(_) => panic!("invalid Y2xxFrame: odd width"),
+        Y2xxFrameError::InsufficientStride(_) => panic!("invalid Y2xxFrame: stride too small"),
+        Y2xxFrameError::InsufficientPlane(_) => panic!("invalid Y2xxFrame: plane too short"),
+        Y2xxFrameError::GeometryOverflow(_) => panic!("invalid Y2xxFrame: geometry overflow"),
+        Y2xxFrameError::WidthOverflow(_) => panic!("invalid Y2xxFrame: width overflow"),
         // SampleLowBitsSet is only emitted by try_new_checked, never by try_new.
         // Listed for exhaustiveness so a future variant addition forces an explicit choice.
         Y2xxFrameError::SampleLowBitsSet => {

@@ -9,6 +9,7 @@
 //! stride ≥ width per plane. No chroma subsampling (planar RGB has none
 //! by definition), so widths and heights have no parity constraint.
 
+use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -59,62 +60,67 @@ impl<'a> GbrpFrame<'a> {
     r_stride: u32,
   ) -> Result<Self, GbrpFrameError> {
     if width == 0 || height == 0 {
-      return Err(GbrpFrameError::ZeroDimension { width, height });
+      return Err(GbrpFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if g_stride < width {
-      return Err(GbrpFrameError::GStrideTooSmall { width, g_stride });
+      return Err(GbrpFrameError::InsufficientGStride(
+        InsufficientStride::new(g_stride, width),
+      ));
     }
     if b_stride < width {
-      return Err(GbrpFrameError::BStrideTooSmall { width, b_stride });
+      return Err(GbrpFrameError::InsufficientBStride(
+        InsufficientStride::new(b_stride, width),
+      ));
     }
     if r_stride < width {
-      return Err(GbrpFrameError::RStrideTooSmall { width, r_stride });
+      return Err(GbrpFrameError::InsufficientRStride(
+        InsufficientStride::new(r_stride, width),
+      ));
     }
 
     let g_min = match (g_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrpFrameError::GeometryOverflow {
-          stride: g_stride,
-          rows: height,
-        });
+        return Err(GbrpFrameError::GeometryOverflow(GeometryOverflow::new(
+          g_stride, height,
+        )));
       }
     };
     if g.len() < g_min {
-      return Err(GbrpFrameError::GPlaneTooShort {
-        expected: g_min,
-        actual: g.len(),
-      });
+      return Err(GbrpFrameError::InsufficientGPlane(InsufficientPlane::new(
+        g_min,
+        g.len(),
+      )));
     }
     let b_min = match (b_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrpFrameError::GeometryOverflow {
-          stride: b_stride,
-          rows: height,
-        });
+        return Err(GbrpFrameError::GeometryOverflow(GeometryOverflow::new(
+          b_stride, height,
+        )));
       }
     };
     if b.len() < b_min {
-      return Err(GbrpFrameError::BPlaneTooShort {
-        expected: b_min,
-        actual: b.len(),
-      });
+      return Err(GbrpFrameError::InsufficientBPlane(InsufficientPlane::new(
+        b_min,
+        b.len(),
+      )));
     }
     let r_min = match (r_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrpFrameError::GeometryOverflow {
-          stride: r_stride,
-          rows: height,
-        });
+        return Err(GbrpFrameError::GeometryOverflow(GeometryOverflow::new(
+          r_stride, height,
+        )));
       }
     };
     if r.len() < r_min {
-      return Err(GbrpFrameError::RPlaneTooShort {
-        expected: r_min,
-        actual: r.len(),
-      });
+      return Err(GbrpFrameError::InsufficientRPlane(InsufficientPlane::new(
+        r_min,
+        r.len(),
+      )));
     }
 
     Ok(Self {
@@ -240,69 +246,36 @@ impl<'a> GbrpFrame<'a> {
 #[non_exhaustive]
 pub enum GbrpFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `g_stride < width`.
-  #[error("g_stride ({g_stride}) is smaller than width ({width})")]
-  GStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied G-plane stride.
-    g_stride: u32,
-  },
+  #[error("g_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientGStride(InsufficientStride),
+
   /// `b_stride < width`.
-  #[error("b_stride ({b_stride}) is smaller than width ({width})")]
-  BStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied B-plane stride.
-    b_stride: u32,
-  },
+  #[error("b_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientBStride(InsufficientStride),
+
   /// `r_stride < width`.
-  #[error("r_stride ({r_stride}) is smaller than width ({width})")]
-  RStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied R-plane stride.
-    r_stride: u32,
-  },
+  #[error("r_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientRStride(InsufficientStride),
+
   /// G plane is shorter than `g_stride * height` bytes.
-  #[error("G plane has {actual} bytes but at least {expected} are required")]
-  GPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("G plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientGPlane(InsufficientPlane),
+
   /// B plane is shorter than `b_stride * height` bytes.
-  #[error("B plane has {actual} bytes but at least {expected} are required")]
-  BPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("B plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientBPlane(InsufficientPlane),
+
   /// R plane is shorter than `r_stride * height` bytes.
-  #[error("R plane has {actual} bytes but at least {expected} are required")]
-  RPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("R plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientRPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// A validated 8-bit planar GBR frame with alpha (`AV_PIX_FMT_GBRAP`).
@@ -346,80 +319,86 @@ impl<'a> GbrapFrame<'a> {
     a_stride: u32,
   ) -> Result<Self, GbrapFrameError> {
     if width == 0 || height == 0 {
-      return Err(GbrapFrameError::ZeroDimension { width, height });
+      return Err(GbrapFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if g_stride < width {
-      return Err(GbrapFrameError::GStrideTooSmall { width, g_stride });
+      return Err(GbrapFrameError::InsufficientGStride(
+        InsufficientStride::new(g_stride, width),
+      ));
     }
     if b_stride < width {
-      return Err(GbrapFrameError::BStrideTooSmall { width, b_stride });
+      return Err(GbrapFrameError::InsufficientBStride(
+        InsufficientStride::new(b_stride, width),
+      ));
     }
     if r_stride < width {
-      return Err(GbrapFrameError::RStrideTooSmall { width, r_stride });
+      return Err(GbrapFrameError::InsufficientRStride(
+        InsufficientStride::new(r_stride, width),
+      ));
     }
     if a_stride < width {
-      return Err(GbrapFrameError::AStrideTooSmall { width, a_stride });
+      return Err(GbrapFrameError::InsufficientAStride(
+        InsufficientStride::new(a_stride, width),
+      ));
     }
 
     let g_min = match (g_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrapFrameError::GeometryOverflow {
-          stride: g_stride,
-          rows: height,
-        });
+        return Err(GbrapFrameError::GeometryOverflow(GeometryOverflow::new(
+          g_stride, height,
+        )));
       }
     };
     if g.len() < g_min {
-      return Err(GbrapFrameError::GPlaneTooShort {
-        expected: g_min,
-        actual: g.len(),
-      });
+      return Err(GbrapFrameError::InsufficientGPlane(InsufficientPlane::new(
+        g_min,
+        g.len(),
+      )));
     }
     let b_min = match (b_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrapFrameError::GeometryOverflow {
-          stride: b_stride,
-          rows: height,
-        });
+        return Err(GbrapFrameError::GeometryOverflow(GeometryOverflow::new(
+          b_stride, height,
+        )));
       }
     };
     if b.len() < b_min {
-      return Err(GbrapFrameError::BPlaneTooShort {
-        expected: b_min,
-        actual: b.len(),
-      });
+      return Err(GbrapFrameError::InsufficientBPlane(InsufficientPlane::new(
+        b_min,
+        b.len(),
+      )));
     }
     let r_min = match (r_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrapFrameError::GeometryOverflow {
-          stride: r_stride,
-          rows: height,
-        });
+        return Err(GbrapFrameError::GeometryOverflow(GeometryOverflow::new(
+          r_stride, height,
+        )));
       }
     };
     if r.len() < r_min {
-      return Err(GbrapFrameError::RPlaneTooShort {
-        expected: r_min,
-        actual: r.len(),
-      });
+      return Err(GbrapFrameError::InsufficientRPlane(InsufficientPlane::new(
+        r_min,
+        r.len(),
+      )));
     }
     let a_min = match (a_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(GbrapFrameError::GeometryOverflow {
-          stride: a_stride,
-          rows: height,
-        });
+        return Err(GbrapFrameError::GeometryOverflow(GeometryOverflow::new(
+          a_stride, height,
+        )));
       }
     };
     if a.len() < a_min {
-      return Err(GbrapFrameError::APlaneTooShort {
-        expected: a_min,
-        actual: a.len(),
-      });
+      return Err(GbrapFrameError::InsufficientAPlane(InsufficientPlane::new(
+        a_min,
+        a.len(),
+      )));
     }
 
     Ok(Self {
@@ -555,83 +534,42 @@ impl<'a> GbrapFrame<'a> {
 #[non_exhaustive]
 pub enum GbrapFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `g_stride < width`.
-  #[error("g_stride ({g_stride}) is smaller than width ({width})")]
-  GStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied G-plane stride.
-    g_stride: u32,
-  },
+  #[error("g_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientGStride(InsufficientStride),
+
   /// `b_stride < width`.
-  #[error("b_stride ({b_stride}) is smaller than width ({width})")]
-  BStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied B-plane stride.
-    b_stride: u32,
-  },
+  #[error("b_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientBStride(InsufficientStride),
+
   /// `r_stride < width`.
-  #[error("r_stride ({r_stride}) is smaller than width ({width})")]
-  RStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied R-plane stride.
-    r_stride: u32,
-  },
+  #[error("r_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientRStride(InsufficientStride),
+
   /// `a_stride < width`.
-  #[error("a_stride ({a_stride}) is smaller than width ({width})")]
-  AStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied A-plane stride.
-    a_stride: u32,
-  },
+  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientAStride(InsufficientStride),
+
   /// G plane is shorter than `g_stride * height` bytes.
-  #[error("G plane has {actual} bytes but at least {expected} are required")]
-  GPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("G plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientGPlane(InsufficientPlane),
+
   /// B plane is shorter than `b_stride * height` bytes.
-  #[error("B plane has {actual} bytes but at least {expected} are required")]
-  BPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("B plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientBPlane(InsufficientPlane),
+
   /// R plane is shorter than `r_stride * height` bytes.
-  #[error("R plane has {actual} bytes but at least {expected} are required")]
-  RPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("R plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientRPlane(InsufficientPlane),
+
   /// A plane is shorter than `a_stride * height` bytes.
-  #[error("A plane has {actual} bytes but at least {expected} are required")]
-  APlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("A plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientAPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }

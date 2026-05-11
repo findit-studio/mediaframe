@@ -36,6 +36,9 @@
 //! two FFmpeg variants. The byte-swap is a compile-time const branch in
 //! every row kernel; the `BE = false` path is a no-op.
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -47,43 +50,24 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Xyz12FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 3 * width` (in u16 elements).
-  #[error("stride ({stride}) is smaller than 3 * width ({min_stride}) u16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride (`3 * width`) in u16 elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 3 * width ({}) u16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("XYZ12 plane has {actual} u16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum u16 elements required.
-    expected: usize,
-    /// Actual u16 elements supplied.
-    actual: usize,
-  },
+  #[error("XYZ12 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **XYZ12** frame (`AV_PIX_FMT_XYZ12LE` /
@@ -124,29 +108,32 @@ impl<'a, const BE: bool> Xyz12Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Xyz12FrameError> {
     if width == 0 || height == 0 {
-      return Err(Xyz12FrameError::ZeroDimension { width, height });
+      return Err(Xyz12FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(3) {
       Some(v) => v,
-      None => return Err(Xyz12FrameError::WidthOverflow { width }),
+      None => return Err(Xyz12FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Xyz12FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Xyz12FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Xyz12FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Xyz12FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if xyz.len() < plane_min {
-      return Err(Xyz12FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: xyz.len(),
-      });
+      return Err(Xyz12FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        xyz.len(),
+      )));
     }
     Ok(Self {
       xyz,

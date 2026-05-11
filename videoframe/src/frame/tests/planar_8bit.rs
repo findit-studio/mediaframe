@@ -31,14 +31,14 @@ fn try_new_accepts_valid_padded_strides() {
 fn try_new_rejects_zero_dim() {
   let (y, u, v) = planes();
   let e = Yuv420pFrame::try_new(&y, &u, &v, 0, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Yuv420pFrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn try_new_rejects_odd_width() {
   let (y, u, v) = planes();
   let e = Yuv420pFrame::try_new(&y, &u, &v, 15, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::OddWidth { width: 15 }));
+  assert!(matches!(e, Yuv420pFrameError::OddWidth(_)));
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn try_new_rejects_y_stride_under_width() {
   let u = std::vec![128u8; 8 * 4];
   let v = std::vec![128u8; 8 * 4];
   let e = Yuv420pFrame::try_new(&y, &u, &v, 16, 8, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Yuv420pFrameError::InsufficientYStride(_)));
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn try_new_rejects_short_y_plane() {
   let u = std::vec![128u8; 8 * 4];
   let v = std::vec![128u8; 8 * 4];
   let e = Yuv420pFrame::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv420pFrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn try_new_rejects_short_u_plane() {
   let u = std::vec![128u8; 4];
   let v = std::vec![128u8; 8 * 4];
   let e = Yuv420pFrame::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::UPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv420pFrameError::InsufficientUPlane(_)));
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn yuv410p_try_new_accepts_valid_padded_strides() {
 fn yuv410p_try_new_rejects_zero_dim() {
   let (y, u, v) = yuv410p_planes();
   let e = Yuv410pFrame::try_new(&y, &u, &v, 0, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Yuv410pFrameError::ZeroDimension(_)));
 }
 
 #[test]
@@ -161,10 +161,7 @@ fn yuv410p_try_new_rejects_width_not_multiple_of_4() {
   let u = std::vec![128u8; 4 * 2];
   let v = std::vec![128u8; 4 * 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 14, 8, 14, 4, 4).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv410pFrameError::WidthNotMultipleOf4 { width: 14 }
-  ));
+  assert!(matches!(e, Yuv410pFrameError::WidthNotMultipleOf4(_)));
 }
 
 #[test]
@@ -198,21 +195,21 @@ fn yuv410p_try_new_rejects_short_chroma_for_partial_group() {
   let u = std::vec![128u8; 4]; // only 1 chroma row, need 2
   let v = std::vec![128u8; 4 * 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 6, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::UPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientUPlane(_)));
 }
 
 #[test]
 fn yuv410p_try_new_rejects_y_stride_under_width() {
   let (y, u, v) = yuv410p_planes();
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 8, 8, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientYStride(_)));
 }
 
 #[test]
 fn yuv410p_try_new_rejects_u_stride_under_chroma_width() {
   let (y, u, v) = yuv410p_planes();
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 8, 16, 2, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::UStrideTooSmall { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientUStride(_)));
 }
 
 #[test]
@@ -221,7 +218,7 @@ fn yuv410p_try_new_rejects_short_y_plane() {
   let u = std::vec![128u8; 4 * 2];
   let v = std::vec![128u8; 4 * 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -230,7 +227,7 @@ fn yuv410p_try_new_rejects_short_u_plane() {
   let u = std::vec![128u8; 2];
   let v = std::vec![128u8; 4 * 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::UPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientUPlane(_)));
 }
 
 #[test]
@@ -239,7 +236,7 @@ fn yuv410p_try_new_rejects_short_v_plane() {
   let u = std::vec![128u8; 4 * 2];
   let v = std::vec![128u8; 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 16, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::VPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv410pFrameError::InsufficientVPlane(_)));
 }
 
 #[test]
@@ -259,14 +256,14 @@ fn yuv410p_try_new_rejects_y_geometry_overflow() {
   let u: [u8; 0] = [];
   let v: [u8; 0] = [];
   let e = Yuv410pFrame::try_new(&y, &u, &v, big, big, big, big / 4, big / 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Yuv410pFrameError::GeometryOverflow(_)));
 }
 
 #[test]
 fn yuv411p_try_new_rejects_zero_dim() {
   let (y, u, v) = planes_411(16, 8);
   let e = Yuv411pFrame::try_new(&y, &u, &v, 0, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv411pFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Yuv411pFrameError::ZeroDimension(_)));
 }
 
 #[test]
@@ -310,13 +307,7 @@ fn yuv411p_try_new_rejects_chroma_stride_below_div_ceil_4() {
   let v = std::vec![128u8; 2 * 4];
   let e = Yuv411pFrame::try_new(&y, &u, &v, 5, 4, 5, 1, 2).unwrap_err();
   assert!(
-    matches!(
-      e,
-      Yuv411pFrameError::UStrideTooSmall {
-        chroma_width: 2,
-        u_stride: 1
-      }
-    ),
+    matches!(e, Yuv411pFrameError::InsufficientUStride(_)),
     "{e:?}"
   );
 }
@@ -336,7 +327,7 @@ fn yuv411p_try_new_accepts_odd_height() {
 fn yuv411p_try_new_rejects_y_stride_under_width() {
   let (y, u, v) = planes_411(16, 8);
   let e = Yuv411pFrame::try_new(&y, &u, &v, 16, 8, 8, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv411pFrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Yuv411pFrameError::InsufficientYStride(_)));
 }
 
 #[test]
@@ -344,7 +335,7 @@ fn yuv411p_try_new_rejects_u_stride_under_chroma_width() {
   let (y, u, v) = planes_411(16, 8);
   // chroma_width = 4; passing u_stride = 3 must fail.
   let e = Yuv411pFrame::try_new(&y, &u, &v, 16, 8, 16, 3, 4).unwrap_err();
-  assert!(matches!(e, Yuv411pFrameError::UStrideTooSmall { .. }));
+  assert!(matches!(e, Yuv411pFrameError::InsufficientUStride(_)));
 }
 
 #[test]
@@ -353,7 +344,7 @@ fn yuv411p_try_new_rejects_short_y_plane() {
   let u = std::vec![128u8; 4 * 8];
   let v = std::vec![128u8; 4 * 8];
   let e = Yuv411pFrame::try_new(&y, &u, &v, 16, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv411pFrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv411pFrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -362,7 +353,7 @@ fn yuv411p_try_new_rejects_short_u_plane() {
   let u = std::vec![128u8; 4];
   let v = std::vec![128u8; 4 * 8];
   let e = Yuv411pFrame::try_new(&y, &u, &v, 16, 8, 16, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv411pFrameError::UPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv411pFrameError::InsufficientUPlane(_)));
 }
 
 #[test]

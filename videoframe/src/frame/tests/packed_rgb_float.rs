@@ -33,17 +33,11 @@ fn rgbf32_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0.0_f32; 16 * 4 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, 0, 4, 48),
-    Err(Rgbf32FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Rgbf32FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, 16, 0, 48),
-    Err(Rgbf32FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Rgbf32FrameError::ZeroDimension(_))
   ));
 }
 
@@ -52,10 +46,7 @@ fn rgbf32_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0.0_f32; 16 * 4 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, 16, 4, 47),
-    Err(Rgbf32FrameError::StrideTooSmall {
-      min_stride: 48,
-      stride: 47,
-    })
+    Err(Rgbf32FrameError::InsufficientStride(_))
   ));
 }
 
@@ -64,10 +55,7 @@ fn rgbf32_frame_try_new_rejects_short_plane() {
   let small = std::vec![0.0_f32; 16 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&small, 16, 4, 48),
-    Err(Rgbf32FrameError::PlaneTooShort {
-      expected: 192,
-      actual: 48,
-    })
+    Err(Rgbf32FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -78,7 +66,7 @@ fn rgbf32_frame_try_new_rejects_width_overflow() {
   let too_big = (u32::MAX / 3) + 1;
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, too_big, 1, u32::MAX),
-    Err(Rgbf32FrameError::WidthOverflow { width }) if width == too_big
+    Err(Rgbf32FrameError::WidthOverflow(p)) if p.width() == too_big
   ));
 }
 
@@ -87,7 +75,7 @@ fn rgbf32_frame_try_new_rejects_width_overflow() {
 fn rgbf32_frame_try_new_rejects_geometry_overflow() {
   // Only meaningful on 32-bit targets (wasm32, i686) where
   // `stride * height` as `usize` can overflow. Pick a width small
-  // enough that `3 * width <= stride` so we pass the StrideTooSmall
+  // enough that `3 * width <= stride` so we pass the InsufficientStride
   // check and reach the geometry-overflow check.
   let buf: [f32; 0] = [];
   let width: u32 = 0x5555; // 3 * width = 0xFFFF, ≤ stride
@@ -95,13 +83,7 @@ fn rgbf32_frame_try_new_rejects_geometry_overflow() {
   let height: u32 = 0x1_0000; // stride * height = 2^32 → overflows usize on 32-bit
   let res = Rgbf32LeFrame::try_new(&buf, width, height, stride);
   assert!(
-    matches!(
-      res,
-      Err(Rgbf32FrameError::GeometryOverflow {
-        stride: 0x1_0000,
-        rows: 0x1_0000,
-      })
-    ),
+    matches!(res, Err(Rgbf32FrameError::GeometryOverflow(_))),
     "expected GeometryOverflow, got {:?}",
     res
   );

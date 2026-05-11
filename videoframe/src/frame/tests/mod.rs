@@ -84,7 +84,7 @@ fn yuv420p_try_new_rejects_y_geometry_overflow() {
   let u: [u8; 0] = [];
   let v: [u8; 0] = [];
   let e = Yuv420pFrame::try_new(&y, &u, &v, big, big, big, big / 2, big / 2).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Yuv420pFrameError::GeometryOverflow(_)));
 }
 
 #[cfg(all(target_pointer_width = "32", feature = "yuv-semi-planar"))]
@@ -94,5 +94,5 @@ fn nv12_try_new_rejects_geometry_overflow() {
   let y: [u8; 0] = [];
   let uv: [u8; 0] = [];
   let e = Nv12Frame::try_new(&y, &uv, big, big, big, big).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Nv12FrameError::GeometryOverflow(_)));
 }

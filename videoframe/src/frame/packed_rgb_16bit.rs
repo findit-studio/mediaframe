@@ -33,6 +33,9 @@
 //! pointer casts to `&[u16]` are undefined behaviour if the byte buffer is
 //! not 2-byte aligned.
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -43,43 +46,24 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Rgb48FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 3 * width` (in u16 elements).
-  #[error("stride ({stride}) is smaller than 3 * width ({min_stride}) u16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride in u16 elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 3 * width ({}) u16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("RGB48 plane has {actual} u16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum u16 elements required.
-    expected: usize,
-    /// Actual u16 elements supplied.
-    actual: usize,
-  },
+  #[error("RGB48 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **RGB48** frame (`AV_PIX_FMT_RGB48{LE,BE}`) — three
@@ -130,29 +114,32 @@ impl<'a, const BE: bool> Rgb48Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Rgb48FrameError> {
     if width == 0 || height == 0 {
-      return Err(Rgb48FrameError::ZeroDimension { width, height });
+      return Err(Rgb48FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(3) {
       Some(v) => v,
-      None => return Err(Rgb48FrameError::WidthOverflow { width }),
+      None => return Err(Rgb48FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Rgb48FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Rgb48FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Rgb48FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Rgb48FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if rgb48.len() < plane_min {
-      return Err(Rgb48FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgb48.len(),
-      });
+      return Err(Rgb48FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        rgb48.len(),
+      )));
     }
     Ok(Self {
       rgb48,
@@ -207,43 +194,24 @@ impl<'a, const BE: bool> Rgb48Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Bgr48FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 3 * width` (in u16 elements).
-  #[error("stride ({stride}) is smaller than 3 * width ({min_stride}) u16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride in u16 elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 3 * width ({}) u16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("BGR48 plane has {actual} u16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum u16 elements required.
-    expected: usize,
-    /// Actual u16 elements supplied.
-    actual: usize,
-  },
+  #[error("BGR48 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **BGR48** frame (`AV_PIX_FMT_BGR48{LE,BE}`) — three
@@ -283,29 +251,32 @@ impl<'a, const BE: bool> Bgr48Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Bgr48FrameError> {
     if width == 0 || height == 0 {
-      return Err(Bgr48FrameError::ZeroDimension { width, height });
+      return Err(Bgr48FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(3) {
       Some(v) => v,
-      None => return Err(Bgr48FrameError::WidthOverflow { width }),
+      None => return Err(Bgr48FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Bgr48FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Bgr48FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Bgr48FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Bgr48FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if bgr48.len() < plane_min {
-      return Err(Bgr48FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: bgr48.len(),
-      });
+      return Err(Bgr48FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        bgr48.len(),
+      )));
     }
     Ok(Self {
       bgr48,
@@ -358,43 +329,24 @@ impl<'a, const BE: bool> Bgr48Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Rgba64FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 4 * width` (in u16 elements).
-  #[error("stride ({stride}) is smaller than 4 * width ({min_stride}) u16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride in u16 elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 4 * width ({}) u16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("RGBA64 plane has {actual} u16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum u16 elements required.
-    expected: usize,
-    /// Actual u16 elements supplied.
-    actual: usize,
-  },
+  #[error("RGBA64 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **RGBA64** frame (`AV_PIX_FMT_RGBA64{LE,BE}`) — four
@@ -433,29 +385,32 @@ impl<'a, const BE: bool> Rgba64Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Rgba64FrameError> {
     if width == 0 || height == 0 {
-      return Err(Rgba64FrameError::ZeroDimension { width, height });
+      return Err(Rgba64FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(v) => v,
-      None => return Err(Rgba64FrameError::WidthOverflow { width }),
+      None => return Err(Rgba64FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Rgba64FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Rgba64FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Rgba64FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Rgba64FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if rgba64.len() < plane_min {
-      return Err(Rgba64FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: rgba64.len(),
-      });
+      return Err(Rgba64FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        rgba64.len(),
+      )));
     }
     Ok(Self {
       rgba64,
@@ -508,43 +463,24 @@ impl<'a, const BE: bool> Rgba64Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Bgra64FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < 4 * width` (in u16 elements).
-  #[error("stride ({stride}) is smaller than 4 * width ({min_stride}) u16 elements")]
-  StrideTooSmall {
-    /// Required minimum stride in u16 elements.
-    min_stride: u32,
-    /// The supplied stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than 4 * width ({}) u16 elements", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("BGRA64 plane has {actual} u16 elements but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum u16 elements required.
-    expected: usize,
-    /// Actual u16 elements supplied.
-    actual: usize,
-  },
+  #[error("BGRA64 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride that overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({width} too large)")]
-  WidthOverflow {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  WidthOverflow(WidthOverflow),
 }
 
 /// A validated packed **BGRA64** frame (`AV_PIX_FMT_BGRA64{LE,BE}`) — four
@@ -584,29 +520,32 @@ impl<'a, const BE: bool> Bgra64Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Bgra64FrameError> {
     if width == 0 || height == 0 {
-      return Err(Bgra64FrameError::ZeroDimension { width, height });
+      return Err(Bgra64FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(v) => v,
-      None => return Err(Bgra64FrameError::WidthOverflow { width }),
+      None => return Err(Bgra64FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Bgra64FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Bgra64FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Bgra64FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Bgra64FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if bgra64.len() < plane_min {
-      return Err(Bgra64FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: bgra64.len(),
-      });
+      return Err(Bgra64FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        bgra64.len(),
+      )));
     }
     Ok(Self {
       bgra64,

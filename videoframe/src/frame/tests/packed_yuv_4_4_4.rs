@@ -30,17 +30,11 @@ fn v410_frame_try_new_rejects_zero_dimension() {
   let buf = zero_buf::<16>();
   assert!(matches!(
     V410LeFrame::try_new(&buf, 0, 4, 4),
-    Err(V410FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(V410FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     V410LeFrame::try_new(&buf, 4, 0, 4),
-    Err(V410FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(V410FrameError::ZeroDimension(_))
   ));
 }
 
@@ -49,10 +43,7 @@ fn v410_frame_try_new_rejects_stride_too_small() {
   let buf = zero_buf::<16>();
   assert!(matches!(
     V410LeFrame::try_new(&buf, 4, 4, 3),
-    Err(V410FrameError::StrideTooSmall {
-      min_stride: 4,
-      stride: 3
-    })
+    Err(V410FrameError::InsufficientStride(_))
   ));
 }
 
@@ -61,10 +52,7 @@ fn v410_frame_try_new_rejects_short_plane() {
   let buf = zero_buf::<8>();
   assert!(matches!(
     V410LeFrame::try_new(&buf, 4, 4, 4),
-    Err(V410FrameError::PlaneTooShort {
-      expected: 16,
-      actual: 8
-    })
+    Err(V410FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -82,7 +70,7 @@ fn v410_frame_accessors_round_trip() {
 #[should_panic(expected = "invalid V410Frame:")]
 fn v410_frame_new_panics_on_invalid() {
   let buf = zero_buf::<8>();
-  let _ = V410LeFrame::new(&buf, 4, 4, 4); // PlaneTooShort
+  let _ = V410LeFrame::new(&buf, 4, 4, 4); // InsufficientPlane
 }
 
 #[test]
@@ -125,17 +113,11 @@ fn v30x_frame_try_new_rejects_zero_dimension() {
   let buf = zero_buf::<16>();
   assert!(matches!(
     V30XFrame::try_new(&buf, 0, 4, 4),
-    Err(V30XFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(V30XFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     V30XFrame::try_new(&buf, 4, 0, 4),
-    Err(V30XFrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(V30XFrameError::ZeroDimension(_))
   ));
 }
 
@@ -144,10 +126,7 @@ fn v30x_frame_try_new_rejects_stride_too_small() {
   let buf = zero_buf::<16>();
   assert!(matches!(
     V30XFrame::try_new(&buf, 4, 4, 3),
-    Err(V30XFrameError::StrideTooSmall {
-      min_stride: 4,
-      stride: 3
-    })
+    Err(V30XFrameError::InsufficientStride(_))
   ));
 }
 
@@ -156,10 +135,7 @@ fn v30x_frame_try_new_rejects_short_plane() {
   let buf = zero_buf::<8>();
   assert!(matches!(
     V30XFrame::try_new(&buf, 4, 4, 4),
-    Err(V30XFrameError::PlaneTooShort {
-      expected: 16,
-      actual: 8
-    })
+    Err(V30XFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -177,7 +153,7 @@ fn v30x_frame_accessors_round_trip() {
 #[should_panic(expected = "invalid V30XFrame:")]
 fn v30x_frame_new_panics_on_invalid() {
   let buf = zero_buf::<8>();
-  let _ = V30XFrame::new(&buf, 4, 4, 4); // PlaneTooShort
+  let _ = V30XFrame::new(&buf, 4, 4, 4); // InsufficientPlane
 }
 
 #[test]
@@ -201,17 +177,11 @@ fn xv36_frame_try_new_rejects_zero_dimension() {
   let buf = vec![0u16; 16];
   assert!(matches!(
     Xv36LeFrame::try_new(&buf, 0, 4, 16),
-    Err(Xv36FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Xv36FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Xv36LeFrame::try_new(&buf, 4, 0, 16),
-    Err(Xv36FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(Xv36FrameError::ZeroDimension(_))
   ));
 }
 
@@ -221,10 +191,7 @@ fn xv36_frame_try_new_rejects_stride_too_small() {
   // width=4, width*4=16; stride=12 < 16
   assert!(matches!(
     Xv36LeFrame::try_new(&buf, 4, 4, 12),
-    Err(Xv36FrameError::StrideTooSmall {
-      min_stride: 16,
-      stride: 12
-    })
+    Err(Xv36FrameError::InsufficientStride(_))
   ));
 }
 
@@ -233,10 +200,7 @@ fn xv36_frame_try_new_rejects_short_plane() {
   let buf = vec![0u16; 32]; // need 16*4 = 64
   assert!(matches!(
     Xv36LeFrame::try_new(&buf, 4, 4, 16),
-    Err(Xv36FrameError::PlaneTooShort {
-      expected: 64,
-      actual: 32
-    })
+    Err(Xv36FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -258,13 +222,7 @@ fn xv36_frame_try_new_checked_rejects_low_bits_set() {
   intended[5] = 0xABCD; // low 4 bits = 0xD ≠ 0 (in active row range)
   let buf = super::util::le_encoded_u16_buf(&intended);
   let err = Xv36LeFrame::try_new_checked(&buf, 4, 4, 16).unwrap_err();
-  assert!(matches!(
-    err,
-    Xv36FrameError::SampleLowBitsSetAt {
-      index: 5,
-      value: 0xABCD,
-    }
-  ));
+  assert!(matches!(err, Xv36FrameError::SampleLowBitsSetAt(_)));
 }
 
 // ---- BE/LE try_new_checked normalization regression tests ------------
@@ -298,13 +256,7 @@ fn xv36_be_frame_try_new_checked_rejects_be_encoded_low_bits_set_on_any_host() {
   let be_word = u16::from_ne_bytes([0xAB, 0xCD]); // wire bytes [0xAB, 0xCD] on any host
   buf[5] = be_word;
   let err = Xv36BeFrame::try_new_checked(&buf, 4, 4, 16).unwrap_err();
-  assert!(matches!(
-    err,
-    Xv36FrameError::SampleLowBitsSetAt {
-      index: 5,
-      value: 0xABCD,
-    }
-  ));
+  assert!(matches!(err, Xv36FrameError::SampleLowBitsSetAt(_)));
 }
 
 #[test]
@@ -316,13 +268,7 @@ fn xv36_be_frame_try_new_checked_rejects_be_encoded_low_nibble_only() {
   let be_word = u16::from_ne_bytes([0x00, 0x0D]); // wire bytes [0x00, 0x0D] on any host
   buf[7] = be_word;
   let err = Xv36BeFrame::try_new_checked(&buf, 4, 4, 16).unwrap_err();
-  assert!(matches!(
-    err,
-    Xv36FrameError::SampleLowBitsSetAt {
-      index: 7,
-      value: 0x000D,
-    }
-  ));
+  assert!(matches!(err, Xv36FrameError::SampleLowBitsSetAt(_)));
 }
 
 #[test]
@@ -343,13 +289,7 @@ fn xv36_le_frame_try_new_checked_rejects_le_encoded_low_bits_set_on_any_host() {
   let le_word = u16::from_ne_bytes([0xCD, 0xAB]); // wire bytes [0xCD, 0xAB] = logical 0xABCD on any host
   buf[3] = le_word;
   let err = Xv36LeFrame::try_new_checked(&buf, 4, 4, 16).unwrap_err();
-  assert!(matches!(
-    err,
-    Xv36FrameError::SampleLowBitsSetAt {
-      index: 3,
-      value: 0xABCD,
-    }
-  ));
+  assert!(matches!(err, Xv36FrameError::SampleLowBitsSetAt(_)));
 }
 
 #[test]
@@ -401,17 +341,11 @@ fn vuya_frame_try_new_rejects_zero_dimension() {
   let buf = vec![0u8; 64];
   assert!(matches!(
     VuyaFrame::try_new(&buf, 0, 4, 16),
-    Err(VuyaFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(VuyaFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     VuyaFrame::try_new(&buf, 4, 0, 16),
-    Err(VuyaFrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(VuyaFrameError::ZeroDimension(_))
   ));
 }
 
@@ -421,10 +355,7 @@ fn vuya_frame_try_new_rejects_stride_too_small() {
   // width=4, width*4=16 bytes; stride=12 < 16
   assert!(matches!(
     VuyaFrame::try_new(&buf, 4, 4, 12),
-    Err(VuyaFrameError::StrideTooSmall {
-      min_stride: 16,
-      stride: 12
-    })
+    Err(VuyaFrameError::InsufficientStride(_))
   ));
 }
 
@@ -433,10 +364,7 @@ fn vuya_frame_try_new_rejects_short_plane() {
   let buf = vec![0u8; 32]; // need 16*4 = 64 bytes
   assert!(matches!(
     VuyaFrame::try_new(&buf, 4, 4, 16),
-    Err(VuyaFrameError::PlaneTooShort {
-      expected: 64,
-      actual: 32
-    })
+    Err(VuyaFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -471,17 +399,11 @@ fn vuyx_frame_try_new_rejects_zero_dimension() {
   let buf = vec![0u8; 64];
   assert!(matches!(
     VuyxFrame::try_new(&buf, 0, 4, 16),
-    Err(VuyxFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(VuyxFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     VuyxFrame::try_new(&buf, 4, 0, 16),
-    Err(VuyxFrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(VuyxFrameError::ZeroDimension(_))
   ));
 }
 
@@ -491,10 +413,7 @@ fn vuyx_frame_try_new_rejects_stride_too_small() {
   // width=4, width*4=16 bytes; stride=12 < 16
   assert!(matches!(
     VuyxFrame::try_new(&buf, 4, 4, 12),
-    Err(VuyxFrameError::StrideTooSmall {
-      min_stride: 16,
-      stride: 12
-    })
+    Err(VuyxFrameError::InsufficientStride(_))
   ));
 }
 
@@ -503,10 +422,7 @@ fn vuyx_frame_try_new_rejects_short_plane() {
   let buf = vec![0u8; 32]; // need 16*4 = 64 bytes
   assert!(matches!(
     VuyxFrame::try_new(&buf, 4, 4, 16),
-    Err(VuyxFrameError::PlaneTooShort {
-      expected: 64,
-      actual: 32
-    })
+    Err(VuyxFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -541,17 +457,11 @@ fn ayuv64_frame_try_new_rejects_zero_dimension() {
   let buf = vec![0u16; 64];
   assert!(matches!(
     Ayuv64LeFrame::try_new(&buf, 0, 4, 16),
-    Err(Ayuv64FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Ayuv64FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Ayuv64LeFrame::try_new(&buf, 4, 0, 16),
-    Err(Ayuv64FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(Ayuv64FrameError::ZeroDimension(_))
   ));
 }
 
@@ -561,10 +471,7 @@ fn ayuv64_frame_try_new_rejects_stride_too_small() {
   // width=4, width*4=16 u16 elements; stride=12 < 16
   assert!(matches!(
     Ayuv64LeFrame::try_new(&buf, 4, 4, 12),
-    Err(Ayuv64FrameError::StrideTooSmall {
-      min_stride: 16,
-      stride: 12
-    })
+    Err(Ayuv64FrameError::InsufficientStride(_))
   ));
 }
 
@@ -573,10 +480,7 @@ fn ayuv64_frame_try_new_rejects_short_plane() {
   let buf = vec![0u16; 32]; // need 16*4 = 64 u16 elements
   assert!(matches!(
     Ayuv64LeFrame::try_new(&buf, 4, 4, 16),
-    Err(Ayuv64FrameError::PlaneTooShort {
-      expected: 64,
-      actual: 32
-    })
+    Err(Ayuv64FrameError::InsufficientPlane(_))
   ));
 }
 

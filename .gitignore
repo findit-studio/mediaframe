@@ -19,3 +19,5 @@ Cargo.lock
 
 **.claude/
 **docs/
+*.bak
+*.profraw

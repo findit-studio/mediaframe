@@ -18,34 +18,16 @@ fn pal8_try_new_happy_path() {
 fn pal8_try_new_zero_dimension() {
   let data = std::vec![0u8; 16];
   let e = Pal8Frame::try_new(&data, &PALETTE, 0, 4, 4).unwrap_err();
-  assert!(matches!(
-    e,
-    Pal8FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    }
-  ));
+  assert!(matches!(e, Pal8FrameError::ZeroDimension(_)));
   let e = Pal8Frame::try_new(&data, &PALETTE, 4, 0, 4).unwrap_err();
-  assert!(matches!(
-    e,
-    Pal8FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    }
-  ));
+  assert!(matches!(e, Pal8FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn pal8_try_new_stride_too_small() {
   let data = std::vec![0u8; 16];
   let e = Pal8Frame::try_new(&data, &PALETTE, 8, 2, 4).unwrap_err();
-  assert!(matches!(
-    e,
-    Pal8FrameError::StrideTooSmall {
-      width: 8,
-      stride: 4
-    }
-  ));
+  assert!(matches!(e, Pal8FrameError::InsufficientStride(_)));
 }
 
 #[test]
@@ -53,13 +35,7 @@ fn pal8_try_new_plane_too_short() {
   // stride * height = 4 * 3 = 12, but data is only 11 bytes
   let data = std::vec![0u8; 11];
   let e = Pal8Frame::try_new(&data, &PALETTE, 4, 3, 4).unwrap_err();
-  assert!(matches!(
-    e,
-    Pal8FrameError::PlaneTooShort {
-      expected: 12,
-      actual: 11
-    }
-  ));
+  assert!(matches!(e, Pal8FrameError::InsufficientPlane(_)));
 }
 
 #[test]

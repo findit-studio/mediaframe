@@ -1,3 +1,6 @@
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
+};
 use derive_more::{Display, IsVariant};
 use thiserror::Error;
 
@@ -94,62 +97,65 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame<'a, BITS, BE> {
     // same `PnFrame` struct; kernel selection is at the public
     // dispatcher boundary.
     if BITS != 10 && BITS != 12 && BITS != 16 {
-      return Err(PnFrameError::UnsupportedBits { bits: BITS });
+      return Err(PnFrameError::UnsupportedBits(UnsupportedBits::new(BITS)));
     }
     if width == 0 || height == 0 {
-      return Err(PnFrameError::ZeroDimension { width, height });
+      return Err(PnFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(PnFrameError::OddWidth { width });
+      return Err(PnFrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(PnFrameError::YStrideTooSmall { width, y_stride });
+      return Err(PnFrameError::InsufficientYStride(InsufficientStride::new(
+        y_stride, width,
+      )));
     }
     let uv_row_elems = width;
     if uv_stride < uv_row_elems {
-      return Err(PnFrameError::UvStrideTooSmall {
-        uv_row_elems,
+      return Err(PnFrameError::InsufficientUvStride(InsufficientStride::new(
         uv_stride,
-      });
+        uv_row_elems,
+      )));
     }
     // Interleaved UV is consecutive `(U, V)` u16 pairs. An odd
     // u16-element stride would start every other chroma row on the
     // V element of the previous pair, swapping U / V interpretation
     // deterministically and producing wrong colors on alternate rows.
     if uv_stride & 1 != 0 {
-      return Err(PnFrameError::UvStrideOdd { uv_stride });
+      return Err(PnFrameError::UvStrideOdd(PnUvStrideOdd::new(uv_stride)));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(PnFrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(PnFrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let chroma_height = height.div_ceil(2);
     let uv_min = match (uv_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: chroma_height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride,
+          chroma_height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(PnFrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(PnFrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -254,12 +260,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame<'a, BITS, BE> {
         // bit check (no-op on LE host, byte-swap on BE host).
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Y,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Y,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -268,12 +274,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame<'a, BITS, BE> {
       for (col, &s) in uv[start..start + uv_w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Uv,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Uv,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -434,60 +440,62 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame422<'a, BITS, BE> {
     uv_stride: u32,
   ) -> Result<Self, PnFrameError> {
     if BITS != 10 && BITS != 12 && BITS != 16 {
-      return Err(PnFrameError::UnsupportedBits { bits: BITS });
+      return Err(PnFrameError::UnsupportedBits(UnsupportedBits::new(BITS)));
     }
     if width == 0 || height == 0 {
-      return Err(PnFrameError::ZeroDimension { width, height });
+      return Err(PnFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(PnFrameError::OddWidth { width });
+      return Err(PnFrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(PnFrameError::YStrideTooSmall { width, y_stride });
+      return Err(PnFrameError::InsufficientYStride(InsufficientStride::new(
+        y_stride, width,
+      )));
     }
     let uv_row_elems = width;
     if uv_stride < uv_row_elems {
-      return Err(PnFrameError::UvStrideTooSmall {
-        uv_row_elems,
+      return Err(PnFrameError::InsufficientUvStride(InsufficientStride::new(
         uv_stride,
-      });
+        uv_row_elems,
+      )));
     }
     // Interleaved UV is consecutive `(U, V)` u16 pairs — see
     // [`PnFrame::try_new`] for the full rationale.
     if uv_stride & 1 != 0 {
-      return Err(PnFrameError::UvStrideOdd { uv_stride });
+      return Err(PnFrameError::UvStrideOdd(PnUvStrideOdd::new(uv_stride)));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(PnFrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(PnFrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     // 4:2:2: chroma is full-height (height rows, not div_ceil(height/2)).
     let uv_min = match (uv_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride, height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(PnFrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(PnFrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -548,12 +556,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame422<'a, BITS, BE> {
       for (col, &s) in y[start..start + w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Y,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Y,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -563,12 +571,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame422<'a, BITS, BE> {
       for (col, &s) in uv[start..start + uv_w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Uv,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Uv,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -687,66 +695,67 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame444<'a, BITS, BE> {
     uv_stride: u32,
   ) -> Result<Self, PnFrameError> {
     if BITS != 10 && BITS != 12 && BITS != 16 {
-      return Err(PnFrameError::UnsupportedBits { bits: BITS });
+      return Err(PnFrameError::UnsupportedBits(UnsupportedBits::new(BITS)));
     }
     if width == 0 || height == 0 {
-      return Err(PnFrameError::ZeroDimension { width, height });
+      return Err(PnFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     // 4:4:4: no width-parity constraint.
     if y_stride < width {
-      return Err(PnFrameError::YStrideTooSmall { width, y_stride });
+      return Err(PnFrameError::InsufficientYStride(InsufficientStride::new(
+        y_stride, width,
+      )));
     }
     // UV row holds 2 * width u16 elements (one pair per pixel).
     let uv_row_elems = match width.checked_mul(2) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: width,
-          rows: 2,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          width, 2,
+        )));
       }
     };
     if uv_stride < uv_row_elems {
-      return Err(PnFrameError::UvStrideTooSmall {
-        uv_row_elems,
+      return Err(PnFrameError::InsufficientUvStride(InsufficientStride::new(
         uv_stride,
-      });
+        uv_row_elems,
+      )));
     }
     // Interleaved UV is consecutive `(U, V)` u16 pairs — see
     // [`PnFrame::try_new`] for the full rationale.
     if uv_stride & 1 != 0 {
-      return Err(PnFrameError::UvStrideOdd { uv_stride });
+      return Err(PnFrameError::UvStrideOdd(PnUvStrideOdd::new(uv_stride)));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(PnFrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(PnFrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let uv_min = match (uv_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(PnFrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: height,
-        });
+        return Err(PnFrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride, height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(PnFrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(PnFrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -807,12 +816,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame444<'a, BITS, BE> {
       for (col, &s) in y[start..start + w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Y,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Y,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -821,12 +830,12 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame444<'a, BITS, BE> {
       for (col, &s) in uv[start..start + uv_w].iter().enumerate() {
         let logical = if BE { u16::from_be(s) } else { u16::from_le(s) };
         if logical & low_mask != 0 {
-          return Err(PnFrameError::SampleLowBitsSet {
-            plane: PnFramePlane::Uv,
-            index: start + col,
-            value: logical,
+          return Err(PnFrameError::SampleLowBitsSet(PnSampleLowBitsSet::new(
+            PnFramePlane::Uv,
+            start + col,
+            logical,
             low_bits,
-          });
+          )));
         }
       }
     }
@@ -902,6 +911,7 @@ pub type P416BeFrame<'a> = PnFrame444<'a, 16, true>;
 /// Identifies which plane of a `PnFrame` a
 /// [`PnFrameError::SampleLowBitsSet`] refers to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
+
 pub enum PnFramePlane {
   /// Luma plane.
   Y,
@@ -920,49 +930,33 @@ pub enum PnFrameError {
   /// `BITS` was not one of the supported high‑bit‑packed depths
   /// (10, 12, 16). 14 exists in the planar `yuv420p14le` family but
   /// not as a Pn hardware output.
-  #[error("unsupported BITS ({bits}) for PnFrame; must be 10, 12, or 16")]
-  UnsupportedBits {
-    /// The unsupported value of the `BITS` const parameter.
-    bits: u32,
-  },
+  #[error("unsupported BITS ({}) for PnFrame; must be 10, 12, or 16", .0.bits())]
+  UnsupportedBits(UnsupportedBits),
+
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd. Returned by [`PnFrame::try_new`] (4:2:0) and
   /// [`PnFrame422::try_new`] (4:2:2) — both subsample chroma 2:1
   /// horizontally and pair `(U, V)` per chroma sample, so the frame
   /// width must be even. 4:4:4 ([`PnFrame444`]) has no parity
   /// constraint and never emits this variant.
-  #[error("width ({width}) is odd; horizontally-subsampled chroma requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; horizontally-subsampled chroma requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width` (in `u16` samples).
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride (samples).
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `uv_stride` is smaller than the interleaved UV row payload
   /// one chroma row must hold (in `u16` elements). The required
   /// payload depends on the format: `width` for 4:2:0 / 4:2:2
   /// (half-width × 2 elements per pair) and `2 * width` for 4:4:4
   /// (full-width × 2 elements per pair).
-  #[error("uv_stride ({uv_stride}) is smaller than UV row payload ({uv_row_elems} u16 elements)")]
-  UvStrideTooSmall {
-    /// Required minimum UV‑plane stride, in `u16` elements.
-    uv_row_elems: u32,
-    /// The supplied UV‑plane stride (samples).
-    uv_stride: u32,
-  },
+  #[error("uv_stride ({}) is smaller than UV row payload ({} u16 elements)", .0.stride(), .0.min())]
+  InsufficientUvStride(InsufficientStride),
+
   /// `uv_stride` is odd. Each interleaved chroma row is laid out as
   /// `(U, V)` pairs of `u16` elements; an odd stride starts every
   /// other row on the opposite element of the pair, swapping the U /
@@ -971,43 +965,26 @@ pub enum PnFrameError {
   /// constructors (`PnFrame` 4:2:0, `PnFrame422` 4:2:2,
   /// `PnFrame444` 4:4:4).
   #[error(
-    "uv_stride ({uv_stride}) is odd; semi-planar interleaved UV requires an even u16-element stride"
+    "uv_stride ({}) is odd; semi-planar interleaved UV requires an even u16-element stride", .0.uv_stride()
   )]
-  UvStrideOdd {
-    /// The supplied UV‑plane stride (samples).
-    uv_stride: u32,
-  },
+  UvStrideOdd(PnUvStrideOdd),
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {actual} samples but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// UV plane is shorter than `uv_stride * ceil(height / 2)` samples.
-  #[error("UV plane has {actual} samples but at least {expected} are required")]
-  UvPlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("UV plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUvPlane(InsufficientPlane),
+
   /// Size arithmetic overflowed. Fires for either
   /// `stride * rows` exceeding `usize::MAX` (the usual case, only
   /// reachable on 32‑bit targets like wasm32 / i686 with extreme
   /// dimensions) **or** the `width * 2` `u32` computation for the
   /// 4:4:4 UV-row-payload length (`PnFrame444::try_new` only)
   /// exceeding `u32::MAX` at extreme widths.
-  #[error("declared geometry overflows: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride (or `width`, for the `width * 2` overflow case) of
-    /// the dimension whose product overflowed.
-    stride: u32,
-    /// Row count (or `2`, for the `width * 2` overflow case) that
-    /// overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// A sample's low `16 - BITS` bits were non‑zero — a Pn sample
   /// packs its `BITS` active bits in the high `BITS` of each `u16`,
   /// so valid samples are always multiples of `1 << (16 - BITS)`
@@ -1019,19 +996,71 @@ pub enum PnFrameError {
   /// multiples of `1 << (16 - BITS)` passes the check silently. See
   /// [`PnFrame::try_new_checked`] for the full discussion.
   #[error(
-    "sample {value:#06x} on plane {plane} at element {index} has non-zero low {low_bits} bits (not a valid Pn sample at the declared BITS)"
+    "sample {:#06x} on plane {} at element {} has non-zero low {} bits (not a valid Pn sample at the declared BITS)", .0.value(), .0.plane(), .0.index(), .0.low_bits()
   )]
-  SampleLowBitsSet {
-    /// Which plane the offending sample lives on.
-    plane: PnFramePlane,
-    /// Element index within that plane's slice.
-    index: usize,
-    /// The offending sample value.
-    value: u16,
-    /// Number of low bits expected to be zero (`16 - BITS`).
-    low_bits: u32,
-  },
+  SampleLowBitsSet(PnSampleLowBitsSet),
 }
 
 /// Back‑compat alias for the pre‑generalization error enum name.
 pub type P010FrameError = PnFrameError;
+
+/// Payload struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PnSampleLowBitsSet {
+  plane: PnFramePlane,
+  index: usize,
+  value: u16,
+  low_bits: u32,
+}
+
+impl PnSampleLowBitsSet {
+  /// Constructs a new `PnSampleLowBitsSet`.
+  #[inline]
+  pub const fn new(plane: PnFramePlane, index: usize, value: u16, low_bits: u32) -> Self {
+    Self {
+      plane,
+      index,
+      value,
+      low_bits,
+    }
+  }
+  /// Returns the `plane` field.
+  #[inline]
+  pub const fn plane(&self) -> PnFramePlane {
+    self.plane
+  }
+  /// Returns the `index` field.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+  /// Returns the `value` field.
+  #[inline]
+  pub const fn value(&self) -> u16 {
+    self.value
+  }
+  /// Returns the `low_bits` field.
+  #[inline]
+  pub const fn low_bits(&self) -> u32 {
+    self.low_bits
+  }
+}
+
+/// Payload struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PnUvStrideOdd {
+  uv_stride: u32,
+}
+
+impl PnUvStrideOdd {
+  /// Constructs a new `PnUvStrideOdd`.
+  #[inline]
+  pub const fn new(uv_stride: u32) -> Self {
+    Self { uv_stride }
+  }
+  /// Returns the `uv_stride` field.
+  #[inline]
+  pub const fn uv_stride(&self) -> u32 {
+    self.uv_stride
+  }
+}

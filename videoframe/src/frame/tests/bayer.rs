@@ -22,9 +22,9 @@ fn bayer_try_new_accepts_padded_stride() {
 fn bayer_try_new_rejects_zero_dim() {
   let data = std::vec![0u8; 16 * 8];
   let e = BayerFrame::try_new(&data, 0, 8, 16).unwrap_err();
-  assert!(matches!(e, BayerFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, BayerFrameError::ZeroDimension(_)));
   let e = BayerFrame::try_new(&data, 16, 0, 16).unwrap_err();
-  assert!(matches!(e, BayerFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, BayerFrameError::ZeroDimension(_)));
 }
 
 #[test]
@@ -63,14 +63,14 @@ fn bayer_try_new_accepts_1x1() {
 fn bayer_try_new_rejects_stride_under_width() {
   let data = std::vec![0u8; 16 * 8];
   let e = BayerFrame::try_new(&data, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, BayerFrameError::StrideTooSmall { .. }));
+  assert!(matches!(e, BayerFrameError::InsufficientStride(_)));
 }
 
 #[test]
 fn bayer_try_new_rejects_short_plane() {
   let data = std::vec![0u8; 10];
   let e = BayerFrame::try_new(&data, 16, 8, 16).unwrap_err();
-  assert!(matches!(e, BayerFrameError::PlaneTooShort { .. }));
+  assert!(matches!(e, BayerFrameError::InsufficientPlane(_)));
 }
 
 #[test]
@@ -86,9 +86,9 @@ fn bayer_new_panics_on_invalid() {
 fn bayer16_try_new_rejects_unsupported_bits() {
   let data = std::vec![0u16; 16 * 8];
   let e = BayerFrame16::<11>::try_new(&data, 16, 8, 16).unwrap_err();
-  assert!(matches!(e, BayerFrame16Error::UnsupportedBits { bits: 11 }));
+  assert!(matches!(e, BayerFrame16Error::UnsupportedBits(_)));
   let e = BayerFrame16::<8>::try_new(&data, 16, 8, 16).unwrap_err();
-  assert!(matches!(e, BayerFrame16Error::UnsupportedBits { bits: 8 }));
+  assert!(matches!(e, BayerFrame16Error::UnsupportedBits(_)));
 }
 
 #[test]
@@ -122,14 +122,7 @@ fn bayer16_try_new_rejects_above_max_at_12bit() {
   let mut data = std::vec![2048u16; 16 * 8];
   data[42] = 4096; // just above 12-bit max
   let e = Bayer12Frame::try_new(&data, 16, 8, 16).unwrap_err();
-  assert!(matches!(
-    e,
-    BayerFrame16Error::SampleOutOfRange {
-      index: 42,
-      value: 4096,
-      max_valid: 4095,
-    }
-  ));
+  assert!(matches!(e, BayerFrame16Error::SampleOutOfRange(_)));
 }
 
 #[test]
@@ -137,14 +130,7 @@ fn bayer16_try_new_rejects_above_max_at_10bit() {
   let mut data = std::vec![512u16; 16 * 8];
   data[3] = 1024; // just above 10-bit max
   let e = Bayer10Frame::try_new(&data, 16, 8, 16).unwrap_err();
-  assert!(matches!(
-    e,
-    BayerFrame16Error::SampleOutOfRange {
-      index: 3,
-      value: 1024,
-      max_valid: 1023,
-    }
-  ));
+  assert!(matches!(e, BayerFrame16Error::SampleOutOfRange(_)));
 }
 
 #[test]

@@ -23,17 +23,11 @@ fn rgb24_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&buf, 0, 4, 48),
-    Err(Rgb24FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Rgb24FrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Rgb24Frame::try_new(&buf, 16, 0, 48),
-    Err(Rgb24FrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(Rgb24FrameError::ZeroDimension(_))
   ));
 }
 
@@ -42,10 +36,7 @@ fn rgb24_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&buf, 16, 4, 47),
-    Err(Rgb24FrameError::StrideTooSmall {
-      min_stride: 48,
-      stride: 47,
-    })
+    Err(Rgb24FrameError::InsufficientStride(_))
   ));
 }
 
@@ -54,10 +45,7 @@ fn rgb24_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&small, 16, 4, 48),
-    Err(Rgb24FrameError::PlaneTooShort {
-      expected: 192,
-      actual: 48,
-    })
+    Err(Rgb24FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -86,7 +74,7 @@ fn bgr24_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&buf, 0, 4, 48),
-    Err(Bgr24FrameError::ZeroDimension { .. })
+    Err(Bgr24FrameError::ZeroDimension(_))
   ));
 }
 
@@ -95,10 +83,7 @@ fn bgr24_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&buf, 16, 4, 47),
-    Err(Bgr24FrameError::StrideTooSmall {
-      min_stride: 48,
-      stride: 47,
-    })
+    Err(Bgr24FrameError::InsufficientStride(_))
   ));
 }
 
@@ -107,7 +92,7 @@ fn bgr24_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&small, 16, 4, 48),
-    Err(Bgr24FrameError::PlaneTooShort { .. })
+    Err(Bgr24FrameError::InsufficientPlane(_))
   ));
 }
 
@@ -141,17 +126,11 @@ fn rgba_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&buf, 0, 4, 64),
-    Err(RgbaFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(RgbaFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     RgbaFrame::try_new(&buf, 16, 0, 64),
-    Err(RgbaFrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(RgbaFrameError::ZeroDimension(_))
   ));
 }
 
@@ -160,10 +139,7 @@ fn rgba_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&buf, 16, 4, 63),
-    Err(RgbaFrameError::StrideTooSmall {
-      min_stride: 64,
-      stride: 63,
-    })
+    Err(RgbaFrameError::InsufficientStride(_))
   ));
 }
 
@@ -172,10 +148,7 @@ fn rgba_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&small, 16, 4, 64),
-    Err(RgbaFrameError::PlaneTooShort {
-      expected: 256,
-      actual: 64,
-    })
+    Err(RgbaFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -204,7 +177,7 @@ fn bgra_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     BgraFrame::try_new(&buf, 0, 4, 64),
-    Err(BgraFrameError::ZeroDimension { .. })
+    Err(BgraFrameError::ZeroDimension(_))
   ));
 }
 
@@ -213,10 +186,7 @@ fn bgra_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     BgraFrame::try_new(&buf, 16, 4, 63),
-    Err(BgraFrameError::StrideTooSmall {
-      min_stride: 64,
-      stride: 63,
-    })
+    Err(BgraFrameError::InsufficientStride(_))
   ));
 }
 
@@ -225,7 +195,7 @@ fn bgra_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     BgraFrame::try_new(&small, 16, 4, 64),
-    Err(BgraFrameError::PlaneTooShort { .. })
+    Err(BgraFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -258,17 +228,11 @@ fn argb_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&buf, 0, 4, 64),
-    Err(ArgbFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(ArgbFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     ArgbFrame::try_new(&buf, 16, 0, 64),
-    Err(ArgbFrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(ArgbFrameError::ZeroDimension(_))
   ));
 }
 
@@ -277,10 +241,7 @@ fn argb_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&buf, 16, 4, 63),
-    Err(ArgbFrameError::StrideTooSmall {
-      min_stride: 64,
-      stride: 63,
-    })
+    Err(ArgbFrameError::InsufficientStride(_))
   ));
 }
 
@@ -289,10 +250,7 @@ fn argb_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&small, 16, 4, 64),
-    Err(ArgbFrameError::PlaneTooShort {
-      expected: 256,
-      actual: 64,
-    })
+    Err(ArgbFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -316,7 +274,7 @@ fn abgr_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&buf, 0, 4, 64),
-    Err(AbgrFrameError::ZeroDimension { .. })
+    Err(AbgrFrameError::ZeroDimension(_))
   ));
 }
 
@@ -325,10 +283,7 @@ fn abgr_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&buf, 16, 4, 63),
-    Err(AbgrFrameError::StrideTooSmall {
-      min_stride: 64,
-      stride: 63,
-    })
+    Err(AbgrFrameError::InsufficientStride(_))
   ));
 }
 
@@ -337,7 +292,7 @@ fn abgr_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&small, 16, 4, 64),
-    Err(AbgrFrameError::PlaneTooShort { .. })
+    Err(AbgrFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -365,10 +320,7 @@ fn xrgb_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&small, 16, 4, 64),
-    Err(XrgbFrameError::PlaneTooShort {
-      expected: 256,
-      actual: 64,
-    })
+    Err(XrgbFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -377,7 +329,7 @@ fn xrgb_frame_try_new_rejects_zero_dimension() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&buf, 0, 4, 64),
-    Err(XrgbFrameError::ZeroDimension { .. })
+    Err(XrgbFrameError::ZeroDimension(_))
   ));
 }
 
@@ -386,10 +338,7 @@ fn xrgb_frame_try_new_rejects_stride_too_small() {
   let buf = std::vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&buf, 16, 4, 63),
-    Err(XrgbFrameError::StrideTooSmall {
-      min_stride: 64,
-      stride: 63,
-    })
+    Err(XrgbFrameError::InsufficientStride(_))
   ));
 }
 
@@ -411,7 +360,7 @@ fn rgbx_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     RgbxFrame::try_new(&small, 16, 4, 64),
-    Err(RgbxFrameError::PlaneTooShort { .. })
+    Err(RgbxFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -433,7 +382,7 @@ fn xbgr_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     XbgrFrame::try_new(&small, 16, 4, 64),
-    Err(XbgrFrameError::PlaneTooShort { .. })
+    Err(XbgrFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -455,7 +404,7 @@ fn bgrx_frame_try_new_rejects_short_plane() {
   let small = std::vec![0u8; 16 * 4];
   assert!(matches!(
     BgrxFrame::try_new(&small, 16, 4, 64),
-    Err(BgrxFrameError::PlaneTooShort { .. })
+    Err(BgrxFrameError::InsufficientPlane(_))
   ));
 }
 

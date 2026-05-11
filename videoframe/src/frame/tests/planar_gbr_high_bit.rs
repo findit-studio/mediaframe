@@ -34,35 +34,35 @@ fn gbrp10_try_new_accepts_padded_strides() {
 fn gbrp10_try_new_rejects_zero_width() {
   let (g, b, r) = gbrp10_planes(4, 4);
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 0, 4, 4, 4, 4).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn gbrp10_try_new_rejects_zero_height() {
   let (g, b, r) = gbrp10_planes(4, 4);
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 4, 0, 4, 4, 4).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn gbrp10_try_new_rejects_g_stride_too_small() {
   let (g, b, r) = gbrp10_planes(8, 4);
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 4, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::GStrideTooSmall { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientGStride(_)));
 }
 
 #[test]
 fn gbrp10_try_new_rejects_b_stride_too_small() {
   let (g, b, r) = gbrp10_planes(8, 4);
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 8, 4, 8).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::BStrideTooSmall { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientBStride(_)));
 }
 
 #[test]
 fn gbrp10_try_new_rejects_r_stride_too_small() {
   let (g, b, r) = gbrp10_planes(8, 4);
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 8, 8, 4).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::RStrideTooSmall { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientRStride(_)));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn gbrp10_try_new_rejects_g_plane_too_short() {
   let b = vec![0u16; 32];
   let r = vec![0u16; 32];
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::GPlaneTooShort { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientGPlane(_)));
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn gbrp10_try_new_rejects_b_plane_too_short() {
   let b = vec![0u16; 16];
   let r = vec![0u16; 32];
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::BPlaneTooShort { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientBPlane(_)));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn gbrp10_try_new_rejects_r_plane_too_short() {
   let b = vec![0u16; 32];
   let r = vec![0u16; 16];
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 8, 4, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::RPlaneTooShort { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::InsufficientRPlane(_)));
 }
 
 #[test]
@@ -101,7 +101,7 @@ fn gbrp10_new_panics_on_invalid() {
   let b: [u16; 0] = [];
   let r: [u16; 0] = [];
   let e = Gbrp10LeFrame::try_new(&g, &b, &r, 0, 1, 1, 1, 1).unwrap_err();
-  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, GbrpHighBitFrameError::ZeroDimension(_)));
 }
 
 // ---- Per-BITS sanity: bits() accessor and valid construction --------------
@@ -155,14 +155,14 @@ fn gbrap10_try_new_accepts_valid_tight() {
 fn gbrap10_try_new_rejects_zero_dimension() {
   let (g, b, r, a) = gbrap10_planes(4, 4);
   let e = Gbrap10LeFrame::try_new(&g, &b, &r, &a, 0, 4, 4, 4, 4, 4).unwrap_err();
-  assert!(matches!(e, GbrapHighBitFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, GbrapHighBitFrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn gbrap10_try_new_rejects_a_stride_too_small() {
   let (g, b, r, a) = gbrap10_planes(8, 4);
   let e = Gbrap10LeFrame::try_new(&g, &b, &r, &a, 8, 4, 8, 8, 8, 4).unwrap_err();
-  assert!(matches!(e, GbrapHighBitFrameError::AStrideTooSmall { .. }));
+  assert!(matches!(e, GbrapHighBitFrameError::InsufficientAStride(_)));
 }
 
 #[test]
@@ -172,21 +172,21 @@ fn gbrap10_try_new_rejects_a_plane_too_short() {
   let r = vec![0u16; 32];
   let a = vec![0u16; 16]; // too short — need 32
   let e = Gbrap10LeFrame::try_new(&g, &b, &r, &a, 8, 4, 8, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrapHighBitFrameError::APlaneTooShort { .. }));
+  assert!(matches!(e, GbrapHighBitFrameError::InsufficientAPlane(_)));
 }
 
 #[test]
 fn gbrap10_try_new_rejects_g_stride_too_small() {
   let (g, b, r, a) = gbrap10_planes(8, 4);
   let e = Gbrap10LeFrame::try_new(&g, &b, &r, &a, 8, 4, 4, 8, 8, 8).unwrap_err();
-  assert!(matches!(e, GbrapHighBitFrameError::GStrideTooSmall { .. }));
+  assert!(matches!(e, GbrapHighBitFrameError::InsufficientGStride(_)));
 }
 
 #[test]
 fn gbrap10_new_panics_on_invalid() {
   let p: [u16; 0] = [];
   let e = Gbrap10LeFrame::try_new(&p, &p, &p, &p, 0, 1, 1, 1, 1, 1).unwrap_err();
-  assert!(matches!(e, GbrapHighBitFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, GbrapHighBitFrameError::ZeroDimension(_)));
 }
 
 // ---- Per-BITS sanity for Gbrap family -------------------------------------

@@ -5,6 +5,7 @@ ignore:
   - "**benches/*"
   - "**examples/*"
   - "**tests/*"
+  - xtask/
 
 coverage:
   status:

@@ -9,6 +9,9 @@
 //! source α / α-as-padding semantics); Ship 12d adds [`Ayuv64Frame`]
 //! (16-bit native, source α).
 
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthOverflow, ZeroDimension,
+};
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
@@ -81,39 +84,22 @@ pub type V410BeFrame<'a> = V410Frame<'a, true>;
 #[non_exhaustive]
 pub enum V410FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V410Frame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("V410Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width`. Each row needs at least `width` u32 words.
-  #[error("V410Frame: stride {stride} u32 elements is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride (= `width`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("V410Frame: stride {} u32 elements is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry.
-  #[error("V410Frame: plane too short: expected >= {expected} u32 elements, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in u32 elements (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in u32 elements.
-    actual: usize,
-  },
+  #[error("V410Frame: plane too short: expected >= {} u32 elements, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V410Frame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("V410Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 impl<'a, const BE: bool> V410Frame<'a, BE> {
@@ -132,28 +118,28 @@ impl<'a, const BE: bool> V410Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, V410FrameError> {
     if width == 0 || height == 0 {
-      return Err(V410FrameError::ZeroDimension { width, height });
+      return Err(V410FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if stride < width {
-      return Err(V410FrameError::StrideTooSmall {
-        min_stride: width,
-        stride,
-      });
+      return Err(V410FrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(V410FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(V410FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(V410FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(V410FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -170,10 +156,10 @@ impl<'a, const BE: bool> V410Frame<'a, BE> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        V410FrameError::ZeroDimension { .. } => panic!("invalid V410Frame: zero dimension"),
-        V410FrameError::StrideTooSmall { .. } => panic!("invalid V410Frame: stride too small"),
-        V410FrameError::PlaneTooShort { .. } => panic!("invalid V410Frame: plane too short"),
-        V410FrameError::GeometryOverflow { .. } => panic!("invalid V410Frame: geometry overflow"),
+        V410FrameError::ZeroDimension(_) => panic!("invalid V410Frame: zero dimension"),
+        V410FrameError::InsufficientStride(_) => panic!("invalid V410Frame: stride too small"),
+        V410FrameError::InsufficientPlane(_) => panic!("invalid V410Frame: plane too short"),
+        V410FrameError::GeometryOverflow(_) => panic!("invalid V410Frame: geometry overflow"),
       },
     }
   }
@@ -243,39 +229,22 @@ pub struct V30XFrame<'a> {
 #[non_exhaustive]
 pub enum V30XFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V30XFrame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("V30XFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width`. Each row needs at least `width` u32 words.
-  #[error("V30XFrame: stride {stride} u32 elements is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride (= `width`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("V30XFrame: stride {} u32 elements is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry.
-  #[error("V30XFrame: plane too short: expected >= {expected} u32 elements, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in u32 elements (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in u32 elements.
-    actual: usize,
-  },
+  #[error("V30XFrame: plane too short: expected >= {} u32 elements, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V30XFrame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("V30XFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 impl<'a> V30XFrame<'a> {
@@ -288,28 +257,28 @@ impl<'a> V30XFrame<'a> {
     stride: u32,
   ) -> Result<Self, V30XFrameError> {
     if width == 0 || height == 0 {
-      return Err(V30XFrameError::ZeroDimension { width, height });
+      return Err(V30XFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if stride < width {
-      return Err(V30XFrameError::StrideTooSmall {
-        min_stride: width,
-        stride,
-      });
+      return Err(V30XFrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(V30XFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(V30XFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(V30XFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(V30XFrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -326,10 +295,10 @@ impl<'a> V30XFrame<'a> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        V30XFrameError::ZeroDimension { .. } => panic!("invalid V30XFrame: zero dimension"),
-        V30XFrameError::StrideTooSmall { .. } => panic!("invalid V30XFrame: stride too small"),
-        V30XFrameError::PlaneTooShort { .. } => panic!("invalid V30XFrame: plane too short"),
-        V30XFrameError::GeometryOverflow { .. } => panic!("invalid V30XFrame: geometry overflow"),
+        V30XFrameError::ZeroDimension(_) => panic!("invalid V30XFrame: zero dimension"),
+        V30XFrameError::InsufficientStride(_) => panic!("invalid V30XFrame: stride too small"),
+        V30XFrameError::InsufficientPlane(_) => panic!("invalid V30XFrame: plane too short"),
+        V30XFrameError::GeometryOverflow(_) => panic!("invalid V30XFrame: geometry overflow"),
       },
     }
   }
@@ -414,58 +383,30 @@ pub type Xv36BeFrame<'a> = Xv36Frame<'a, true>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
 #[non_exhaustive]
 pub enum Xv36FrameError {
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
   /// `width == 0` or `height == 0`.
-  #[error("Xv36Frame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Xv36Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Xv36Frame: width {width} × 4 overflows u32 (per-row u16 element count)")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Xv36Frame: width {} × 4 overflows u32 (per-row u16 element count)", .0.width())]
+  WidthOverflow(WidthOverflow),
+
   /// `stride < width × 4` (u16 elements). Each row needs at least
   /// `width × 4` u16 elements (= `width × 8` bytes) to hold all
   /// pixels.
-  #[error("Xv36Frame: stride {stride} u16 elements is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in u16 elements (`width × 4`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Xv36Frame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("Xv36Frame: plane too short: expected >= {expected} u16 elements, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in u16 elements (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in u16 elements.
-    actual: usize,
-  },
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
+  #[error("Xv36Frame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Xv36Frame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("Xv36Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// Source-compat unit variant retained from the pre-PR-#107 public
   /// API. Reserved for back-compatibility — never emitted by current
   /// code (which now reports the offending element via
@@ -488,17 +429,9 @@ pub enum Xv36FrameError {
   /// (preserved for source-compat) — this carries the diagnostic
   /// `index` + `value` payload added in PR #107.
   #[error(
-    "Xv36Frame: sample {value:#06x} at element {index} has non-zero low 4 bits (expected MSB-aligned XV36 data)"
+    "Xv36Frame: sample {:#06x} at element {} has non-zero low 4 bits (expected MSB-aligned XV36 data)", .0.value(), .0.index()
   )]
-  #[unwrap(ignore)]
-  #[try_unwrap(ignore)]
-  SampleLowBitsSetAt {
-    /// Element index (in `u16` slots) within the packed plane.
-    index: usize,
-    /// Offending sample value, normalized to host-native via
-    /// `u16::from_be`/`u16::from_le` per the `BE` flag.
-    value: u16,
-  },
+  SampleLowBitsSetAt(Xv36SampleLowBitsSetAt),
 }
 
 impl<'a, const BE: bool> Xv36Frame<'a, BE> {
@@ -514,29 +447,32 @@ impl<'a, const BE: bool> Xv36Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Xv36FrameError> {
     if width == 0 || height == 0 {
-      return Err(Xv36FrameError::ZeroDimension { width, height });
+      return Err(Xv36FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(n) => n,
-      None => return Err(Xv36FrameError::WidthOverflow { width }),
+      None => return Err(Xv36FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Xv36FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Xv36FrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(Xv36FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Xv36FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(Xv36FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(Xv36FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -585,10 +521,9 @@ impl<'a, const BE: bool> Xv36Frame<'a, BE> {
           u16::from_le(sample)
         };
         if logical & 0x000F != 0 {
-          return Err(Xv36FrameError::SampleLowBitsSetAt {
-            index: start + col,
-            value: logical,
-          });
+          return Err(Xv36FrameError::SampleLowBitsSetAt(
+            Xv36SampleLowBitsSetAt::new(start + col, logical),
+          ));
         }
       }
     }
@@ -602,11 +537,11 @@ impl<'a, const BE: bool> Xv36Frame<'a, BE> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        Xv36FrameError::ZeroDimension { .. } => panic!("invalid Xv36Frame: zero dimension"),
-        Xv36FrameError::WidthOverflow { .. } => panic!("invalid Xv36Frame: width overflow"),
-        Xv36FrameError::StrideTooSmall { .. } => panic!("invalid Xv36Frame: stride too small"),
-        Xv36FrameError::PlaneTooShort { .. } => panic!("invalid Xv36Frame: plane too short"),
-        Xv36FrameError::GeometryOverflow { .. } => panic!("invalid Xv36Frame: geometry overflow"),
+        Xv36FrameError::ZeroDimension(_) => panic!("invalid Xv36Frame: zero dimension"),
+        Xv36FrameError::WidthOverflow(_) => panic!("invalid Xv36Frame: width overflow"),
+        Xv36FrameError::InsufficientStride(_) => panic!("invalid Xv36Frame: stride too small"),
+        Xv36FrameError::InsufficientPlane(_) => panic!("invalid Xv36Frame: plane too short"),
+        Xv36FrameError::GeometryOverflow(_) => panic!("invalid Xv36Frame: geometry overflow"),
         // SampleLowBitsSet/SampleLowBitsSetAt are only emitted by
         // try_new_checked (and SampleLowBitsSet is reserved unit
         // variant for back-compat — never emitted).
@@ -682,46 +617,27 @@ pub struct VuyaFrame<'a> {
 #[non_exhaustive]
 pub enum VuyaFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("VuyaFrame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("VuyaFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("VuyaFrame: width {width} × 4 overflows u32 (per-row byte count)")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
+  #[error("VuyaFrame: width {} × 4 overflows u32 (per-row byte count)", .0.width())]
+  WidthOverflow(WidthOverflow),
+
   /// `stride < width × 4` (bytes). Each row needs at least
   /// `width × 4` bytes to hold all pixels.
-  #[error("VuyaFrame: stride {stride} bytes is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in bytes (`width × 4`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("VuyaFrame: stride {} bytes is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("VuyaFrame: plane too short: expected >= {expected} bytes, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in bytes (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in bytes.
-    actual: usize,
-  },
+  #[error("VuyaFrame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("VuyaFrame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("VuyaFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 impl<'a> VuyaFrame<'a> {
@@ -734,29 +650,32 @@ impl<'a> VuyaFrame<'a> {
     stride: u32,
   ) -> Result<Self, VuyaFrameError> {
     if width == 0 || height == 0 {
-      return Err(VuyaFrameError::ZeroDimension { width, height });
+      return Err(VuyaFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(n) => n,
-      None => return Err(VuyaFrameError::WidthOverflow { width }),
+      None => return Err(VuyaFrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(VuyaFrameError::StrideTooSmall { min_stride, stride });
+      return Err(VuyaFrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(VuyaFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(VuyaFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(VuyaFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(VuyaFrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -773,11 +692,11 @@ impl<'a> VuyaFrame<'a> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        VuyaFrameError::ZeroDimension { .. } => panic!("invalid VuyaFrame: zero dimension"),
-        VuyaFrameError::WidthOverflow { .. } => panic!("invalid VuyaFrame: width overflow"),
-        VuyaFrameError::StrideTooSmall { .. } => panic!("invalid VuyaFrame: stride too small"),
-        VuyaFrameError::PlaneTooShort { .. } => panic!("invalid VuyaFrame: plane too short"),
-        VuyaFrameError::GeometryOverflow { .. } => {
+        VuyaFrameError::ZeroDimension(_) => panic!("invalid VuyaFrame: zero dimension"),
+        VuyaFrameError::WidthOverflow(_) => panic!("invalid VuyaFrame: width overflow"),
+        VuyaFrameError::InsufficientStride(_) => panic!("invalid VuyaFrame: stride too small"),
+        VuyaFrameError::InsufficientPlane(_) => panic!("invalid VuyaFrame: plane too short"),
+        VuyaFrameError::GeometryOverflow(_) => {
           panic!("invalid VuyaFrame: geometry overflow")
         }
       },
@@ -840,46 +759,27 @@ pub struct VuyxFrame<'a> {
 #[non_exhaustive]
 pub enum VuyxFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("VuyxFrame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("VuyxFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("VuyxFrame: width {width} × 4 overflows u32 (per-row byte count)")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
+  #[error("VuyxFrame: width {} × 4 overflows u32 (per-row byte count)", .0.width())]
+  WidthOverflow(WidthOverflow),
+
   /// `stride < width × 4` (bytes). Each row needs at least
   /// `width × 4` bytes to hold all pixels.
-  #[error("VuyxFrame: stride {stride} bytes is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in bytes (`width × 4`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("VuyxFrame: stride {} bytes is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("VuyxFrame: plane too short: expected >= {expected} bytes, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in bytes (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in bytes.
-    actual: usize,
-  },
+  #[error("VuyxFrame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("VuyxFrame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("VuyxFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 impl<'a> VuyxFrame<'a> {
@@ -892,29 +792,32 @@ impl<'a> VuyxFrame<'a> {
     stride: u32,
   ) -> Result<Self, VuyxFrameError> {
     if width == 0 || height == 0 {
-      return Err(VuyxFrameError::ZeroDimension { width, height });
+      return Err(VuyxFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(n) => n,
-      None => return Err(VuyxFrameError::WidthOverflow { width }),
+      None => return Err(VuyxFrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(VuyxFrameError::StrideTooSmall { min_stride, stride });
+      return Err(VuyxFrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(VuyxFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(VuyxFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(VuyxFrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(VuyxFrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -931,11 +834,11 @@ impl<'a> VuyxFrame<'a> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        VuyxFrameError::ZeroDimension { .. } => panic!("invalid VuyxFrame: zero dimension"),
-        VuyxFrameError::WidthOverflow { .. } => panic!("invalid VuyxFrame: width overflow"),
-        VuyxFrameError::StrideTooSmall { .. } => panic!("invalid VuyxFrame: stride too small"),
-        VuyxFrameError::PlaneTooShort { .. } => panic!("invalid VuyxFrame: plane too short"),
-        VuyxFrameError::GeometryOverflow { .. } => {
+        VuyxFrameError::ZeroDimension(_) => panic!("invalid VuyxFrame: zero dimension"),
+        VuyxFrameError::WidthOverflow(_) => panic!("invalid VuyxFrame: width overflow"),
+        VuyxFrameError::InsufficientStride(_) => panic!("invalid VuyxFrame: stride too small"),
+        VuyxFrameError::InsufficientPlane(_) => panic!("invalid VuyxFrame: plane too short"),
+        VuyxFrameError::GeometryOverflow(_) => {
           panic!("invalid VuyxFrame: geometry overflow")
         }
       },
@@ -1019,47 +922,28 @@ pub type Ayuv64BeFrame<'a> = Ayuv64Frame<'a, true>;
 #[non_exhaustive]
 pub enum Ayuv64FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("Ayuv64Frame: zero dimension width={width} height={height}")]
-  ZeroDimension {
-    /// Configured width.
-    width: u32,
-    /// Configured height.
-    height: u32,
-  },
+  #[error("Ayuv64Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Ayuv64Frame: width {width} × 4 overflows u32 (per-row u16 element count)")]
-  WidthOverflow {
-    /// Configured width.
-    width: u32,
-  },
+  #[error("Ayuv64Frame: width {} × 4 overflows u32 (per-row u16 element count)", .0.width())]
+  WidthOverflow(WidthOverflow),
+
   /// `stride < width × 4` (u16 elements). Each row needs at least
   /// `width × 4` u16 elements (= `width × 8` bytes) to hold all
   /// pixels.
-  #[error("Ayuv64Frame: stride {stride} u16 elements is below the minimum {min_stride}")]
-  StrideTooSmall {
-    /// Minimum required stride in u16 elements (`width × 4`).
-    min_stride: u32,
-    /// Caller-supplied stride.
-    stride: u32,
-  },
+  #[error("Ayuv64Frame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("Ayuv64Frame: plane too short: expected >= {expected} u16 elements, got {actual}")]
-  PlaneTooShort {
-    /// Minimum required plane length in u16 elements (`stride * height`).
-    expected: usize,
-    /// Caller-supplied plane length in u16 elements.
-    actual: usize,
-  },
+  #[error("Ayuv64Frame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Ayuv64Frame: stride × height overflows usize (stride={stride}, rows={rows})")]
-  GeometryOverflow {
-    /// Configured stride.
-    stride: u32,
-    /// Configured height.
-    rows: u32,
-  },
+  #[error("Ayuv64Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 impl<'a, const BE: bool> Ayuv64Frame<'a, BE> {
@@ -1075,29 +959,32 @@ impl<'a, const BE: bool> Ayuv64Frame<'a, BE> {
     stride: u32,
   ) -> Result<Self, Ayuv64FrameError> {
     if width == 0 || height == 0 {
-      return Err(Ayuv64FrameError::ZeroDimension { width, height });
+      return Err(Ayuv64FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = match width.checked_mul(4) {
       Some(n) => n,
-      None => return Err(Ayuv64FrameError::WidthOverflow { width }),
+      None => return Err(Ayuv64FrameError::WidthOverflow(WidthOverflow::new(width))),
     };
     if stride < min_stride {
-      return Err(Ayuv64FrameError::StrideTooSmall { min_stride, stride });
+      return Err(Ayuv64FrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
     }
     let plane_min = match (stride as usize).checked_mul(height as usize) {
       Some(n) => n,
       None => {
-        return Err(Ayuv64FrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(Ayuv64FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if packed.len() < plane_min {
-      return Err(Ayuv64FrameError::PlaneTooShort {
-        expected: plane_min,
-        actual: packed.len(),
-      });
+      return Err(Ayuv64FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
     }
     Ok(Self {
       packed,
@@ -1114,11 +1001,11 @@ impl<'a, const BE: bool> Ayuv64Frame<'a, BE> {
     match Self::try_new(packed, width, height, stride) {
       Ok(f) => f,
       Err(e) => match e {
-        Ayuv64FrameError::ZeroDimension { .. } => panic!("invalid Ayuv64Frame: zero dimension"),
-        Ayuv64FrameError::WidthOverflow { .. } => panic!("invalid Ayuv64Frame: width overflow"),
-        Ayuv64FrameError::StrideTooSmall { .. } => panic!("invalid Ayuv64Frame: stride too small"),
-        Ayuv64FrameError::PlaneTooShort { .. } => panic!("invalid Ayuv64Frame: plane too short"),
-        Ayuv64FrameError::GeometryOverflow { .. } => {
+        Ayuv64FrameError::ZeroDimension(_) => panic!("invalid Ayuv64Frame: zero dimension"),
+        Ayuv64FrameError::WidthOverflow(_) => panic!("invalid Ayuv64Frame: width overflow"),
+        Ayuv64FrameError::InsufficientStride(_) => panic!("invalid Ayuv64Frame: stride too small"),
+        Ayuv64FrameError::InsufficientPlane(_) => panic!("invalid Ayuv64Frame: plane too short"),
+        Ayuv64FrameError::GeometryOverflow(_) => {
           panic!("invalid Ayuv64Frame: geometry overflow")
         }
       },
@@ -1156,5 +1043,30 @@ impl<'a, const BE: bool> Ayuv64Frame<'a, BE> {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn is_be(&self) -> bool {
     BE
+  }
+}
+
+/// Payload struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Xv36SampleLowBitsSetAt {
+  index: usize,
+  value: u16,
+}
+
+impl Xv36SampleLowBitsSetAt {
+  /// Constructs a new `Xv36SampleLowBitsSetAt`.
+  #[inline]
+  pub const fn new(index: usize, value: u16) -> Self {
+    Self { index, value }
+  }
+  /// Returns the `index` field.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+  /// Returns the `value` field.
+  #[inline]
+  pub const fn value(&self) -> u16 {
+    self.value
   }
 }

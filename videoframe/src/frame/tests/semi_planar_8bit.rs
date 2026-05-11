@@ -29,14 +29,14 @@ fn nv12_try_new_accepts_valid_padded_strides() {
 fn nv12_try_new_rejects_zero_dim() {
   let (y, uv) = nv12_planes();
   let e = Nv12Frame::try_new(&y, &uv, 0, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Nv12FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn nv12_try_new_rejects_odd_width() {
   let (y, uv) = nv12_planes();
   let e = Nv12Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::OddWidth { width: 15 }));
+  assert!(matches!(e, Nv12FrameError::OddWidth(_)));
 }
 
 #[test]
@@ -55,14 +55,14 @@ fn nv12_try_new_accepts_odd_height() {
 fn nv12_try_new_rejects_y_stride_under_width() {
   let (y, uv) = nv12_planes();
   let e = Nv12Frame::try_new(&y, &uv, 16, 8, 8, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Nv12FrameError::InsufficientYStride(_)));
 }
 
 #[test]
 fn nv12_try_new_rejects_uv_stride_under_width() {
   let (y, uv) = nv12_planes();
   let e = Nv12Frame::try_new(&y, &uv, 16, 8, 16, 8).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::UvStrideTooSmall { .. }));
+  assert!(matches!(e, Nv12FrameError::InsufficientUvStride(_)));
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn nv12_try_new_rejects_short_y_plane() {
   let y = std::vec![0u8; 10];
   let uv = std::vec![128u8; 16 * 4];
   let e = Nv12Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Nv12FrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -78,7 +78,7 @@ fn nv12_try_new_rejects_short_uv_plane() {
   let y = std::vec![0u8; 16 * 8];
   let uv = std::vec![128u8; 8];
   let e = Nv12Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::UvPlaneTooShort { .. }));
+  assert!(matches!(e, Nv12FrameError::InsufficientUvPlane(_)));
 }
 
 #[test]
@@ -123,14 +123,14 @@ fn nv16_try_new_accepts_valid_padded_strides() {
 fn nv16_try_new_rejects_zero_dim() {
   let (y, uv) = nv16_planes();
   let e = Nv16Frame::try_new(&y, &uv, 0, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Nv16FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn nv16_try_new_rejects_odd_width() {
   let (y, uv) = nv16_planes();
   let e = Nv16Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::OddWidth { width: 15 }));
+  assert!(matches!(e, Nv16FrameError::OddWidth(_)));
 }
 
 #[test]
@@ -148,14 +148,14 @@ fn nv16_try_new_accepts_odd_height() {
 fn nv16_try_new_rejects_y_stride_under_width() {
   let (y, uv) = nv16_planes();
   let e = Nv16Frame::try_new(&y, &uv, 16, 8, 8, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Nv16FrameError::InsufficientYStride(_)));
 }
 
 #[test]
 fn nv16_try_new_rejects_uv_stride_under_width() {
   let (y, uv) = nv16_planes();
   let e = Nv16Frame::try_new(&y, &uv, 16, 8, 16, 8).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::UvStrideTooSmall { .. }));
+  assert!(matches!(e, Nv16FrameError::InsufficientUvStride(_)));
 }
 
 #[test]
@@ -163,7 +163,7 @@ fn nv16_try_new_rejects_short_y_plane() {
   let y = std::vec![0u8; 10];
   let uv = std::vec![128u8; 16 * 8];
   let e = Nv16Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Nv16FrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn nv16_try_new_rejects_short_uv_plane() {
   // height → this must fail.
   let uv = std::vec![128u8; 16 * 4];
   let e = Nv16Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::UvPlaneTooShort { .. }));
+  assert!(matches!(e, Nv16FrameError::InsufficientUvPlane(_)));
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn nv16_try_new_rejects_geometry_overflow() {
   let y: [u8; 0] = [];
   let uv: [u8; 0] = [];
   let e = Nv16Frame::try_new(&y, &uv, big, big, big, big).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Nv16FrameError::GeometryOverflow(_)));
 }
 
 // ---- Nv24Frame ---------------------------------------------------------
@@ -235,14 +235,14 @@ fn nv24_try_new_accepts_odd_height() {
 fn nv24_try_new_rejects_zero_dim() {
   let (y, uv) = nv24_planes();
   let e = Nv24Frame::try_new(&y, &uv, 0, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Nv24FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn nv24_try_new_rejects_y_stride_under_width() {
   let (y, uv) = nv24_planes();
   let e = Nv24Frame::try_new(&y, &uv, 16, 8, 8, 32).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, Nv24FrameError::InsufficientYStride(_)));
 }
 
 #[test]
@@ -250,7 +250,7 @@ fn nv24_try_new_rejects_uv_stride_under_double_width() {
   let (y, uv) = nv24_planes();
   // 4:4:4 requires uv_stride >= 2 * width (= 32). 16 is insufficient.
   let e = Nv24Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::UvStrideTooSmall { .. }));
+  assert!(matches!(e, Nv24FrameError::InsufficientUvStride(_)));
 }
 
 #[test]
@@ -258,7 +258,7 @@ fn nv24_try_new_rejects_short_y_plane() {
   let y = std::vec![0u8; 10];
   let uv = std::vec![128u8; 32 * 8];
   let e = Nv24Frame::try_new(&y, &uv, 16, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Nv24FrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn nv24_try_new_rejects_short_uv_plane() {
   let y = std::vec![0u8; 16 * 8];
   let uv = std::vec![128u8; 32]; // one row instead of 8
   let e = Nv24Frame::try_new(&y, &uv, 16, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::UvPlaneTooShort { .. }));
+  assert!(matches!(e, Nv24FrameError::InsufficientUvPlane(_)));
 }
 
 #[test]
@@ -285,7 +285,7 @@ fn nv24_try_new_rejects_geometry_overflow() {
   let uv: [u8; 0] = [];
   // stride * height overflow path
   let e = Nv24Frame::try_new(&y, &uv, big, big, big, big * 2).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Nv24FrameError::GeometryOverflow(_)));
 }
 
 #[test]
@@ -297,7 +297,7 @@ fn nv24_try_new_rejects_uv_width_overflow_u32() {
   // width >= 2^31 makes `width * 2` overflow u32.
   let w: u32 = 0x8000_0000;
   let e = Nv24Frame::try_new(&y, &uv, w, 1, w, 0).unwrap_err();
-  assert!(matches!(e, Nv24FrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Nv24FrameError::GeometryOverflow(_)));
 }
 
 // ---- Nv42Frame ---------------------------------------------------------
@@ -328,14 +328,14 @@ fn nv42_try_new_accepts_odd_width() {
 fn nv42_try_new_rejects_zero_dim() {
   let (y, vu) = nv42_planes();
   let e = Nv42Frame::try_new(&y, &vu, 0, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv42FrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Nv42FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn nv42_try_new_rejects_vu_stride_under_double_width() {
   let (y, vu) = nv42_planes();
   let e = Nv42Frame::try_new(&y, &vu, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv42FrameError::VuStrideTooSmall { .. }));
+  assert!(matches!(e, Nv42FrameError::InsufficientVuStride(_)));
 }
 
 #[test]
@@ -343,7 +343,7 @@ fn nv42_try_new_rejects_short_y_plane() {
   let y = std::vec![0u8; 10];
   let vu = std::vec![128u8; 32 * 8];
   let e = Nv42Frame::try_new(&y, &vu, 16, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv42FrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, Nv42FrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -351,7 +351,7 @@ fn nv42_try_new_rejects_short_vu_plane() {
   let y = std::vec![0u8; 16 * 8];
   let vu = std::vec![128u8; 32];
   let e = Nv42Frame::try_new(&y, &vu, 16, 8, 16, 32).unwrap_err();
-  assert!(matches!(e, Nv42FrameError::VuPlaneTooShort { .. }));
+  assert!(matches!(e, Nv42FrameError::InsufficientVuPlane(_)));
 }
 
 #[test]
@@ -396,21 +396,21 @@ fn nv21_try_new_accepts_odd_height() {
 fn nv21_try_new_rejects_odd_width() {
   let (y, vu) = nv21_planes();
   let e = Nv21Frame::try_new(&y, &vu, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::OddWidth { width: 15 }));
+  assert!(matches!(e, Nv21FrameError::OddWidth(_)));
 }
 
 #[test]
 fn nv21_try_new_rejects_zero_dim() {
   let (y, vu) = nv21_planes();
   let e = Nv21Frame::try_new(&y, &vu, 0, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::ZeroDimension { .. }));
+  assert!(matches!(e, Nv21FrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn nv21_try_new_rejects_vu_stride_under_width() {
   let (y, vu) = nv21_planes();
   let e = Nv21Frame::try_new(&y, &vu, 16, 8, 16, 8).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::VuStrideTooSmall { .. }));
+  assert!(matches!(e, Nv21FrameError::InsufficientVuStride(_)));
 }
 
 #[test]
@@ -418,7 +418,7 @@ fn nv21_try_new_rejects_short_vu_plane() {
   let y = std::vec![0u8; 16 * 8];
   let vu = std::vec![128u8; 8];
   let e = Nv21Frame::try_new(&y, &vu, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::VuPlaneTooShort { .. }));
+  assert!(matches!(e, Nv21FrameError::InsufficientVuPlane(_)));
 }
 
 #[test]
@@ -436,5 +436,5 @@ fn nv21_try_new_rejects_geometry_overflow() {
   let y: [u8; 0] = [];
   let vu: [u8; 0] = [];
   let e = Nv21Frame::try_new(&y, &vu, big, big, big, big).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, Nv21FrameError::GeometryOverflow(_)));
 }

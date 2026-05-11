@@ -43,17 +43,11 @@ fn gbrpf32_frame_try_new_rejects_zero_dimension() {
   let p = vec![0.0f32; 16];
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&p, &p, &p, 0, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(GbrFloatFrameError::ZeroDimension(_))
   ));
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&p, &p, &p, 8, 0, 8, 8, 8),
-    Err(GbrFloatFrameError::ZeroDimension {
-      width: 8,
-      height: 0
-    })
+    Err(GbrFloatFrameError::ZeroDimension(_))
   ));
 }
 
@@ -63,29 +57,17 @@ fn gbrpf32_frame_try_new_rejects_stride_below_width() {
   // G stride too small
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&p, &p, &p, 8, 4, 7, 8, 8),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "g",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
   // B stride too small
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&p, &p, &p, 8, 4, 8, 7, 8),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "b",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
   // R stride too small
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&p, &p, &p, 8, 4, 8, 8, 7),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "r",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
 }
 
@@ -96,27 +78,15 @@ fn gbrpf32_frame_try_new_rejects_plane_too_short() {
   let full = vec![0.0f32; 8 * 4];
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&short, &full, &full, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "g",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&full, &short, &full, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "b",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
   assert!(matches!(
     Gbrpf32LeFrame::try_new(&full, &full, &short, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "r",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -128,7 +98,7 @@ fn gbrpf32_frame_try_new_rejects_dimension_overflow() {
   let p: &[f32] = &[];
   assert!(matches!(
     Gbrpf32LeFrame::try_new(p, p, p, w, h, w, w, w),
-    Err(GbrFloatFrameError::DimensionOverflow { .. })
+    Err(GbrFloatFrameError::DimensionOverflow(_))
   ));
 }
 
@@ -163,7 +133,7 @@ fn gbrpf32_try_new_rejects_geometry_overflow() {
     let small_h: u32 = 3;
     assert!(matches!(
       Gbrpf32LeFrame::try_new(p, p, p, 1, small_h, stride, stride, stride),
-      Err(GbrFloatFrameError::GeometryOverflow { plane: "g", .. })
+      Err(GbrFloatFrameError::GeometryOverflow(_))
     ));
   }
   #[cfg(not(target_pointer_width = "32"))]
@@ -171,11 +141,7 @@ fn gbrpf32_try_new_rejects_geometry_overflow() {
     // On 64-bit, GeometryOverflow cannot fire with u32 strides/heights since
     // u32::MAX * u32::MAX = ~1.8e19 < u64::MAX. Verify the error type exists
     // by constructing a dummy value.
-    let _ = GbrFloatFrameError::GeometryOverflow {
-      plane: "g",
-      stride: u32::MAX,
-      height: u32::MAX,
-    };
+    let _ = GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(0, 0));
   }
 }
 
@@ -196,7 +162,7 @@ fn gbrapf32_frame_try_new_rejects_zero_dimension() {
   let p = vec![0.0f32; 16];
   assert!(matches!(
     Gbrapf32LeFrame::try_new(&p, &p, &p, &p, 0, 4, 8, 8, 8, 8),
-    Err(GbrFloatFrameError::ZeroDimension { .. })
+    Err(GbrFloatFrameError::ZeroDimension(_))
   ));
 }
 
@@ -206,11 +172,7 @@ fn gbrapf32_frame_try_new_rejects_stride_below_width() {
   // A stride too small
   assert!(matches!(
     Gbrapf32LeFrame::try_new(&p, &p, &p, &p, 8, 4, 8, 8, 8, 7),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "a",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
 }
 
@@ -220,11 +182,7 @@ fn gbrapf32_frame_try_new_rejects_plane_too_short() {
   let full = vec![0.0f32; 8 * 4];
   assert!(matches!(
     Gbrapf32LeFrame::try_new(&full, &full, &full, &short, 8, 4, 8, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "a",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -235,7 +193,7 @@ fn gbrapf32_frame_try_new_rejects_dimension_overflow() {
   let p: &[f32] = &[];
   assert!(matches!(
     Gbrapf32LeFrame::try_new(p, p, p, p, w, h, w, w, w, w),
-    Err(GbrFloatFrameError::DimensionOverflow { .. })
+    Err(GbrFloatFrameError::DimensionOverflow(_))
   ));
 }
 
@@ -247,16 +205,12 @@ fn gbrapf32_try_new_rejects_geometry_overflow() {
     let p: &[f32] = &[];
     assert!(matches!(
       Gbrapf32LeFrame::try_new(p, p, p, p, 1, 3, stride, stride, stride, stride),
-      Err(GbrFloatFrameError::GeometryOverflow { plane: "g", .. })
+      Err(GbrFloatFrameError::GeometryOverflow(_))
     ));
   }
   #[cfg(not(target_pointer_width = "32"))]
   {
-    let _ = GbrFloatFrameError::GeometryOverflow {
-      plane: "g",
-      stride: u32::MAX,
-      height: u32::MAX,
-    };
+    let _ = GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(0, 0));
   }
 }
 
@@ -281,7 +235,7 @@ fn gbrpf16_frame_try_new_rejects_zero_dimension() {
   let p = f16_zeros(16);
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&p, &p, &p, 8, 0, 8, 8, 8),
-    Err(GbrFloatFrameError::ZeroDimension { .. })
+    Err(GbrFloatFrameError::ZeroDimension(_))
   ));
 }
 
@@ -290,27 +244,15 @@ fn gbrpf16_frame_try_new_rejects_stride_below_width() {
   let p = f16_zeros(8 * 4);
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&p, &p, &p, 8, 4, 7, 8, 8),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "g",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&p, &p, &p, 8, 4, 8, 7, 8),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "b",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&p, &p, &p, 8, 4, 8, 8, 7),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "r",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
 }
 
@@ -320,27 +262,15 @@ fn gbrpf16_frame_try_new_rejects_plane_too_short() {
   let full = f16_zeros(8 * 4);
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&short, &full, &full, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "g",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&full, &short, &full, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "b",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
   assert!(matches!(
     Gbrpf16LeFrame::try_new(&full, &full, &short, 8, 4, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "r",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -351,7 +281,7 @@ fn gbrpf16_frame_try_new_rejects_dimension_overflow() {
   let p: &[half::f16] = &[];
   assert!(matches!(
     Gbrpf16LeFrame::try_new(p, p, p, w, h, w, w, w),
-    Err(GbrFloatFrameError::DimensionOverflow { .. })
+    Err(GbrFloatFrameError::DimensionOverflow(_))
   ));
 }
 
@@ -363,16 +293,12 @@ fn gbrpf16_try_new_rejects_geometry_overflow() {
     let p: &[half::f16] = &[];
     assert!(matches!(
       Gbrpf16LeFrame::try_new(p, p, p, 1, 3, stride, stride, stride),
-      Err(GbrFloatFrameError::GeometryOverflow { plane: "g", .. })
+      Err(GbrFloatFrameError::GeometryOverflow(_))
     ));
   }
   #[cfg(not(target_pointer_width = "32"))]
   {
-    let _ = GbrFloatFrameError::GeometryOverflow {
-      plane: "g",
-      stride: u32::MAX,
-      height: u32::MAX,
-    };
+    let _ = GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(0, 0));
   }
 }
 
@@ -393,7 +319,7 @@ fn gbrapf16_frame_try_new_rejects_zero_dimension() {
   let p = f16_zeros(16);
   assert!(matches!(
     Gbrapf16LeFrame::try_new(&p, &p, &p, &p, 0, 4, 8, 8, 8, 8),
-    Err(GbrFloatFrameError::ZeroDimension { .. })
+    Err(GbrFloatFrameError::ZeroDimension(_))
   ));
 }
 
@@ -402,11 +328,7 @@ fn gbrapf16_frame_try_new_rejects_stride_below_width() {
   let p = f16_zeros(8 * 4);
   assert!(matches!(
     Gbrapf16LeFrame::try_new(&p, &p, &p, &p, 8, 4, 8, 8, 8, 7),
-    Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: "a",
-      stride: 7,
-      width: 8
-    })
+    Err(GbrFloatFrameError::StrideBelowWidth(_))
   ));
 }
 
@@ -416,11 +338,7 @@ fn gbrapf16_frame_try_new_rejects_plane_too_short() {
   let full = f16_zeros(8 * 4);
   assert!(matches!(
     Gbrapf16LeFrame::try_new(&full, &full, &full, &short, 8, 4, 8, 8, 8, 8),
-    Err(GbrFloatFrameError::PlaneTooShort {
-      plane: "a",
-      expected: 32,
-      actual: 16
-    })
+    Err(GbrFloatFrameError::InsufficientPlane(_))
   ));
 }
 
@@ -431,7 +349,7 @@ fn gbrapf16_frame_try_new_rejects_dimension_overflow() {
   let p: &[half::f16] = &[];
   assert!(matches!(
     Gbrapf16LeFrame::try_new(p, p, p, p, w, h, w, w, w, w),
-    Err(GbrFloatFrameError::DimensionOverflow { .. })
+    Err(GbrFloatFrameError::DimensionOverflow(_))
   ));
 }
 
@@ -443,16 +361,12 @@ fn gbrapf16_try_new_rejects_geometry_overflow() {
     let p: &[half::f16] = &[];
     assert!(matches!(
       Gbrapf16LeFrame::try_new(p, p, p, p, 1, 3, stride, stride, stride, stride),
-      Err(GbrFloatFrameError::GeometryOverflow { plane: "g", .. })
+      Err(GbrFloatFrameError::GeometryOverflow(_))
     ));
   }
   #[cfg(not(target_pointer_width = "32"))]
   {
-    let _ = GbrFloatFrameError::GeometryOverflow {
-      plane: "g",
-      stride: u32::MAX,
-      height: u32::MAX,
-    };
+    let _ = GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(0, 0));
   }
 }
 

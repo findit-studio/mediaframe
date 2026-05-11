@@ -31,10 +31,7 @@ fn gbrp_frame_try_new_rejects_zero_width() {
   let r = std::vec![0u8; 16];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 0, 4, 0, 0, 0),
-    Err(GbrpFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(GbrpFrameError::ZeroDimension(_))
   ));
 }
 
@@ -45,10 +42,7 @@ fn gbrp_frame_try_new_rejects_zero_height() {
   let r = std::vec![0u8; 16];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 0, 16, 16, 16),
-    Err(GbrpFrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(GbrpFrameError::ZeroDimension(_))
   ));
 }
 
@@ -59,10 +53,7 @@ fn gbrp_frame_try_new_rejects_g_stride_too_small() {
   let r = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 15, 16, 16),
-    Err(GbrpFrameError::GStrideTooSmall {
-      width: 16,
-      g_stride: 15
-    })
+    Err(GbrpFrameError::InsufficientGStride(_))
   ));
 }
 
@@ -73,10 +64,7 @@ fn gbrp_frame_try_new_rejects_b_stride_too_small() {
   let r = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 16, 15, 16),
-    Err(GbrpFrameError::BStrideTooSmall {
-      width: 16,
-      b_stride: 15
-    })
+    Err(GbrpFrameError::InsufficientBStride(_))
   ));
 }
 
@@ -87,10 +75,7 @@ fn gbrp_frame_try_new_rejects_r_stride_too_small() {
   let r = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 16, 16, 15),
-    Err(GbrpFrameError::RStrideTooSmall {
-      width: 16,
-      r_stride: 15
-    })
+    Err(GbrpFrameError::InsufficientRStride(_))
   ));
 }
 
@@ -102,10 +87,7 @@ fn gbrp_frame_try_new_rejects_g_plane_too_short() {
   let r = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 16, 16, 16),
-    Err(GbrpFrameError::GPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrpFrameError::InsufficientGPlane(_))
   ));
 }
 
@@ -116,10 +98,7 @@ fn gbrp_frame_try_new_rejects_b_plane_too_short() {
   let r = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 16, 16, 16),
-    Err(GbrpFrameError::BPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrpFrameError::InsufficientBPlane(_))
   ));
 }
 
@@ -130,10 +109,7 @@ fn gbrp_frame_try_new_rejects_r_plane_too_short() {
   let r = std::vec![0u8; 16];
   assert!(matches!(
     GbrpFrame::try_new(&g, &b, &r, 16, 4, 16, 16, 16),
-    Err(GbrpFrameError::RPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrpFrameError::InsufficientRPlane(_))
   ));
 }
 
@@ -145,7 +121,7 @@ fn gbrp_frame_try_new_rejects_geometry_overflow() {
   let b: [u8; 0] = [];
   let r: [u8; 0] = [];
   let e = GbrpFrame::try_new(&g, &b, &r, big, big, big, big, big).unwrap_err();
-  assert!(matches!(e, GbrpFrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, GbrpFrameError::GeometryOverflow(_)));
 }
 
 #[test]
@@ -200,10 +176,7 @@ fn gbrap_frame_try_new_rejects_zero_width() {
   let empty = std::vec![0u8; 4];
   assert!(matches!(
     GbrapFrame::try_new(&empty, &empty, &empty, &empty, 0, 4, 0, 0, 0, 0),
-    Err(GbrapFrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(GbrapFrameError::ZeroDimension(_))
   ));
 }
 
@@ -212,10 +185,7 @@ fn gbrap_frame_try_new_rejects_zero_height() {
   let empty = std::vec![0u8; 16];
   assert!(matches!(
     GbrapFrame::try_new(&empty, &empty, &empty, &empty, 16, 0, 16, 16, 16, 16),
-    Err(GbrapFrameError::ZeroDimension {
-      width: 16,
-      height: 0
-    })
+    Err(GbrapFrameError::ZeroDimension(_))
   ));
 }
 
@@ -224,10 +194,7 @@ fn gbrap_frame_try_new_rejects_g_stride_too_small() {
   let p = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&p, &p, &p, &p, 16, 4, 15, 16, 16, 16),
-    Err(GbrapFrameError::GStrideTooSmall {
-      width: 16,
-      g_stride: 15
-    })
+    Err(GbrapFrameError::InsufficientGStride(_))
   ));
 }
 
@@ -236,10 +203,7 @@ fn gbrap_frame_try_new_rejects_b_stride_too_small() {
   let p = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&p, &p, &p, &p, 16, 4, 16, 15, 16, 16),
-    Err(GbrapFrameError::BStrideTooSmall {
-      width: 16,
-      b_stride: 15
-    })
+    Err(GbrapFrameError::InsufficientBStride(_))
   ));
 }
 
@@ -248,10 +212,7 @@ fn gbrap_frame_try_new_rejects_r_stride_too_small() {
   let p = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&p, &p, &p, &p, 16, 4, 16, 16, 15, 16),
-    Err(GbrapFrameError::RStrideTooSmall {
-      width: 16,
-      r_stride: 15
-    })
+    Err(GbrapFrameError::InsufficientRStride(_))
   ));
 }
 
@@ -260,10 +221,7 @@ fn gbrap_frame_try_new_rejects_a_stride_too_small() {
   let p = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&p, &p, &p, &p, 16, 4, 16, 16, 16, 15),
-    Err(GbrapFrameError::AStrideTooSmall {
-      width: 16,
-      a_stride: 15
-    })
+    Err(GbrapFrameError::InsufficientAStride(_))
   ));
 }
 
@@ -273,10 +231,7 @@ fn gbrap_frame_try_new_rejects_g_plane_too_short() {
   let full = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&short, &full, &full, &full, 16, 4, 16, 16, 16, 16),
-    Err(GbrapFrameError::GPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrapFrameError::InsufficientGPlane(_))
   ));
 }
 
@@ -286,10 +241,7 @@ fn gbrap_frame_try_new_rejects_b_plane_too_short() {
   let full = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&full, &short, &full, &full, 16, 4, 16, 16, 16, 16),
-    Err(GbrapFrameError::BPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrapFrameError::InsufficientBPlane(_))
   ));
 }
 
@@ -299,10 +251,7 @@ fn gbrap_frame_try_new_rejects_r_plane_too_short() {
   let full = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&full, &full, &short, &full, 16, 4, 16, 16, 16, 16),
-    Err(GbrapFrameError::RPlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrapFrameError::InsufficientRPlane(_))
   ));
 }
 
@@ -312,10 +261,7 @@ fn gbrap_frame_try_new_rejects_a_plane_too_short() {
   let full = std::vec![0u8; 16 * 4];
   assert!(matches!(
     GbrapFrame::try_new(&full, &full, &full, &short, 16, 4, 16, 16, 16, 16),
-    Err(GbrapFrameError::APlaneTooShort {
-      expected: 64,
-      actual: 16
-    })
+    Err(GbrapFrameError::InsufficientAPlane(_))
   ));
 }
 
@@ -325,7 +271,7 @@ fn gbrap_frame_try_new_rejects_geometry_overflow() {
   let big: u32 = 0x1_0000;
   let p: [u8; 0] = [];
   let e = GbrapFrame::try_new(&p, &p, &p, &p, big, big, big, big, big, big).unwrap_err();
-  assert!(matches!(e, GbrapFrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, GbrapFrameError::GeometryOverflow(_)));
 }
 
 #[test]

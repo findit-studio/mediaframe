@@ -44,14 +44,14 @@ fn yuv420p10_try_new_accepts_odd_height() {
 fn yuv420p10_try_new_rejects_odd_width() {
   let (y, u, v) = p10_planes();
   let e = Yuv420p10Frame::try_new(&y, &u, &v, 15, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::OddWidth { width: 15 }));
+  assert!(matches!(e, Yuv420pFrame16Error::OddWidth(_)));
 }
 
 #[test]
 fn yuv420p10_try_new_rejects_zero_dim() {
   let (y, u, v) = p10_planes();
   let e = Yuv420p10Frame::try_new(&y, &u, &v, 0, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::ZeroDimension { .. }));
+  assert!(matches!(e, Yuv420pFrame16Error::ZeroDimension(_)));
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn yuv420p10_try_new_rejects_short_y_plane() {
   let u = std::vec![512u16; 8 * 4];
   let v = std::vec![512u16; 8 * 4];
   let e = Yuv420p10Frame::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::YPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv420pFrame16Error::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn yuv420p10_try_new_rejects_short_u_plane() {
   let u = std::vec![512u16; 4];
   let v = std::vec![512u16; 8 * 4];
   let e = Yuv420p10Frame::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::UPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv420pFrame16Error::InsufficientUPlane(_)));
 }
 
 #[test]
@@ -80,15 +80,9 @@ fn yuv420p_frame16_try_new_rejects_unsupported_bits() {
   let u = std::vec![128u16; 8 * 4];
   let v = std::vec![128u16; 8 * 4];
   let e = Yuv420pFrame16::<11>::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv420pFrame16Error::UnsupportedBits { bits: 11 }
-  ));
+  assert!(matches!(e, Yuv420pFrame16Error::UnsupportedBits(_)));
   let e15 = Yuv420pFrame16::<15>::try_new(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e15,
-    Yuv420pFrame16Error::UnsupportedBits { bits: 15 }
-  ));
+  assert!(matches!(e15, Yuv420pFrame16Error::UnsupportedBits(_)));
 }
 
 #[test]
@@ -141,9 +135,9 @@ fn pn_try_new_rejects_bits_other_than_10_12_16() {
   let y = std::vec![0u16; 16 * 8];
   let uv = std::vec![0u16; 16 * 4];
   let e14 = PnFrame::<14>::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e14, PnFrameError::UnsupportedBits { bits: 14 }));
+  assert!(matches!(e14, PnFrameError::UnsupportedBits(_)));
   let e11 = PnFrame::<11>::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e11, PnFrameError::UnsupportedBits { bits: 11 }));
+  assert!(matches!(e11, PnFrameError::UnsupportedBits(_)));
 }
 
 #[test]
@@ -166,7 +160,7 @@ fn yuv420p10_try_new_rejects_geometry_overflow() {
   let u: [u16; 0] = [];
   let v: [u16; 0] = [];
   let e = Yuv420p10Frame::try_new(&y, &u, &v, big, big, big, big / 2, big / 2).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::GeometryOverflow { .. }));
+  assert!(matches!(e, Yuv420pFrame16Error::GeometryOverflow(_)));
 }
 
 #[test]
@@ -204,15 +198,10 @@ fn yuv420p10_try_new_checked_rejects_y_high_bit_set() {
   let v = le_encoded_u16_buf(&intended_uv);
   let e = Yuv420p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
   match e {
-    Yuv420pFrame16Error::SampleOutOfRange {
-      plane,
-      value,
-      max_valid,
-      ..
-    } => {
-      assert_eq!(plane, Yuv420pFrame16Plane::Y);
-      assert_eq!(value, 0x8000);
-      assert_eq!(max_valid, 1023);
+    Yuv420pFrame16Error::SampleOutOfRange(p) => {
+      assert_eq!(p.plane(), Yuv420pFrame16Plane::Y);
+      assert_eq!(p.value(), 0x8000);
+      assert_eq!(p.max_valid(), 1023);
     }
     other => panic!("expected SampleOutOfRange, got {other:?}"),
   }
@@ -229,15 +218,7 @@ fn yuv420p10_try_new_checked_rejects_u_plane_sample() {
   let u = le_encoded_u16_buf(&intended_u);
   let v = le_encoded_u16_buf(&intended_v);
   let e = Yuv420p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv420pFrame16Error::SampleOutOfRange {
-      plane: Yuv420pFrame16Plane::U,
-      value: 1024,
-      max_valid: 1023,
-      ..
-    }
-  ));
+  assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }
 
 #[test]
@@ -256,14 +237,7 @@ fn yuv420p10_try_new_checked_rejects_v_plane_sample() {
   let u = le_encoded_u16_buf(&intended_u);
   let v = le_encoded_u16_buf(&intended_v);
   let e = Yuv420p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv420pFrame16Error::SampleOutOfRange {
-      plane: Yuv420pFrame16Plane::V,
-      max_valid: 1023,
-      ..
-    }
-  ));
+  assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }
 
 #[test]
@@ -288,7 +262,7 @@ fn yuv420p10_try_new_checked_reports_geometry_errors_first() {
   let u = std::vec![512u16; 8 * 4];
   let v = std::vec![512u16; 8 * 4];
   let e = Yuv420p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::YPlaneTooShort { .. }));
+  assert!(matches!(e, Yuv420pFrame16Error::InsufficientYPlane(_)));
 }
 
 // ---- P010Frame ---------------------------------------------------------
@@ -326,28 +300,28 @@ fn p010_try_new_accepts_odd_height() {
 fn p010_try_new_rejects_odd_width() {
   let (y, uv) = p010_planes();
   let e = P010Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::OddWidth { width: 15 }));
+  assert!(matches!(e, PnFrameError::OddWidth(_)));
 }
 
 #[test]
 fn p010_try_new_rejects_zero_dim() {
   let (y, uv) = p010_planes();
   let e = P010Frame::try_new(&y, &uv, 0, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::ZeroDimension { .. }));
+  assert!(matches!(e, PnFrameError::ZeroDimension(_)));
 }
 
 #[test]
 fn p010_try_new_rejects_y_stride_under_width() {
   let (y, uv) = p010_planes();
   let e = P010Frame::try_new(&y, &uv, 16, 8, 8, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::YStrideTooSmall { .. }));
+  assert!(matches!(e, PnFrameError::InsufficientYStride(_)));
 }
 
 #[test]
 fn p010_try_new_rejects_uv_stride_under_width() {
   let (y, uv) = p010_planes();
   let e = P010Frame::try_new(&y, &uv, 16, 8, 16, 8).unwrap_err();
-  assert!(matches!(e, PnFrameError::UvStrideTooSmall { .. }));
+  assert!(matches!(e, PnFrameError::InsufficientUvStride(_)));
 }
 
 #[test]
@@ -357,7 +331,7 @@ fn p010_try_new_rejects_odd_uv_stride() {
   let y = std::vec![0u16; 16 * 8];
   let uv = std::vec![0x8000u16; 17 * 4];
   let e = P010Frame::try_new(&y, &uv, 16, 8, 16, 17).unwrap_err();
-  assert!(matches!(e, PnFrameError::UvStrideOdd { uv_stride: 17 }));
+  assert!(matches!(e, PnFrameError::UvStrideOdd(_)));
 }
 
 #[test]
@@ -367,7 +341,7 @@ fn p210_try_new_rejects_odd_uv_stride() {
   let y = std::vec![0u16; 16 * 8];
   let uv = std::vec![0x8000u16; 17 * 8];
   let e = P210Frame::try_new(&y, &uv, 16, 8, 16, 17).unwrap_err();
-  assert!(matches!(e, PnFrameError::UvStrideOdd { uv_stride: 17 }));
+  assert!(matches!(e, PnFrameError::UvStrideOdd(_)));
 }
 
 #[test]
@@ -378,7 +352,7 @@ fn p410_try_new_rejects_odd_uv_stride() {
   let y = std::vec![0u16; 16 * 8];
   let uv = std::vec![0x8000u16; 33 * 8];
   let e = P410Frame::try_new(&y, &uv, 16, 8, 16, 33).unwrap_err();
-  assert!(matches!(e, PnFrameError::UvStrideOdd { uv_stride: 33 }));
+  assert!(matches!(e, PnFrameError::UvStrideOdd(_)));
 }
 
 #[test]
@@ -386,7 +360,7 @@ fn p010_try_new_rejects_short_y_plane() {
   let y = std::vec![0u16; 10];
   let uv = std::vec![0x8000u16; 16 * 4];
   let e = P010Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, PnFrameError::InsufficientYPlane(_)));
 }
 
 #[test]
@@ -394,7 +368,7 @@ fn p010_try_new_rejects_short_uv_plane() {
   let y = std::vec![0u16; 16 * 8];
   let uv = std::vec![0x8000u16; 8];
   let e = P010Frame::try_new(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::UvPlaneTooShort { .. }));
+  assert!(matches!(e, PnFrameError::InsufficientUvPlane(_)));
 }
 
 #[test]
@@ -412,7 +386,7 @@ fn p010_try_new_rejects_geometry_overflow() {
   let y: [u16; 0] = [];
   let uv: [u16; 0] = [];
   let e = P010Frame::try_new(&y, &uv, big, big, big, big).unwrap_err();
-  assert!(matches!(e, PnFrameError::GeometryOverflow { .. }));
+  assert!(matches!(e, PnFrameError::GeometryOverflow(_)));
 }
 
 #[test]
@@ -438,9 +412,9 @@ fn p010_try_new_checked_rejects_y_low_bits_set() {
   let uv = le_encoded_u16_buf(&intended_uv);
   let e = P010Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
   match e {
-    PnFrameError::SampleLowBitsSet { plane, value, .. } => {
-      assert_eq!(plane, P010FramePlane::Y);
-      assert_eq!(value, 0x03FF);
+    PnFrameError::SampleLowBitsSet(p) => {
+      assert_eq!(p.plane(), P010FramePlane::Y);
+      assert_eq!(p.value(), 0x03FF);
     }
     other => panic!("expected SampleLowBitsSet, got {other:?}"),
   }
@@ -454,14 +428,7 @@ fn p010_try_new_checked_rejects_uv_plane_sample() {
   let y = le_encoded_u16_buf(&intended_y);
   let uv = le_encoded_u16_buf(&intended_uv);
   let e = P010Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(
-    e,
-    PnFrameError::SampleLowBitsSet {
-      plane: P010FramePlane::Uv,
-      value: 0x0001,
-      ..
-    }
-  ));
+  assert!(matches!(e, PnFrameError::SampleLowBitsSet(_)));
 }
 
 #[test]
@@ -469,7 +436,7 @@ fn p010_try_new_checked_reports_geometry_errors_first() {
   let y = std::vec![0u16; 10]; // Too small.
   let uv = std::vec![0x8000u16; 16 * 4];
   let e = P010Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::YPlaneTooShort { .. }));
+  assert!(matches!(e, PnFrameError::InsufficientYPlane(_)));
 }
 
 /// Regression documenting a **known limitation** of
@@ -524,15 +491,10 @@ fn p012_try_new_checked_rejects_low_bits_set() {
   let uv = le_encoded_u16_buf(&intended_uv);
   let e = P012Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
   match e {
-    PnFrameError::SampleLowBitsSet {
-      plane,
-      value,
-      low_bits,
-      ..
-    } => {
-      assert_eq!(plane, PnFramePlane::Y);
-      assert_eq!(value, 0x0ABC);
-      assert_eq!(low_bits, 4);
+    PnFrameError::SampleLowBitsSet(p) => {
+      assert_eq!(p.plane(), PnFramePlane::Y);
+      assert_eq!(p.value(), 0x0ABC);
+      assert_eq!(p.low_bits(), 4);
     }
     other => panic!("expected SampleLowBitsSet, got {other:?}"),
   }
@@ -619,15 +581,7 @@ fn yuv420p10_try_new_checked_rejects_le_encoded_out_of_range_on_any_host() {
   let u = le_encoded_u16_buf(&intended_u);
   let v = le_encoded_u16_buf(&intended_v);
   let e = Yuv420p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv420pFrame16Error::SampleOutOfRange {
-      plane: Yuv420pFrame16Plane::U,
-      value: 1024,
-      max_valid: 1023,
-      ..
-    }
-  ));
+  assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }
 
 #[test]
@@ -656,15 +610,7 @@ fn p010_try_new_checked_rejects_le_encoded_low_bits_on_any_host() {
   let y = le_encoded_u16_buf(&intended_y);
   let uv = le_encoded_u16_buf(&intended_uv);
   let e = P010Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(
-    e,
-    PnFrameError::SampleLowBitsSet {
-      plane: PnFramePlane::Y,
-      value: 0x03FF,
-      low_bits: 6,
-      ..
-    }
-  ));
+  assert!(matches!(e, PnFrameError::SampleLowBitsSet(_)));
 }
 
 #[test]
@@ -717,15 +663,7 @@ fn p010_be_try_new_checked_rejects_be_encoded_low_bits_set() {
   let y = be_encoded_u16_buf(&intended_y);
   let uv = be_encoded_u16_buf(&intended_uv);
   let e = P010BeFrame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();
-  assert!(matches!(
-    e,
-    PnFrameError::SampleLowBitsSet {
-      plane: PnFramePlane::Y,
-      value: 0xFFCF,
-      low_bits: 6,
-      ..
-    }
-  ));
+  assert!(matches!(e, PnFrameError::SampleLowBitsSet(_)));
 }
 
 #[test]
@@ -754,13 +692,5 @@ fn yuv420p10_be_try_new_checked_rejects_be_encoded_out_of_range() {
   let u = be_encoded_u16_buf(&intended_u);
   let v = be_encoded_u16_buf(&intended_v);
   let e = Yuv420p10BeFrame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(
-    e,
-    Yuv420pFrame16Error::SampleOutOfRange {
-      plane: Yuv420pFrame16Plane::U,
-      value: 1024,
-      max_valid: 1023,
-      ..
-    }
-  ));
+  assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }

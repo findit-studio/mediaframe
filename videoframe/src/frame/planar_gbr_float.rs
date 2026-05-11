@@ -19,6 +19,9 @@
 //! walker (`gbrpfXX_to::<BE>(...)`) into the sinker dispatch, which
 //! monomorphizes the kernel call as `gbrpfXX_to_*_row::<BE>(...)`.
 
+use super::{
+  DimensionOverflow, GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -32,55 +35,24 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum GbrFloatFrameError {
   /// `width` or `height` was zero.
-  #[error("zero width or height: {width}×{height}")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("zero width or height: {}×{}", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
 
   /// `width × height` exceeds `i32::MAX` (the FFmpeg plane-size ceiling).
-  #[error("dimension overflow: {width}×{height} exceeds i32::MAX")]
-  DimensionOverflow {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("dimension overflow: {}×{} exceeds i32::MAX", .0.width(), .0.height())]
+  DimensionOverflow(DimensionOverflow),
 
   /// A plane slice is shorter than `stride * (height - 1) + width`.
-  #[error("plane '{plane}' too short: expected >= {expected}, got {actual}")]
-  PlaneTooShort {
-    /// Which plane was short (`"g"`, `"b"`, `"r"`, or `"a"`).
-    plane: &'static str,
-    /// Minimum elements required.
-    expected: usize,
-    /// Actual elements supplied.
-    actual: usize,
-  },
+  #[error("plane too short: expected >= {}, got {}", .0.expected(), .0.actual())]
+  InsufficientPlane(InsufficientPlane),
 
   /// A plane's stride is less than `width` (in elements).
-  #[error("stride for plane '{plane}' must be >= width: stride={stride}, width={width}")]
-  StrideBelowWidth {
-    /// Which plane's stride was too small.
-    plane: &'static str,
-    /// The supplied stride (in elements).
-    stride: u32,
-    /// The declared frame width (in elements).
-    width: u32,
-  },
+  #[error("stride must be >= width: stride={}, width={}", .0.stride(), .0.min())]
+  StrideBelowWidth(InsufficientStride),
 
   /// `stride * (height - 1) + width` overflows `usize` (32-bit targets only).
-  #[error("plane '{plane}' geometry overflows usize: stride={stride}, height={height}")]
-  GeometryOverflow {
-    /// Which plane's geometry overflowed.
-    plane: &'static str,
-    /// Stride of the plane that overflowed.
-    stride: u32,
-    /// Height of the frame.
-    height: u32,
-  },
+  #[error("plane geometry overflows usize: stride={}, rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 // ---------------------------------------------------------------------------
@@ -92,10 +64,14 @@ pub enum GbrFloatFrameError {
 #[inline(always)]
 const fn check_dims(width: u32, height: u32) -> Result<(usize, usize), GbrFloatFrameError> {
   if width == 0 || height == 0 {
-    return Err(GbrFloatFrameError::ZeroDimension { width, height });
+    return Err(GbrFloatFrameError::ZeroDimension(ZeroDimension::new(
+      width, height,
+    )));
   }
   if (width as i64) * (height as i64) > i32::MAX as i64 {
-    return Err(GbrFloatFrameError::DimensionOverflow { width, height });
+    return Err(GbrFloatFrameError::DimensionOverflow(
+      DimensionOverflow::new(width, height),
+    ));
   }
   Ok((width as usize, height as usize))
 }
@@ -110,39 +86,35 @@ const fn check_plane(
   h: usize,
   height: u32,
 ) -> Result<(), GbrFloatFrameError> {
+  // The `name` parameter is no longer carried in the unified payload —
+  // the calling context (which plane is being validated) is already
+  // implicit in the call site.
+  let _ = name;
   if (stride as usize) < w {
-    return Err(GbrFloatFrameError::StrideBelowWidth {
-      plane: name,
-      stride,
-      width: w as u32,
-    });
+    return Err(GbrFloatFrameError::StrideBelowWidth(
+      InsufficientStride::new(stride, w as u32),
+    ));
   }
   let stride_times_hm1 = match (stride as usize).checked_mul(h - 1) {
     Some(v) => v,
     None => {
-      return Err(GbrFloatFrameError::GeometryOverflow {
-        plane: name,
-        stride,
-        height,
-      });
+      return Err(GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(
+        stride, height,
+      )));
     }
   };
   let needed = match stride_times_hm1.checked_add(w) {
     Some(v) => v,
     None => {
-      return Err(GbrFloatFrameError::GeometryOverflow {
-        plane: name,
-        stride,
-        height,
-      });
+      return Err(GbrFloatFrameError::GeometryOverflow(GeometryOverflow::new(
+        stride, height,
+      )));
     }
   };
   if plane_len < needed {
-    return Err(GbrFloatFrameError::PlaneTooShort {
-      plane: name,
-      expected: needed,
-      actual: plane_len,
-    });
+    return Err(GbrFloatFrameError::InsufficientPlane(
+      InsufficientPlane::new(needed, plane_len),
+    ));
   }
   Ok(())
 }

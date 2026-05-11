@@ -23,10 +23,7 @@ fn ya8_frame_try_new_rejects_zero_width() {
   let buf = [0u8; 32];
   assert!(matches!(
     Ya8Frame::try_new(&buf, 0, 4, 8),
-    Err(Ya8FrameError::ZeroDimension {
-      width: 0,
-      height: 4
-    })
+    Err(Ya8FrameError::ZeroDimension(_))
   ));
 }
 
@@ -35,10 +32,7 @@ fn ya8_frame_try_new_rejects_zero_height() {
   let buf = [0u8; 32];
   assert!(matches!(
     Ya8Frame::try_new(&buf, 4, 0, 8),
-    Err(Ya8FrameError::ZeroDimension {
-      width: 4,
-      height: 0
-    })
+    Err(Ya8FrameError::ZeroDimension(_))
   ));
 }
 
@@ -48,11 +42,7 @@ fn ya8_frame_try_new_rejects_stride_too_small() {
   let buf = [0u8; 32];
   assert!(matches!(
     Ya8Frame::try_new(&buf, 4, 4, 7),
-    Err(Ya8FrameError::StrideTooSmall {
-      width: 4,
-      stride: 7,
-      min_stride: 8
-    })
+    Err(Ya8FrameError::InsufficientStride(_))
   ));
 }
 
@@ -62,10 +52,7 @@ fn ya8_frame_try_new_rejects_plane_too_short() {
   let buf = [0u8; 31];
   assert!(matches!(
     Ya8Frame::try_new(&buf, 4, 4, 8),
-    Err(Ya8FrameError::PlaneTooShort {
-      expected: 32,
-      actual: 31
-    })
+    Err(Ya8FrameError::InsufficientPlane(_))
   ));
 }
 

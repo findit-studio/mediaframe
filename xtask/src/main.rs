@@ -33,7 +33,7 @@ const VENDOR_PATH: &str = "xtask/vendor/ffmpeg-pixfmts.txt";
 
 /// Path (relative to the workspace root) of the PixelFormat source
 /// file whose `as_str()` table is the source of truth for our slugs.
-const PIXEL_FORMAT_RS: &str = "src/pixel_format.rs";
+const PIXEL_FORMAT_RS: &str = "videoframe/src/pixel_format.rs";
 
 fn main() -> ExitCode {
   let cmd = std::env::args()

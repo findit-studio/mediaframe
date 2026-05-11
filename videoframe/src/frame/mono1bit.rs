@@ -9,6 +9,7 @@
 //!
 //! FFmpeg names: `AV_PIX_FMT_MONOBLACK`, `AV_PIX_FMT_MONOWHITE`.
 
+use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, ZeroDimension};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -47,30 +48,28 @@ impl<'a, const INVERT: bool> MonoFrame<'a, INVERT> {
     stride: u32,
   ) -> Result<Self, MonoFrameError> {
     if width == 0 || height == 0 {
-      return Err(MonoFrameError::ZeroDimension { width, height });
+      return Err(MonoFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     let min_stride = width.div_ceil(8);
     if stride < min_stride {
-      return Err(MonoFrameError::StrideTooSmall {
-        width,
-        stride,
-        min_stride,
-      });
+      return Err(MonoFrameError::InsufficientStride(InsufficientStride::new(
+        stride, min_stride,
+      )));
     }
     let data_min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(MonoFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(MonoFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if data.len() < data_min {
-      return Err(MonoFrameError::DataPlaneTooShort {
-        expected: data_min,
-        actual: data.len(),
-      });
+      return Err(MonoFrameError::InsufficientDataPlane(
+        InsufficientPlane::new(data_min, data.len()),
+      ));
     }
     Ok(Self {
       data,
@@ -139,37 +138,18 @@ pub type MonowhiteFrame<'a> = MonoFrame<'a, true>;
 #[non_exhaustive]
 pub enum MonoFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < ceil(width / 8)`.
-  #[error("stride ({stride}) is smaller than ceil(width / 8) = {min_stride}")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied byte stride.
-    stride: u32,
-    /// Minimum required stride.
-    min_stride: u32,
-  },
+  #[error("stride ({}) is smaller than ceil(width / 8) = {}", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Data plane is shorter than `stride * height` bytes.
-  #[error("data plane has {actual} bytes but at least {expected} are required")]
-  DataPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("data plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientDataPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }

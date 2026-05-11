@@ -1,3 +1,4 @@
+use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, ZeroDimension};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -50,7 +51,9 @@ impl<'a> Nv12Frame<'a> {
     uv_stride: u32,
   ) -> Result<Self, Nv12FrameError> {
     if width == 0 || height == 0 {
-      return Err(Nv12FrameError::ZeroDimension { width, height });
+      return Err(Nv12FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     // Same odd‑width rationale as [`Yuv420pFrame::try_new`]. Height
     // is allowed to be odd — chroma row sizing uses `div_ceil(2)` and
@@ -58,19 +61,20 @@ impl<'a> Nv12Frame<'a> {
     // like 640x481 (the decoder output for a 640x480 source cropped
     // from an encoded 480-row‑plus‑edge MB grid) are representable.
     if width & 1 != 0 {
-      return Err(Nv12FrameError::OddWidth { width });
+      return Err(Nv12FrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(Nv12FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Nv12FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     // Each chroma row carries `width / 2` interleaved UV pairs = `width`
     // bytes of payload.
     let uv_row_bytes = width;
     if uv_stride < uv_row_bytes {
-      return Err(Nv12FrameError::UvStrideTooSmall {
-        uv_row_bytes,
-        uv_stride,
-      });
+      return Err(Nv12FrameError::InsufficientUvStride(
+        InsufficientStride::new(uv_stride, uv_row_bytes),
+      ));
     }
 
     // Plane sizes use `checked_mul` because `stride * rows` can wrap
@@ -79,33 +83,32 @@ impl<'a> Nv12Frame<'a> {
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv12FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Nv12FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Nv12FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Nv12FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let chroma_height = height.div_ceil(2);
     let uv_min = match (uv_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv12FrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: chroma_height,
-        });
+        return Err(Nv12FrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride,
+          chroma_height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(Nv12FrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(Nv12FrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -180,65 +183,38 @@ impl<'a> Nv12Frame<'a> {
 #[non_exhaustive]
 pub enum Nv12FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd. 4:2:0 subsamples chroma 2:1 in width, so each
   /// chroma column pairs two Y columns — odd widths leave the last Y
   /// column without a paired chroma sample, and the SIMD kernels
   /// assume `width & 1 == 0`. Height is allowed to be odd (handled by
   /// `height.div_ceil(2)` in chroma‑row sizing).
-  #[error("width ({width}) is odd; 4:2:0 requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; 4:2:0 requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `uv_stride` is smaller than the `width` bytes of interleaved UV
   /// payload one chroma row must hold.
-  #[error("uv_stride ({uv_stride}) is smaller than UV row payload ({uv_row_bytes} bytes)")]
-  UvStrideTooSmall {
-    /// Required minimum UV‑plane stride (`= width`).
-    uv_row_bytes: u32,
-    /// The supplied UV‑plane stride.
-    uv_stride: u32,
-  },
+  #[error("uv_stride ({}) is smaller than UV row payload ({} bytes)", .0.stride(), .0.min())]
+  InsufficientUvStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// UV plane is shorter than `uv_stride * ceil(height / 2)` bytes.
-  #[error("UV plane has {actual} bytes but at least {expected} are required")]
-  UvPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("UV plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUvPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (can only fire on 32‑bit
   /// targets — wasm32, i686 — with extreme dimensions).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// A validated NV16 (semi‑planar 4:2:2) frame.
@@ -295,55 +271,56 @@ impl<'a> Nv16Frame<'a> {
     uv_stride: u32,
   ) -> Result<Self, Nv16FrameError> {
     if width == 0 || height == 0 {
-      return Err(Nv16FrameError::ZeroDimension { width, height });
+      return Err(Nv16FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(Nv16FrameError::OddWidth { width });
+      return Err(Nv16FrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(Nv16FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Nv16FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     // Each chroma row carries `width / 2` interleaved UV pairs = `width`
     // bytes of payload — same as NV12.
     let uv_row_bytes = width;
     if uv_stride < uv_row_bytes {
-      return Err(Nv16FrameError::UvStrideTooSmall {
-        uv_row_bytes,
-        uv_stride,
-      });
+      return Err(Nv16FrameError::InsufficientUvStride(
+        InsufficientStride::new(uv_stride, uv_row_bytes),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv16FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Nv16FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Nv16FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Nv16FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     // 4:2:2 chroma is full‑height — no `div_ceil(2)` here (this is the
     // only structural difference from [`Nv12Frame::try_new`]).
     let uv_min = match (uv_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv16FrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: height,
-        });
+        return Err(Nv16FrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride, height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(Nv16FrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(Nv16FrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -418,61 +395,34 @@ impl<'a> Nv16Frame<'a> {
 #[non_exhaustive]
 pub enum Nv16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd. 4:2:2 subsamples chroma 2:1 in width.
-  #[error("width ({width}) is odd; 4:2:2 requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; 4:2:2 requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `uv_stride` is smaller than the `width` bytes of interleaved UV
   /// payload one chroma row must hold.
-  #[error("uv_stride ({uv_stride}) is smaller than UV row payload ({uv_row_bytes} bytes)")]
-  UvStrideTooSmall {
-    /// Required minimum UV‑plane stride (`= width`).
-    uv_row_bytes: u32,
-    /// The supplied UV‑plane stride.
-    uv_stride: u32,
-  },
+  #[error("uv_stride ({}) is smaller than UV row payload ({} bytes)", .0.stride(), .0.min())]
+  InsufficientUvStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// UV plane is shorter than `uv_stride * height` bytes.
-  #[error("UV plane has {actual} bytes but at least {expected} are required")]
-  UvPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("UV plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUvPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (can only fire on 32‑bit
   /// targets — wasm32, i686 — with extreme dimensions).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// A validated NV24 (semi‑planar 4:4:4) frame.
@@ -521,10 +471,14 @@ impl<'a> Nv24Frame<'a> {
     uv_stride: u32,
   ) -> Result<Self, Nv24FrameError> {
     if width == 0 || height == 0 {
-      return Err(Nv24FrameError::ZeroDimension { width, height });
+      return Err(Nv24FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(Nv24FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Nv24FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     // Each chroma row carries `width` UV pairs = `2 * width` bytes of
     // payload. Use `checked_mul` — `2 * width` could overflow `u32` at
@@ -532,48 +486,44 @@ impl<'a> Nv24Frame<'a> {
     let uv_row_bytes = match width.checked_mul(2) {
       Some(v) => v,
       None => {
-        return Err(Nv24FrameError::GeometryOverflow {
-          stride: width,
-          rows: 2,
-        });
+        return Err(Nv24FrameError::GeometryOverflow(GeometryOverflow::new(
+          width, 2,
+        )));
       }
     };
     if uv_stride < uv_row_bytes {
-      return Err(Nv24FrameError::UvStrideTooSmall {
-        uv_row_bytes,
-        uv_stride,
-      });
+      return Err(Nv24FrameError::InsufficientUvStride(
+        InsufficientStride::new(uv_stride, uv_row_bytes),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv24FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Nv24FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Nv24FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Nv24FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let uv_min = match (uv_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv24FrameError::GeometryOverflow {
-          stride: uv_stride,
-          rows: height,
-        });
+        return Err(Nv24FrameError::GeometryOverflow(GeometryOverflow::new(
+          uv_stride, height,
+        )));
       }
     };
     if uv.len() < uv_min {
-      return Err(Nv24FrameError::UvPlaneTooShort {
-        expected: uv_min,
-        actual: uv.len(),
-      });
+      return Err(Nv24FrameError::InsufficientUvPlane(InsufficientPlane::new(
+        uv_min,
+        uv.len(),
+      )));
     }
 
     Ok(Self {
@@ -647,59 +597,32 @@ impl<'a> Nv24Frame<'a> {
 #[non_exhaustive]
 pub enum Nv24FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `uv_stride` is smaller than the `2 * width` bytes of interleaved
   /// UV payload one chroma row must hold.
-  #[error("uv_stride ({uv_stride}) is smaller than UV row payload ({uv_row_bytes} bytes)")]
-  UvStrideTooSmall {
-    /// Required minimum UV‑plane stride (`= 2 * width`).
-    uv_row_bytes: u32,
-    /// The supplied UV‑plane stride.
-    uv_stride: u32,
-  },
+  #[error("uv_stride ({}) is smaller than UV row payload ({} bytes)", .0.stride(), .0.min())]
+  InsufficientUvStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// UV plane is shorter than `uv_stride * height` bytes.
-  #[error("UV plane has {actual} bytes but at least {expected} are required")]
-  UvPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("UV plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientUvPlane(InsufficientPlane),
+
   /// Size arithmetic overflowed. Fires for either
   /// `stride * rows` exceeding `usize::MAX` (the usual case) **or**
   /// the `width * 2` computation for the UV-row-payload length
   /// exceeding `u32::MAX` at extreme widths.
-  #[error("declared geometry overflows: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride (or `width`, for the `width * 2` overflow case) of
-    /// the dimension whose product overflowed.
-    stride: u32,
-    /// Row count (or `2`, for the `width * 2` overflow case) that
-    /// overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// A validated NV42 (semi‑planar 4:4:4, VU‑ordered) frame.
@@ -731,56 +654,56 @@ impl<'a> Nv42Frame<'a> {
     vu_stride: u32,
   ) -> Result<Self, Nv42FrameError> {
     if width == 0 || height == 0 {
-      return Err(Nv42FrameError::ZeroDimension { width, height });
+      return Err(Nv42FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if y_stride < width {
-      return Err(Nv42FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Nv42FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let vu_row_bytes = match width.checked_mul(2) {
       Some(v) => v,
       None => {
-        return Err(Nv42FrameError::GeometryOverflow {
-          stride: width,
-          rows: 2,
-        });
+        return Err(Nv42FrameError::GeometryOverflow(GeometryOverflow::new(
+          width, 2,
+        )));
       }
     };
     if vu_stride < vu_row_bytes {
-      return Err(Nv42FrameError::VuStrideTooSmall {
-        vu_row_bytes,
-        vu_stride,
-      });
+      return Err(Nv42FrameError::InsufficientVuStride(
+        InsufficientStride::new(vu_stride, vu_row_bytes),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv42FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Nv42FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Nv42FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Nv42FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let vu_min = match (vu_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv42FrameError::GeometryOverflow {
-          stride: vu_stride,
-          rows: height,
-        });
+        return Err(Nv42FrameError::GeometryOverflow(GeometryOverflow::new(
+          vu_stride, height,
+        )));
       }
     };
     if vu.len() < vu_min {
-      return Err(Nv42FrameError::VuPlaneTooShort {
-        expected: vu_min,
-        actual: vu.len(),
-      });
+      return Err(Nv42FrameError::InsufficientVuPlane(InsufficientPlane::new(
+        vu_min,
+        vu.len(),
+      )));
     }
 
     Ok(Self {
@@ -854,59 +777,32 @@ impl<'a> Nv42Frame<'a> {
 #[non_exhaustive]
 pub enum Nv42FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `vu_stride` is smaller than the `2 * width` bytes of interleaved
   /// VU payload one chroma row must hold.
-  #[error("vu_stride ({vu_stride}) is smaller than VU row payload ({vu_row_bytes} bytes)")]
-  VuStrideTooSmall {
-    /// Required minimum VU‑plane stride (`= 2 * width`).
-    vu_row_bytes: u32,
-    /// The supplied VU‑plane stride.
-    vu_stride: u32,
-  },
+  #[error("vu_stride ({}) is smaller than VU row payload ({} bytes)", .0.stride(), .0.min())]
+  InsufficientVuStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// VU plane is shorter than `vu_stride * height` bytes.
-  #[error("VU plane has {actual} bytes but at least {expected} are required")]
-  VuPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("VU plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientVuPlane(InsufficientPlane),
+
   /// Size arithmetic overflowed. Fires for either
   /// `stride * rows` exceeding `usize::MAX` (the usual case) **or**
   /// the `width * 2` computation for the VU-row-payload length
   /// exceeding `u32::MAX` at extreme widths.
-  #[error("declared geometry overflows: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride (or `width`, for the `width * 2` overflow case) of
-    /// the dimension whose product overflowed.
-    stride: u32,
-    /// Row count (or `2`, for the `width * 2` overflow case) that
-    /// overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 ///
 /// Structurally identical to [`Nv12Frame`] — one full-size luma plane
@@ -951,52 +847,54 @@ impl<'a> Nv21Frame<'a> {
     vu_stride: u32,
   ) -> Result<Self, Nv21FrameError> {
     if width == 0 || height == 0 {
-      return Err(Nv21FrameError::ZeroDimension { width, height });
+      return Err(Nv21FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     if width & 1 != 0 {
-      return Err(Nv21FrameError::OddWidth { width });
+      return Err(Nv21FrameError::OddWidth(OddWidth::new(width)));
     }
     if y_stride < width {
-      return Err(Nv21FrameError::YStrideTooSmall { width, y_stride });
+      return Err(Nv21FrameError::InsufficientYStride(
+        InsufficientStride::new(y_stride, width),
+      ));
     }
     let vu_row_bytes = width;
     if vu_stride < vu_row_bytes {
-      return Err(Nv21FrameError::VuStrideTooSmall {
-        vu_row_bytes,
-        vu_stride,
-      });
+      return Err(Nv21FrameError::InsufficientVuStride(
+        InsufficientStride::new(vu_stride, vu_row_bytes),
+      ));
     }
 
     let y_min = match (y_stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv21FrameError::GeometryOverflow {
-          stride: y_stride,
-          rows: height,
-        });
+        return Err(Nv21FrameError::GeometryOverflow(GeometryOverflow::new(
+          y_stride, height,
+        )));
       }
     };
     if y.len() < y_min {
-      return Err(Nv21FrameError::YPlaneTooShort {
-        expected: y_min,
-        actual: y.len(),
-      });
+      return Err(Nv21FrameError::InsufficientYPlane(InsufficientPlane::new(
+        y_min,
+        y.len(),
+      )));
     }
     let chroma_height = height.div_ceil(2);
     let vu_min = match (vu_stride as usize).checked_mul(chroma_height as usize) {
       Some(v) => v,
       None => {
-        return Err(Nv21FrameError::GeometryOverflow {
-          stride: vu_stride,
-          rows: chroma_height,
-        });
+        return Err(Nv21FrameError::GeometryOverflow(GeometryOverflow::new(
+          vu_stride,
+          chroma_height,
+        )));
       }
     };
     if vu.len() < vu_min {
-      return Err(Nv21FrameError::VuPlaneTooShort {
-        expected: vu_min,
-        actual: vu.len(),
-      });
+      return Err(Nv21FrameError::InsufficientVuPlane(InsufficientPlane::new(
+        vu_min,
+        vu.len(),
+      )));
     }
 
     Ok(Self {
@@ -1074,58 +972,31 @@ impl<'a> Nv21Frame<'a> {
 #[non_exhaustive]
 pub enum Nv21FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `width` was odd. Same rationale as [`Nv12FrameError::OddWidth`].
-  #[error("width ({width}) is odd; 4:2:0 requires even width")]
-  OddWidth {
-    /// The supplied width.
-    width: u32,
-  },
+  #[error("width ({}) is odd; 4:2:0 requires even width", .0.width())]
+  OddWidth(OddWidth),
+
   /// `y_stride < width`.
-  #[error("y_stride ({y_stride}) is smaller than width ({width})")]
-  YStrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied Y‑plane stride.
-    y_stride: u32,
-  },
+  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientYStride(InsufficientStride),
+
   /// `vu_stride` is smaller than the `width` bytes of interleaved VU
   /// payload one chroma row must hold.
-  #[error("vu_stride ({vu_stride}) is smaller than VU row payload ({vu_row_bytes} bytes)")]
-  VuStrideTooSmall {
-    /// Required minimum VU‑plane stride (`= width`).
-    vu_row_bytes: u32,
-    /// The supplied VU‑plane stride.
-    vu_stride: u32,
-  },
+  #[error("vu_stride ({}) is smaller than VU row payload ({} bytes)", .0.stride(), .0.min())]
+  InsufficientVuStride(InsufficientStride),
+
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {actual} bytes but at least {expected} are required")]
-  YPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientYPlane(InsufficientPlane),
+
   /// VU plane is shorter than `vu_stride * ceil(height / 2)` bytes.
-  #[error("VU plane has {actual} bytes but at least {expected} are required")]
-  VuPlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("VU plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientVuPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize`.
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }

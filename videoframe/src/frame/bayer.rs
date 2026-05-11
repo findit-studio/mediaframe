@@ -1,3 +1,6 @@
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, ZeroDimension,
+};
 use derive_more::IsVariant;
 use thiserror::Error;
 
@@ -50,7 +53,9 @@ impl<'a> BayerFrame<'a> {
     stride: u32,
   ) -> Result<Self, BayerFrameError> {
     if width == 0 || height == 0 {
-      return Err(BayerFrameError::ZeroDimension { width, height });
+      return Err(BayerFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     // Odd Bayer widths and heights are accepted: a cropped Bayer
     // plane (post-production crop, sensor-specific active area)
@@ -59,22 +64,23 @@ impl<'a> BayerFrame<'a> {
     // demosaic kernel clamps left / right columns, so the math is
     // defined for every site regardless of dimension parity.
     if stride < width {
-      return Err(BayerFrameError::StrideTooSmall { width, stride });
+      return Err(BayerFrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
     }
     let min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(BayerFrameError::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(BayerFrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if data.len() < min {
-      return Err(BayerFrameError::PlaneTooShort {
-        expected: min,
-        actual: data.len(),
-      });
+      return Err(BayerFrameError::InsufficientPlane(InsufficientPlane::new(
+        min,
+        data.len(),
+      )));
     }
     Ok(Self {
       data,
@@ -209,31 +215,35 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
     stride: u32,
   ) -> Result<Self, BayerFrame16Error> {
     if BITS != 10 && BITS != 12 && BITS != 14 && BITS != 16 {
-      return Err(BayerFrame16Error::UnsupportedBits { bits: BITS });
+      return Err(BayerFrame16Error::UnsupportedBits(UnsupportedBits::new(
+        BITS,
+      )));
     }
     if width == 0 || height == 0 {
-      return Err(BayerFrame16Error::ZeroDimension { width, height });
+      return Err(BayerFrame16Error::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
     }
     // Odd Bayer widths and heights are accepted; see
     // [`BayerFrame::try_new`] for the rationale (cropped Bayer is
     // a real workflow, edge clamping handles partial tiles).
     if stride < width {
-      return Err(BayerFrame16Error::StrideTooSmall { width, stride });
+      return Err(BayerFrame16Error::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
     }
     let min = match (stride as usize).checked_mul(height as usize) {
       Some(v) => v,
       None => {
-        return Err(BayerFrame16Error::GeometryOverflow {
-          stride,
-          rows: height,
-        });
+        return Err(BayerFrame16Error::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
       }
     };
     if data.len() < min {
-      return Err(BayerFrame16Error::PlaneTooShort {
-        expected: min,
-        actual: data.len(),
-      });
+      return Err(BayerFrame16Error::InsufficientPlane(
+        InsufficientPlane::new(min, data.len()),
+      ));
     }
     // Sample range scan — only the **active** per-row region
     // (`r * stride .. r * stride + width`) is checked. Row padding
@@ -247,11 +257,9 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
       let start = row * stride as usize;
       for (col, &s) in data[start..start + w].iter().enumerate() {
         if s > max_valid {
-          return Err(BayerFrame16Error::SampleOutOfRange {
-            index: start + col,
-            value: s,
-            max_valid,
-          });
+          return Err(BayerFrame16Error::SampleOutOfRange(
+            BayerSampleOutOfRange::new(start + col, s, max_valid),
+          ));
         }
       }
     }
@@ -324,38 +332,21 @@ pub type Bayer16Frame<'a> = BayerFrame16<'a, 16>;
 #[non_exhaustive]
 pub enum BayerFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width`.
-  #[error("stride ({stride}) is smaller than width ({width})")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied plane stride.
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` bytes.
-  #[error("Bayer plane has {actual} bytes but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum bytes required.
-    expected: usize,
-    /// Actual bytes supplied.
-    actual: usize,
-  },
+  #[error("Bayer plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (can only fire on
   /// 32‑bit targets — wasm32, i686 — with extreme dimensions).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
 }
 
 /// Errors returned by [`BayerFrame16::try_new`].
@@ -363,43 +354,25 @@ pub enum BayerFrameError {
 #[non_exhaustive]
 pub enum BayerFrame16Error {
   /// `BITS` const-generic parameter is not one of `{10, 12, 14, 16}`.
-  #[error("BITS ({bits}) is not 10, 12, 14, or 16")]
-  UnsupportedBits {
-    /// The supplied `BITS` value.
-    bits: u32,
-  },
+  #[error("BITS ({}) is not 10, 12, 14, or 16", .0.bits())]
+  UnsupportedBits(UnsupportedBits),
+
   /// `width` or `height` was zero.
-  #[error("width ({width}) or height ({height}) is zero")]
-  ZeroDimension {
-    /// The supplied width.
-    width: u32,
-    /// The supplied height.
-    height: u32,
-  },
+  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  ZeroDimension(ZeroDimension),
+
   /// `stride < width` (in `u16` samples).
-  #[error("stride ({stride}) is smaller than width ({width})")]
-  StrideTooSmall {
-    /// Declared frame width in pixels.
-    width: u32,
-    /// The supplied plane stride (samples).
-    stride: u32,
-  },
+  #[error("stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  InsufficientStride(InsufficientStride),
+
   /// Plane is shorter than `stride * height` samples.
-  #[error("Bayer plane has {actual} samples but at least {expected} are required")]
-  PlaneTooShort {
-    /// Minimum samples required.
-    expected: usize,
-    /// Actual samples supplied.
-    actual: usize,
-  },
+  #[error("Bayer plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  InsufficientPlane(InsufficientPlane),
+
   /// `stride * rows` does not fit in `usize` (32‑bit targets only).
-  #[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
-  GeometryOverflow {
-    /// Stride of the plane whose size overflowed.
-    stride: u32,
-    /// Row count that overflowed against the stride.
-    rows: u32,
-  },
+  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  GeometryOverflow(GeometryOverflow),
+
   /// A sample's value exceeds `(1 << BITS) - 1` — the sample's
   /// high `16 - BITS` bits are non-zero, which is invalid under
   /// the low-packed Bayer16 convention. Returned by
@@ -407,13 +380,41 @@ pub enum BayerFrame16Error {
   /// wraps it) — sample-range validation is part of standard
   /// frame construction so the `bayer16_to` walker
   /// is fully fallible.
-  #[error("sample {value} at element {index} exceeds {max_valid} ((1 << BITS) - 1)")]
-  SampleOutOfRange {
-    /// Element index within the plane's slice.
-    index: usize,
-    /// The offending sample value.
-    value: u16,
-    /// The valid maximum at the declared `BITS` (`(1 << BITS) - 1`).
-    max_valid: u16,
-  },
+  #[error("sample {} at element {} exceeds {} ((1 << BITS) - 1)", .0.value(), .0.index(), .0.max_valid())]
+  SampleOutOfRange(BayerSampleOutOfRange),
+}
+
+/// Payload struct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BayerSampleOutOfRange {
+  index: usize,
+  value: u16,
+  max_valid: u16,
+}
+
+impl BayerSampleOutOfRange {
+  /// Constructs a new `BayerSampleOutOfRange`.
+  #[inline]
+  pub const fn new(index: usize, value: u16, max_valid: u16) -> Self {
+    Self {
+      index,
+      value,
+      max_valid,
+    }
+  }
+  /// Returns the `index` field.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+  /// Returns the `value` field.
+  #[inline]
+  pub const fn value(&self) -> u16 {
+    self.value
+  }
+  /// Returns the `max_valid` field.
+  #[inline]
+  pub const fn max_valid(&self) -> u16 {
+    self.max_valid
+  }
 }

@@ -149,4 +149,3 @@ Copyright (c) 2026 FinDIT Studio authors.
 [doc-url]: https://docs.rs/videoframe
 [crates-url]: https://crates.io/crates/videoframe
 [codecov-url]: https://app.codecov.io/gh/al8n/videoframe/
-[zh-cn-url]: https://github.com/al8n/videoframe/tree/main/README-zh_CN.md

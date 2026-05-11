@@ -12,19 +12,19 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Pal8FrameError {
   /// `width` or `height` was zero.
-  #[error("zero width or height: {}×{}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width`.
-  #[error("stride {} < width {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `stride * height` overflows `usize` (can only fire on 32-bit targets).
-  #[error("geometry overflow: stride {} × rows {} exceeds usize", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// Pixel data is shorter than `stride * height` bytes.
-  #[error("pixel data too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 }
 

@@ -297,35 +297,35 @@ impl<'a, const BITS: u32, const BE: bool> GbrpHighBitFrame<'a, BITS, BE> {
 #[non_exhaustive]
 pub enum GbrpHighBitFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `g_stride < width` (in samples).
-  #[error("g_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientGStride(InsufficientStride),
 
   /// `b_stride < width` (in samples).
-  #[error("b_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientBStride(InsufficientStride),
 
   /// `r_stride < width` (in samples).
-  #[error("r_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientRStride(InsufficientStride),
 
   /// G plane is shorter than `g_stride * height` samples.
-  #[error("G plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientGPlane(InsufficientPlane),
 
   /// B plane is shorter than `b_stride * height` samples.
-  #[error("B plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientBPlane(InsufficientPlane),
 
   /// R plane is shorter than `r_stride * height` samples.
-  #[error("R plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientRPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -650,43 +650,43 @@ impl<'a, const BITS: u32, const BE: bool> GbrapHighBitFrame<'a, BITS, BE> {
 #[non_exhaustive]
 pub enum GbrapHighBitFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `g_stride < width` (in samples).
-  #[error("g_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientGStride(InsufficientStride),
 
   /// `b_stride < width` (in samples).
-  #[error("b_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientBStride(InsufficientStride),
 
   /// `r_stride < width` (in samples).
-  #[error("r_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientRStride(InsufficientStride),
 
   /// `a_stride < width` (in samples).
-  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientAStride(InsufficientStride),
 
   /// G plane is shorter than `g_stride * height` samples.
-  #[error("G plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientGPlane(InsufficientPlane),
 
   /// B plane is shorter than `b_stride * height` samples.
-  #[error("B plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientBPlane(InsufficientPlane),
 
   /// R plane is shorter than `r_stride * height` samples.
-  #[error("R plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientRPlane(InsufficientPlane),
 
   /// A plane is shorter than `a_stride * height` samples.
-  #[error("A plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientAPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 

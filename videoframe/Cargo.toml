@@ -25,26 +25,26 @@ frame = [
   "bayer", "xyz", "mono",
 ]
 
-yuv-planar      = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-yuv-semi-planar = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-yuva            = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-yuv-packed      = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-yuv-444-packed  = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-y2xx            = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-v210            = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-rgb             = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-rgb-float       = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
-rgb-legacy      = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-gbr             = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
-gray            = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
-bayer           = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-xyz             = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
-mono            = ["dep:thiserror", "derive_more/try_unwrap", "derive_more/unwrap"]
+yuv-planar      = ["derive_more/try_unwrap", "derive_more/unwrap"]
+yuv-semi-planar = ["derive_more/try_unwrap", "derive_more/unwrap"]
+yuva            = ["derive_more/try_unwrap", "derive_more/unwrap"]
+yuv-packed      = ["derive_more/try_unwrap", "derive_more/unwrap"]
+yuv-444-packed  = ["derive_more/try_unwrap", "derive_more/unwrap"]
+y2xx            = ["derive_more/try_unwrap", "derive_more/unwrap"]
+v210            = ["derive_more/try_unwrap", "derive_more/unwrap"]
+rgb             = ["derive_more/try_unwrap", "derive_more/unwrap"]
+rgb-float       = ["derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
+rgb-legacy      = ["derive_more/try_unwrap", "derive_more/unwrap"]
+gbr             = ["derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
+gray            = ["derive_more/try_unwrap", "derive_more/unwrap", "dep:half"]
+bayer           = ["derive_more/try_unwrap", "derive_more/unwrap"]
+xyz             = ["derive_more/try_unwrap", "derive_more/unwrap"]
+mono            = ["derive_more/try_unwrap", "derive_more/unwrap"]
 
 [dependencies]
 derive_more = { version = "2", default-features = false, features = ["display", "is_variant"] }
 mediatime   = { version = "0.1", default-features = false }
-thiserror   = { version = "2", default-features = false, optional = true }
+thiserror   = { version = "2", default-features = false }
 half        = { version = "2", default-features = false, optional = true }
 
 [profile.bench]

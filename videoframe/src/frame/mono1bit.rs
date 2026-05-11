@@ -138,18 +138,18 @@ pub type MonowhiteFrame<'a> = MonoFrame<'a, true>;
 #[non_exhaustive]
 pub enum MonoFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < ceil(width / 8)`.
-  #[error("stride ({}) is smaller than ceil(width / 8) = {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Data plane is shorter than `stride * height` bytes.
-  #[error("data plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientDataPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }

@@ -125,36 +125,36 @@ pub type Y216BeFrame<'a> = Y2xxFrame<'a, 16, true>;
 #[non_exhaustive]
 pub enum Y2xxFrameError {
   /// `BITS ∉ {10, 12, 16}`.
-  #[error("Y2xxFrame: unsupported BITS {}; must be 10, 12, or 16", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width == 0` or `height == 0`.
-  #[error("Y2xxFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width % 2 != 0`. 4:2:2 subsampling requires even width.
-  #[error("Y2xxFrame: width {} is odd; 4:2:2 chroma subsampling requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `stride < width * 2` (u16 elements). Each row needs at least
   /// `width × 2` u16 elements (= `width × 4` bytes) to hold all
   /// pixels.
-  #[error("Y2xxFrame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry (in u16 elements).
-  #[error("Y2xxFrame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Y2xxFrame: stride × height overflows u32 (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `width × 2` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Y2xxFrame: width {} × 2 overflows u32 (per-row u16 element count)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 
   /// `try_new_checked` only: a sample's low `(16 - BITS)` bits are

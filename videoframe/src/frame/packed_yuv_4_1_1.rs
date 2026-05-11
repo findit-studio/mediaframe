@@ -36,33 +36,33 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Uyyvyy411FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width` was not a multiple of 4. Packed YUV 4:1:1 shares one
   /// chroma pair across 4 luma samples, so each 6-byte block covers
   /// exactly 4 pixels — widths not divisible by 4 can't form a
   /// complete final block.
-  #[error("width ({}) is not a multiple of 4; packed YUV 4:1:1 requires width divisible by 4", .0.width())]
+  #[error(transparent)]
   WidthNotMultipleOf4(WidthNotMultipleOf4),
 
   /// `stride < width * 3 / 2`. Each row needs `width * 3 / 2` bytes
   /// (6 bytes per 4-pixel block, 12 bpp).
-  #[error("stride ({}) is smaller than width * 3 / 2 ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("UYYVYY411 plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `width * 3` overflows `u32` (the checked op prior to the exact
   /// `/ 2` that yields the row stride). Reachable only at extreme
   /// widths — well beyond practical raster sizes.
-  #[error("width * 3 overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

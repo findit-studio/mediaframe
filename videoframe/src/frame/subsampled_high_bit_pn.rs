@@ -930,11 +930,11 @@ pub enum PnFrameError {
   /// `BITS` was not one of the supported high‑bit‑packed depths
   /// (10, 12, 16). 14 exists in the planar `yuv420p14le` family but
   /// not as a Pn hardware output.
-  #[error("unsupported BITS ({}) for PnFrame; must be 10, 12, or 16", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width` was odd. Returned by [`PnFrame::try_new`] (4:2:0) and
@@ -942,11 +942,11 @@ pub enum PnFrameError {
   /// horizontally and pair `(U, V)` per chroma sample, so the frame
   /// width must be even. 4:4:4 ([`PnFrame444`]) has no parity
   /// constraint and never emits this variant.
-  #[error("width ({}) is odd; horizontally-subsampled chroma requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `y_stride < width` (in `u16` samples).
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// `uv_stride` is smaller than the interleaved UV row payload
@@ -954,7 +954,7 @@ pub enum PnFrameError {
   /// payload depends on the format: `width` for 4:2:0 / 4:2:2
   /// (half-width × 2 elements per pair) and `2 * width` for 4:4:4
   /// (full-width × 2 elements per pair).
-  #[error("uv_stride ({}) is smaller than UV row payload ({} u16 elements)", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientUvStride(InsufficientStride),
 
   /// `uv_stride` is odd. Each interleaved chroma row is laid out as
@@ -969,11 +969,11 @@ pub enum PnFrameError {
   )]
   UvStrideOdd(PnUvStrideOdd),
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// UV plane is shorter than `uv_stride * ceil(height / 2)` samples.
-  #[error("UV plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientUvPlane(InsufficientPlane),
 
   /// Size arithmetic overflowed. Fires for either
@@ -982,7 +982,7 @@ pub enum PnFrameError {
   /// dimensions) **or** the `width * 2` `u32` computation for the
   /// 4:4:4 UV-row-payload length (`PnFrame444::try_new` only)
   /// exceeding `u32::MAX` at extreme widths.
-  #[error("declared geometry overflows: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// A sample's low `16 - BITS` bits were non‑zero — a Pn sample

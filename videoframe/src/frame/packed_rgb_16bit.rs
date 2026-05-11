@@ -46,23 +46,23 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Rgb48FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 3 * width` (in u16 elements).
-  #[error("stride ({}) is smaller than 3 * width ({}) u16 elements", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("RGB48 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -194,23 +194,23 @@ impl<'a, const BE: bool> Rgb48Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Bgr48FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 3 * width` (in u16 elements).
-  #[error("stride ({}) is smaller than 3 * width ({}) u16 elements", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("BGR48 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -329,23 +329,23 @@ impl<'a, const BE: bool> Bgr48Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Rgba64FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width` (in u16 elements).
-  #[error("stride ({}) is smaller than 4 * width ({}) u16 elements", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("RGBA64 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -463,23 +463,23 @@ impl<'a, const BE: bool> Rgba64Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Bgra64FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width` (in u16 elements).
-  #[error("stride ({}) is smaller than 4 * width ({}) u16 elements", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` u16 elements.
-  #[error("BGRA64 plane has {} u16 elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

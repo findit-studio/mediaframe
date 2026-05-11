@@ -26,23 +26,23 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum X2Rgb10FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("X2RGB10 plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -165,23 +165,23 @@ impl<'a, const BE: bool> X2Rgb10Frame<'a, BE> {
 #[non_exhaustive]
 pub enum X2Bgr10FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("X2BGR10 plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

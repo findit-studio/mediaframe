@@ -18,23 +18,23 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum LegacyRgbFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 2 * width`.
-  #[error("stride ({}) is smaller than 2 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `2 * width` overflows `u32`.
-  #[error("2 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

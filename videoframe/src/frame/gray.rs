@@ -142,19 +142,19 @@ impl<'a> Gray8Frame<'a> {
 #[non_exhaustive]
 pub enum Gray8FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `y_stride < width`.
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -307,23 +307,23 @@ pub type Gray14BeFrame<'a> = GrayNFrame<'a, 14, true>;
 #[non_exhaustive]
 pub enum GrayNFrameError {
   /// `BITS` must be 9, 10, 12, or 14.
-  #[error("unsupported bit depth {}; GrayNFrame supports 9, 10, 12, or 14", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `y_stride < width`.
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -442,19 +442,19 @@ impl<'a, const BE: bool> Gray16Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Gray16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `y_stride < width`.
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -588,19 +588,19 @@ impl<'a, const BE: bool> Grayf32Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Grayf32FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `y_stride < width`.
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` f32 elements.
-  #[error("Y plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -715,23 +715,23 @@ impl<'a> Ya8Frame<'a> {
 #[non_exhaustive]
 pub enum Ya8FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width * 2` (too narrow to fit 2 bytes per pixel).
-  #[error("stride ({}) is smaller than width × 2 = {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Packed plane is shorter than `stride * height` bytes.
-  #[error("packed plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `width * 2` overflows `u32` (only reachable when `width > 2^31`).
-  #[error("width ({}) × 2 overflows u32", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -869,22 +869,22 @@ impl<'a, const BE: bool> Ya16Frame<'a, BE> {
 #[non_exhaustive]
 pub enum Ya16FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width * 2` (too narrow to fit 2 u16 per pixel).
-  #[error("stride ({}) is smaller than width × 2 = {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Packed plane is shorter than `stride * height` u16 elements.
-  #[error("packed plane has {} elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `width * 2` overflows `u32` (only reachable when `width > 2^31`).
-  #[error("width ({}) × 2 overflows u32", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }

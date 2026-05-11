@@ -88,36 +88,36 @@ pub type V210BeFrame<'a> = V210Frame<'a, true>;
 #[non_exhaustive]
 pub enum V210FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V210Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width % 2 != 0`. v210 is 4:2:2 (chroma pair), so width must be
   /// even. Partial last words (widths not divisible by 6) are supported
   /// — the last word emits 2 or 4 valid pixels — so only the chroma-pair
   /// constraint applies.
-  #[error("V210Frame: width {} is odd; v210 is 4:2:2 and requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `stride < width.div_ceil(6) * 16`. Each row needs at least
   /// `ceil(width / 6) * 16` bytes to hold all pixels (the final partial
   /// word still occupies 16 bytes even if only 2 or 4 samples are
   /// valid).
-  #[error("V210Frame: stride {} is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `v210.len() < expected`. The packed plane is too short for the
   /// declared geometry.
-  #[error("V210Frame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V210Frame: stride×height overflows u32 (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `ceil(width / 6) * 16` overflows `u32`. Only reachable on 32-bit
   /// targets with extreme widths.
-  #[error("V210Frame: row size in bytes (ceil(width / 6) × 16) overflows u32")]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

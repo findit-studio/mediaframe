@@ -35,23 +35,23 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum GbrFloatFrameError {
   /// `width` or `height` was zero.
-  #[error("zero width or height: {}×{}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width × height` exceeds `i32::MAX` (the FFmpeg plane-size ceiling).
-  #[error("dimension overflow: {}×{} exceeds i32::MAX", .0.width(), .0.height())]
+  #[error(transparent)]
   DimensionOverflow(DimensionOverflow),
 
   /// A plane slice is shorter than `stride * (height - 1) + width`.
-  #[error("plane too short: expected >= {}, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// A plane's stride is less than `width` (in elements).
-  #[error("stride must be >= width: stride={}, width={}", .0.stride(), .0.min())]
+  #[error(transparent)]
   StrideBelowWidth(InsufficientStride),
 
   /// `stride * (height - 1) + width` overflows `usize` (32-bit targets only).
-  #[error("plane geometry overflows usize: stride={}, rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 

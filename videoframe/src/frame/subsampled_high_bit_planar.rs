@@ -465,44 +465,44 @@ pub enum Yuv420pFrame16Error {
   /// `BITS` was not one of the supported depths (10, 12, 14, 16).
   /// 8‑bit frames should use `Yuv420pFrame`; 16‑bit is supported,
   /// but uses a different kernel family (see [`Yuv420pFrame16`] docs).
-  #[error("unsupported BITS ({}) for Yuv420pFrame16; must be 10, 12, 14, or 16", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width` was odd. Same 4:2:0 rationale as
   /// `Yuv420pFrameError::OddWidth`.
-  #[error("width ({}) is odd; YUV420p / 4:2:0 requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `y_stride < width` (in samples).
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// `u_stride < ceil(width / 2)` (in samples).
-  #[error("u_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientUStride(InsufficientStride),
 
   /// `v_stride < ceil(width / 2)` (in samples).
-  #[error("v_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientVStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// U plane is shorter than `u_stride * ceil(height / 2)` samples.
-  #[error("U plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientUPlane(InsufficientPlane),
 
   /// V plane is shorter than `v_stride * ceil(height / 2)` samples.
-  #[error("V plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientVPlane(InsufficientPlane),
 
   /// `stride * rows` overflows `usize` (32‑bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// A plane sample exceeds `(1 << BITS) - 1` — i.e., a bit above the

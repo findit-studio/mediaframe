@@ -332,20 +332,20 @@ pub type Bayer16Frame<'a> = BayerFrame16<'a, 16>;
 #[non_exhaustive]
 pub enum BayerFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width`.
-  #[error("stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("Bayer plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (can only fire on
   /// 32‑bit targets — wasm32, i686 — with extreme dimensions).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -354,23 +354,23 @@ pub enum BayerFrameError {
 #[non_exhaustive]
 pub enum BayerFrame16Error {
   /// `BITS` const-generic parameter is not one of `{10, 12, 14, 16}`.
-  #[error("BITS ({}) is not 10, 12, 14, or 16", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width` (in `u16` samples).
-  #[error("stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` samples.
-  #[error("Bayer plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * rows` does not fit in `usize` (32‑bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// A sample's value exceeds `(1 << BITS) - 1` — the sample's

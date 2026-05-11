@@ -13,23 +13,23 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Rgb24FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 3 * width`. Each row needs `3 * width` bytes for packed RGB.
-  #[error("stride ({}) is smaller than 3 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("RGB plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -130,23 +130,23 @@ impl<'a> Rgb24Frame<'a> {
 #[non_exhaustive]
 pub enum Bgr24FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 3 * width`.
-  #[error("stride ({}) is smaller than 3 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("BGR plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -257,23 +257,23 @@ impl<'a> Bgr24Frame<'a> {
 #[non_exhaustive]
 pub enum RgbaFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`. Each row needs `4 * width` bytes for packed RGBA.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("RGBA plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -377,23 +377,23 @@ impl<'a> RgbaFrame<'a> {
 #[non_exhaustive]
 pub enum BgraFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("BGRA plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -496,23 +496,23 @@ impl<'a> BgraFrame<'a> {
 #[non_exhaustive]
 pub enum ArgbFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("ARGB plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -617,23 +617,23 @@ impl<'a> ArgbFrame<'a> {
 #[non_exhaustive]
 pub enum AbgrFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("ABGR plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -735,23 +735,23 @@ impl<'a> AbgrFrame<'a> {
 #[non_exhaustive]
 pub enum XrgbFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("XRGB plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -852,23 +852,23 @@ impl<'a> XrgbFrame<'a> {
 #[non_exhaustive]
 pub enum RgbxFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("RGBX plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -968,23 +968,23 @@ impl<'a> RgbxFrame<'a> {
 #[non_exhaustive]
 pub enum XbgrFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("XBGR plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 
@@ -1085,23 +1085,23 @@ impl<'a> XbgrFrame<'a> {
 #[non_exhaustive]
 pub enum BgrxFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 4 * width`.
-  #[error("stride ({}) is smaller than 4 * width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` bytes.
-  #[error("BGRX plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `4 * width` overflows `u32`.
-  #[error("4 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

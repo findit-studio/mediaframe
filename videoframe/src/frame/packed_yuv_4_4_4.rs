@@ -84,21 +84,21 @@ pub type V410BeFrame<'a> = V410Frame<'a, true>;
 #[non_exhaustive]
 pub enum V410FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V410Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width`. Each row needs at least `width` u32 words.
-  #[error("V410Frame: stride {} u32 elements is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry.
-  #[error("V410Frame: plane too short: expected >= {} u32 elements, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V410Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -229,21 +229,21 @@ pub struct V30XFrame<'a> {
 #[non_exhaustive]
 pub enum V30XFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("V30XFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < width`. Each row needs at least `width` u32 words.
-  #[error("V30XFrame: stride {} u32 elements is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short for
   /// the declared geometry.
-  #[error("V30XFrame: plane too short: expected >= {} u32 elements, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("V30XFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -384,27 +384,27 @@ pub type Xv36BeFrame<'a> = Xv36Frame<'a, true>;
 #[non_exhaustive]
 pub enum Xv36FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("Xv36Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Xv36Frame: width {} × 4 overflows u32 (per-row u16 element count)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 
   /// `stride < width × 4` (u16 elements). Each row needs at least
   /// `width × 4` u16 elements (= `width × 8` bytes) to hold all
   /// pixels.
-  #[error("Xv36Frame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("Xv36Frame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Xv36Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// Source-compat unit variant retained from the pre-PR-#107 public
@@ -617,26 +617,26 @@ pub struct VuyaFrame<'a> {
 #[non_exhaustive]
 pub enum VuyaFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("VuyaFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("VuyaFrame: width {} × 4 overflows u32 (per-row byte count)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 
   /// `stride < width × 4` (bytes). Each row needs at least
   /// `width × 4` bytes to hold all pixels.
-  #[error("VuyaFrame: stride {} bytes is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("VuyaFrame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("VuyaFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -759,26 +759,26 @@ pub struct VuyxFrame<'a> {
 #[non_exhaustive]
 pub enum VuyxFrameError {
   /// `width == 0` or `height == 0`.
-  #[error("VuyxFrame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("VuyxFrame: width {} × 4 overflows u32 (per-row byte count)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 
   /// `stride < width × 4` (bytes). Each row needs at least
   /// `width × 4` bytes to hold all pixels.
-  #[error("VuyxFrame: stride {} bytes is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("VuyxFrame: plane too short: expected >= {} bytes, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("VuyxFrame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -922,27 +922,27 @@ pub type Ayuv64BeFrame<'a> = Ayuv64Frame<'a, true>;
 #[non_exhaustive]
 pub enum Ayuv64FrameError {
   /// `width == 0` or `height == 0`.
-  #[error("Ayuv64Frame: zero dimension width={} height={}", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
   /// with extreme widths.
-  #[error("Ayuv64Frame: width {} × 4 overflows u32 (per-row u16 element count)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 
   /// `stride < width × 4` (u16 elements). Each row needs at least
   /// `width × 4` u16 elements (= `width × 8` bytes) to hold all
   /// pixels.
-  #[error("Ayuv64Frame: stride {} u16 elements is below the minimum {}", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// `packed.len() < expected`. The packed plane is too short.
-  #[error("Ayuv64Frame: plane too short: expected >= {} u16 elements, got {}", .0.expected(), .0.actual())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`. Only reachable on 32-bit
   /// targets with extreme dimensions.
-  #[error("Ayuv64Frame: stride × height overflows usize (stride={}, rows={})", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 

@@ -14,49 +14,49 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Yuva420pFrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width` was odd. YUVA420p / 4:2:0 subsamples chroma 2:1 in width.
-  #[error("width ({}) is odd; YUVA420p / 4:2:0 requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `y_stride < width`.
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// `u_stride < ceil(width / 2)`.
-  #[error("u_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientUStride(InsufficientStride),
 
   /// `v_stride < ceil(width / 2)`.
-  #[error("v_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientVStride(InsufficientStride),
 
   /// `a_stride < width`. The alpha plane is full-width × full-height
   /// (1:1 with Y, like Yuv444p planes — only chroma is subsampled in
   /// 4:2:0).
-  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientAStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` bytes.
-  #[error("Y plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// U plane is shorter than `u_stride * height.div_ceil(2)` bytes.
-  #[error("U plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientUPlane(InsufficientPlane),
 
   /// V plane is shorter than `v_stride * height.div_ceil(2)` bytes.
-  #[error("V plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientVPlane(InsufficientPlane),
 
   /// A plane is shorter than `a_stride * height` bytes.
-  #[error("A plane has {} bytes but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientAPlane(InsufficientPlane),
 
   /// `stride * rows` overflows `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 }
 
@@ -300,51 +300,51 @@ pub enum Yuva420pFrame16Error {
   /// `BITS` was not one of the supported depths (9, 10, 16). FFmpeg
   /// only ships `yuva420p9le`, `yuva420p10le`, `yuva420p16le` — no
   /// 12/14-bit YUVA 4:2:0 pixel formats exist.
-  #[error("unsupported BITS ({}) for Yuva420pFrame16; must be 9, 10, or 16", .0.bits())]
+  #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `width` was odd.
-  #[error("width ({}) is odd; YUVA420p / 4:2:0 requires even width", .0.width())]
+  #[error(transparent)]
   OddWidth(OddWidth),
 
   /// `y_stride < width` (in samples).
-  #[error("y_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientYStride(InsufficientStride),
 
   /// `u_stride < ceil(width / 2)` (in samples).
-  #[error("u_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientUStride(InsufficientStride),
 
   /// `v_stride < ceil(width / 2)` (in samples).
-  #[error("v_stride ({}) is smaller than chroma width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientVStride(InsufficientStride),
 
   /// `a_stride < width` (in samples).
-  #[error("a_stride ({}) is smaller than width ({})", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientAStride(InsufficientStride),
 
   /// Y plane is shorter than `y_stride * height` samples.
-  #[error("Y plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientYPlane(InsufficientPlane),
 
   /// U plane is shorter than `u_stride * ceil(height / 2)` samples.
-  #[error("U plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientUPlane(InsufficientPlane),
 
   /// V plane is shorter than `v_stride * ceil(height / 2)` samples.
-  #[error("V plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientVPlane(InsufficientPlane),
 
   /// A plane is shorter than `a_stride * height` samples.
-  #[error("A plane has {} samples but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientAPlane(InsufficientPlane),
 
   /// `stride * rows` overflows `usize` (32-bit targets only).
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// A plane sample exceeds `(1 << BITS) - 1`. Only

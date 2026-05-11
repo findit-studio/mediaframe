@@ -51,7 +51,8 @@
 // verbatim.
 
 /// `width × height` carried by zero-dimension errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("width ({width}) or height ({height}) is zero")]
 pub struct ZeroDimension {
   width: u32,
   height: u32,
@@ -76,7 +77,8 @@ impl ZeroDimension {
 }
 
 /// `width × height` carried by dimension-overflow errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("dimensions {width} × {height} overflow")]
 pub struct DimensionOverflow {
   width: u32,
   height: u32,
@@ -103,7 +105,8 @@ impl DimensionOverflow {
 /// Plane stride is smaller than what the declared geometry requires.
 /// The variant name (e.g. `InsufficientYStride` vs `InsufficientUvStride`)
 /// tells the caller which plane and what unit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("stride ({stride}) is smaller than minimum ({min})")]
 pub struct InsufficientStride {
   stride: u32,
   min: u32,
@@ -128,7 +131,8 @@ impl InsufficientStride {
 }
 
 /// Plane buffer is shorter than the declared geometry requires.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("plane has {actual} bytes/samples but at least {expected} are required")]
 pub struct InsufficientPlane {
   expected: usize,
   actual: usize,
@@ -153,7 +157,8 @@ impl InsufficientPlane {
 }
 
 /// Declared geometry (`stride × rows`) doesn't fit in `usize`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("declared geometry overflows usize: stride={stride} * rows={rows}")]
 pub struct GeometryOverflow {
   stride: u32,
   rows: u32,
@@ -178,7 +183,8 @@ impl GeometryOverflow {
 }
 
 /// Frame `width` value carried by odd-width errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("width ({width}) is odd")]
 pub struct OddWidth {
   width: u32,
 }
@@ -197,7 +203,8 @@ impl OddWidth {
 }
 
 /// Frame `width` value carried by width-not-a-multiple-of-4 errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("width ({width}) is not a multiple of 4")]
 pub struct WidthNotMultipleOf4 {
   width: u32,
 }
@@ -216,7 +223,8 @@ impl WidthNotMultipleOf4 {
 }
 
 /// Frame `width` value carried by per-row width-overflow errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("width ({width}) overflow")]
 pub struct WidthOverflow {
   width: u32,
 }
@@ -235,7 +243,8 @@ impl WidthOverflow {
 }
 
 /// `BITS` const-generic value carried by unsupported-bits errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
+#[error("unsupported BITS ({bits})")]
 pub struct UnsupportedBits {
   bits: u32,
 }

@@ -13,24 +13,24 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Rgbf32FrameError {
   /// `width` or `height` was zero.
-  #[error("width ({}) or height ({}) is zero", .0.width(), .0.height())]
+  #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
   /// `stride < 3 * width` `f32` elements. Each row needs `3 * width`
   /// `f32` samples for packed RGB float.
-  #[error("stride ({}) is smaller than 3 * width ({}) f32 elements", .0.stride(), .0.min())]
+  #[error(transparent)]
   InsufficientStride(InsufficientStride),
 
   /// Plane is shorter than `stride * height` `f32` elements.
-  #[error("RGBF32 plane has {} f32 elements but at least {} are required", .0.actual(), .0.expected())]
+  #[error(transparent)]
   InsufficientPlane(InsufficientPlane),
 
   /// `stride * height` overflows `usize`.
-  #[error("declared geometry overflows usize: stride={} * rows={}", .0.stride(), .0.rows())]
+  #[error(transparent)]
   GeometryOverflow(GeometryOverflow),
 
   /// `3 * width` overflows `u32`.
-  #[error("3 * width overflows u32 ({} too large)", .0.width())]
+  #[error(transparent)]
   WidthOverflow(WidthOverflow),
 }
 

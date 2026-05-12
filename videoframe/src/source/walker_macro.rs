@@ -98,8 +98,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         $buf: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -224,8 +225,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub const fn new(
         $buf: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -385,8 +387,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         $buf: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -536,9 +539,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -715,9 +719,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -911,8 +916,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
@@ -1189,9 +1195,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1315,9 +1322,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_quarter: &'a [$elem],
         v_quarter: &'a [$elem],
@@ -1446,9 +1454,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -1567,7 +1576,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1697,7 +1706,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -1822,9 +1831,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1953,9 +1963,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -2088,7 +2099,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -2432,8 +2443,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
@@ -2568,9 +2580,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -2712,9 +2725,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -2852,9 +2866,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -3006,9 +3021,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -3163,7 +3179,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -3316,9 +3332,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -3485,9 +3502,10 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -3649,8 +3667,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -3747,7 +3766,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -3865,8 +3884,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -4010,8 +4030,9 @@ macro_rules! walker {
     }
 
     impl<'a> $row<'a> {
+      /// Creates a new row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -4152,7 +4173,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) const fn new(
+      pub const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],

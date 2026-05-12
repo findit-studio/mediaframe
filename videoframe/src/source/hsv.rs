@@ -40,21 +40,33 @@ impl<'a> HsvFrameMut<'a> {
     Self { h, s, v }
   }
 
+  /// Returns the mutable buffers for the H, S, and V planes as a tuple.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn hsv(&mut self) -> (&mut [u8], &mut [u8], &mut [u8]) {
+    (self.h, self.s, self.v)
+  }
+
+  /// Consumes the mutable buffers for the H, S, and V planes and returns them as a tuple.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn into_hsv(self) -> (&'a mut [u8], &'a mut [u8], &'a mut [u8]) {
+    (self.h, self.s, self.v)
+  }
+
   /// Returns the mutable buffer for the H plane.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn h(&'a mut self) -> &'a mut [u8] {
+  pub const fn h(&mut self) -> &mut [u8] {
     self.h
   }
 
   /// Returns the mutable buffer for the S plane.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn s(&'a mut self) -> &'a mut [u8] {
+  pub const fn s(&mut self) -> &mut [u8] {
     self.s
   }
 
   /// Returns the mutable buffer for the V plane.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn v(&'a mut self) -> &'a mut [u8] {
+  pub const fn v(&mut self) -> &mut [u8] {
     self.v
   }
 }

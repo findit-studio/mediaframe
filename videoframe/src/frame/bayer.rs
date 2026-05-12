@@ -470,10 +470,10 @@ impl BayerPattern {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
-      Self::Bggr => "BGGR",
-      Self::Rggb => "RGGB",
-      Self::Grbg => "GRBG",
-      Self::Gbrg => "GBRG",
+      Self::Bggr => "bggr",
+      Self::Rggb => "rggb",
+      Self::Grbg => "grbg",
+      Self::Gbrg => "gbrg",
     }
   }
 }
@@ -1118,7 +1118,7 @@ impl<'a> BayerRow<'a> {
   /// Bundles one row of an 8-bit Bayer source for a [`BayerSink`].
   #[cfg_attr(not(tarpaulin), inline(always))]
   #[allow(clippy::too_many_arguments)]
-  pub(crate) const fn new(
+  pub const fn new(
     above: &'a [u8],
     mid: &'a [u8],
     below: &'a [u8],
@@ -1298,7 +1298,7 @@ impl<'a, const BITS: u32> BayerRow16<'a, BITS> {
   /// [`BayerSink16<BITS>`].
   #[cfg_attr(not(tarpaulin), inline(always))]
   #[allow(clippy::too_many_arguments)]
-  pub(crate) const fn new(
+  pub const fn new(
     above: &'a [u16],
     mid: &'a [u16],
     below: &'a [u16],
@@ -1439,4 +1439,50 @@ pub fn bayer16_to<const BITS: u32, S: BayerSink16<BITS>>(
     ))?;
   }
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn variants_construct_and_compare() {
+    assert_eq!(BayerPattern::Bggr, BayerPattern::Bggr);
+    assert_ne!(BayerPattern::Bggr, BayerPattern::Rggb);
+  }
+
+  #[test]
+  fn is_variant_helpers_work() {
+    assert!(BayerPattern::Bggr.is_bggr());
+    assert!(!BayerPattern::Bggr.is_rggb());
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn copy_and_hash() {
+    use std::{
+      collections::hash_map::DefaultHasher,
+      hash::{Hash, Hasher},
+    };
+    let p = BayerPattern::Grbg;
+    let _copy = p; // doesn't move
+    let mut h = DefaultHasher::new();
+    p.hash(&mut h);
+    let _ = h.finish();
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn as_str_matches_display() {
+    use std::format;
+    for v in [
+      BayerPattern::Bggr,
+      BayerPattern::Rggb,
+      BayerPattern::Grbg,
+      BayerPattern::Gbrg,
+    ] {
+      assert_eq!(v.as_str(), format!("{v}"));
+    }
+    assert_eq!(BayerPattern::Bggr.as_str(), "bggr");
+  }
 }

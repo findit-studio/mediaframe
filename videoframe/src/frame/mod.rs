@@ -241,59 +241,6 @@ pub enum WidthAlignmentRequirement {
   MultipleOfFour,
 }
 
-// impl core::fmt::Display for WidthAlignmentRequirement {
-//   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//     match self {
-//       Self::Even => f.write_str("is odd; 4:2:0 / 4:2:2 require even width"),
-//       Self::MultipleOfFour => f.write_str(
-//         "is not a multiple of 4; planar 4:1:0 (Yuv410p) and packed 4:1:1 \
-//          (Uyyvyy411) require width divisible by 4 — planar 4:1:1 (Yuv411p) \
-//          accepts non-4-aligned widths and does not produce this error",
-//       ),
-//     }
-//   }
-// }
-
-// /// Frame `width` value carried by odd-width errors.
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
-// #[error("width ({width}) is odd")]
-// pub struct OddWidth {
-//   width: u32,
-// }
-
-// impl OddWidth {
-//   /// Constructs an `OddWidth` payload.
-//   #[inline]
-//   pub const fn new(width: u32) -> Self {
-//     Self { width }
-//   }
-//   /// Returns the supplied width.
-//   #[inline]
-//   pub const fn width(&self) -> u32 {
-//     self.width
-//   }
-// }
-
-// /// Frame `width` value carried by width-not-a-multiple-of-4 errors.
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
-// #[error("width ({width}) is not a multiple of 4")]
-// pub struct WidthNotMultipleOf4 {
-//   width: u32,
-// }
-
-// impl WidthNotMultipleOf4 {
-//   /// Constructs a `WidthNotMultipleOf4` payload.
-//   #[inline]
-//   pub const fn new(width: u32) -> Self {
-//     Self { width }
-//   }
-//   /// Returns the supplied width.
-//   #[inline]
-//   pub const fn width(&self) -> u32 {
-//     self.width
-//   }
-// }
-
 /// Frame `width` value carried by per-row width-overflow errors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
 #[error("width ({width}) overflow")]

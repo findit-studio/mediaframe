@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 // ---- Xyz12Frame --------------------------------------------------------
 //
@@ -12,19 +13,19 @@ use super::*;
 
 #[test]
 fn xyz12_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0_u16; 16 * 4 * 3];
+  let buf = vec![0_u16; 16 * 4 * 3];
   Xyz12LeFrame::try_new(&buf, 16, 4, 48).expect("valid");
 }
 
 #[test]
 fn xyz12_frame_try_new_accepts_oversized_stride() {
-  let buf = std::vec![0_u16; 64 * 4];
+  let buf = vec![0_u16; 64 * 4];
   Xyz12LeFrame::try_new(&buf, 16, 4, 64).expect("padded stride is valid");
 }
 
 #[test]
 fn xyz12_frame_try_new_accepts_be_alias() {
-  let buf = std::vec![0_u16; 16 * 4 * 3];
+  let buf = vec![0_u16; 16 * 4 * 3];
   let f = Xyz12BeFrame::try_new(&buf, 16, 4, 48).expect("valid");
   assert!(f.big_endian());
 }
@@ -34,13 +35,13 @@ fn xyz12_frame_try_new_accepts_out_of_range_samples() {
   // Samples with low 4 bits set (non-spec-compliant per FFmpeg
   // `AV_PIX_FMT_XYZ12LE`) are permitted at construction; every row
   // kernel applies `>> 4` and masks defensively.
-  let buf = std::vec![0xFFFF_u16; 16 * 4 * 3];
+  let buf = vec![0xFFFF_u16; 16 * 4 * 3];
   Xyz12LeFrame::try_new(&buf, 16, 4, 48).expect("low-4-bits dirty values allowed");
 }
 
 #[test]
 fn xyz12_frame_zero_width_rejected() {
-  let buf = std::vec![0_u16; 16 * 4 * 3];
+  let buf = vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 0, 4, 48),
     Err(Xyz12FrameError::ZeroDimension(_))
@@ -49,7 +50,7 @@ fn xyz12_frame_zero_width_rejected() {
 
 #[test]
 fn xyz12_frame_zero_height_rejected() {
-  let buf = std::vec![0_u16; 16 * 4 * 3];
+  let buf = vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 16, 0, 48),
     Err(Xyz12FrameError::ZeroDimension(_))
@@ -58,7 +59,7 @@ fn xyz12_frame_zero_height_rejected() {
 
 #[test]
 fn xyz12_frame_stride_smaller_than_3w_rejected() {
-  let buf = std::vec![0_u16; 16 * 4 * 3];
+  let buf = vec![0_u16; 16 * 4 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&buf, 16, 4, 47),
     Err(Xyz12FrameError::InsufficientStride(_))
@@ -67,7 +68,7 @@ fn xyz12_frame_stride_smaller_than_3w_rejected() {
 
 #[test]
 fn xyz12_frame_plane_too_short_rejected() {
-  let small = std::vec![0_u16; 16 * 3];
+  let small = vec![0_u16; 16 * 3];
   assert!(matches!(
     Xyz12LeFrame::try_new(&small, 16, 4, 48),
     Err(Xyz12FrameError::InsufficientPlane(_))
@@ -104,13 +105,13 @@ fn xyz12_frame_geometry_overflow_rejected() {
 #[test]
 #[should_panic(expected = "invalid Xyz12Frame")]
 fn xyz12_frame_new_panics_on_invalid() {
-  let buf = std::vec![0_u16; 10];
+  let buf = vec![0_u16; 10];
   let _ = Xyz12LeFrame::new(&buf, 16, 4, 48);
 }
 
 #[test]
 fn xyz12_frame_accessors_round_trip() {
-  let buf = std::vec![0x0800_u16; 8 * 2 * 3];
+  let buf = vec![0x0800_u16; 8 * 2 * 3];
   let frame = Xyz12LeFrame::try_new(&buf, 8, 2, 24).expect("valid");
   assert_eq!(frame.width(), 8);
   assert_eq!(frame.height(), 2);
@@ -122,7 +123,7 @@ fn xyz12_frame_accessors_round_trip() {
 
 #[test]
 fn xyz12_frame_be_flag_distinguishes_aliases() {
-  let buf = std::vec![0_u16; 8 * 2 * 3];
+  let buf = vec![0_u16; 8 * 2 * 3];
   let le = Xyz12LeFrame::try_new(&buf, 8, 2, 24).expect("valid");
   let be = Xyz12BeFrame::try_new(&buf, 8, 2, 24).expect("valid");
   assert!(!le.big_endian());

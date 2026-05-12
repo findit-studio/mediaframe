@@ -799,3 +799,6 @@ pub use bayer16::*;
 mod xyz12;
 #[cfg(feature = "xyz")]
 pub use xyz12::*;
+
+mod hsv;
+pub use hsv::*;

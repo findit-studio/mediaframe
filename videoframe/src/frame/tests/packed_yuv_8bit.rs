@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 // ---- Yuyv422Frame ------------------------------------------------------
 //
@@ -7,20 +8,20 @@ use super::*;
 
 #[test]
 fn yuyv422_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   Yuyv422Frame::try_new(&buf, 16, 4, 32).expect("valid");
 }
 
 #[test]
 fn yuyv422_frame_try_new_accepts_oversized_stride() {
   // Padded rows are allowed.
-  let buf = std::vec![0u8; 48 * 4];
+  let buf = vec![0u8; 48 * 4];
   Yuyv422Frame::try_new(&buf, 16, 4, 48).expect("padded stride is valid");
 }
 
 #[test]
 fn yuyv422_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 0, 4, 32),
     Err(Yuyv422FrameError::ZeroDimension(_))
@@ -33,16 +34,19 @@ fn yuyv422_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn yuyv422_frame_try_new_rejects_odd_width() {
-  let buf = std::vec![0u8; 17 * 4 * 2];
+  let buf = vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yuyv422FrameError::OddWidth(_))
+    Err(Yuyv422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 
 #[test]
 fn yuyv422_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 16, 4, 31),
     Err(Yuyv422FrameError::InsufficientStride(_))
@@ -51,7 +55,7 @@ fn yuyv422_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn yuyv422_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 2];
+  let small = vec![0u8; 16 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&small, 16, 4, 32),
     Err(Yuyv422FrameError::InsufficientPlane(_))
@@ -61,13 +65,13 @@ fn yuyv422_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Yuyv422Frame")]
 fn yuyv422_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Yuyv422Frame::new(&buf, 16, 4, 32);
 }
 
 #[test]
 fn yuyv422_frame_accessors_round_trip() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   let f = Yuyv422Frame::try_new(&buf, 16, 4, 32).unwrap();
   assert_eq!(f.width(), 16);
   assert_eq!(f.height(), 4);
@@ -83,13 +87,13 @@ fn yuyv422_frame_accessors_round_trip() {
 
 #[test]
 fn uyvy422_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   Uyvy422Frame::try_new(&buf, 16, 4, 32).expect("valid");
 }
 
 #[test]
 fn uyvy422_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 0, 4, 32),
     Err(Uyvy422FrameError::ZeroDimension(_))
@@ -98,16 +102,19 @@ fn uyvy422_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn uyvy422_frame_try_new_rejects_odd_width() {
-  let buf = std::vec![0u8; 17 * 4 * 2];
+  let buf = vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 17, 4, 34),
-    Err(Uyvy422FrameError::OddWidth(_))
+    Err(Uyvy422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 
 #[test]
 fn uyvy422_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 16, 4, 31),
     Err(Uyvy422FrameError::InsufficientStride(_))
@@ -116,7 +123,7 @@ fn uyvy422_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn uyvy422_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 2];
+  let small = vec![0u8; 16 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&small, 16, 4, 32),
     Err(Uyvy422FrameError::InsufficientPlane(_))
@@ -126,13 +133,13 @@ fn uyvy422_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Uyvy422Frame")]
 fn uyvy422_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Uyvy422Frame::new(&buf, 16, 4, 32);
 }
 
 #[test]
 fn uyvy422_frame_accessors_round_trip() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   let f = Uyvy422Frame::try_new(&buf, 16, 4, 32).unwrap();
   assert_eq!(f.width(), 16);
   assert_eq!(f.height(), 4);
@@ -146,13 +153,13 @@ fn uyvy422_frame_accessors_round_trip() {
 
 #[test]
 fn yvyu422_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   Yvyu422Frame::try_new(&buf, 16, 4, 32).expect("valid");
 }
 
 #[test]
 fn yvyu422_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 16, 0, 32),
     Err(Yvyu422FrameError::ZeroDimension(_))
@@ -161,16 +168,19 @@ fn yvyu422_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn yvyu422_frame_try_new_rejects_odd_width() {
-  let buf = std::vec![0u8; 17 * 4 * 2];
+  let buf = vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yvyu422FrameError::OddWidth(_))
+    Err(Yvyu422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 
 #[test]
 fn yvyu422_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 16, 4, 31),
     Err(Yvyu422FrameError::InsufficientStride(_))
@@ -179,7 +189,7 @@ fn yvyu422_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn yvyu422_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 2];
+  let small = vec![0u8; 16 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&small, 16, 4, 32),
     Err(Yvyu422FrameError::InsufficientPlane(_))
@@ -189,13 +199,13 @@ fn yvyu422_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Yvyu422Frame")]
 fn yvyu422_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Yvyu422Frame::new(&buf, 16, 4, 32);
 }
 
 #[test]
 fn yvyu422_frame_accessors_round_trip() {
-  let buf = std::vec![0u8; 16 * 4 * 2];
+  let buf = vec![0u8; 16 * 4 * 2];
   let f = Yvyu422Frame::try_new(&buf, 16, 4, 32).unwrap();
   assert_eq!(f.width(), 16);
   assert_eq!(f.height(), 4);

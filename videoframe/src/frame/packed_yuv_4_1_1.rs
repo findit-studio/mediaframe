@@ -1,5 +1,5 @@
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthNotMultipleOf4, WidthOverflow,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthAlignment, WidthOverflow,
   ZeroDimension,
 };
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
@@ -46,7 +46,7 @@ pub enum Uyyvyy411FrameError {
   /// exactly 4 pixels — widths not divisible by 4 can't form a
   /// complete final block.
   #[error(transparent)]
-  WidthNotMultipleOf4(WidthNotMultipleOf4),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < width * 3 / 2`. Each row needs `width * 3 / 2` bytes
   /// (6 bytes per 4-pixel block, 12 bpp).
@@ -99,8 +99,8 @@ impl<'a> Uyyvyy411Frame<'a> {
       )));
     }
     if width & 3 != 0 {
-      return Err(Uyyvyy411FrameError::WidthNotMultipleOf4(
-        WidthNotMultipleOf4::new(width),
+      return Err(Uyyvyy411FrameError::WidthAlignment(
+        WidthAlignment::multiple_of_four(width as usize),
       ));
     }
     // `width * 3 / 2`. `width` is divisible by 4 above, so the

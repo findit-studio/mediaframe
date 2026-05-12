@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 // ---- Uyyvyy411Frame (Tier 5.25) ----------------------------------------
 //
@@ -9,19 +10,19 @@ use super::*;
 #[test]
 fn uyyvyy411_frame_try_new_accepts_valid_tight() {
   // 16 px × 4 rows tightly packed: stride = 16 * 3 / 2 = 24.
-  let buf = std::vec![0u8; 24 * 4];
+  let buf = vec![0u8; 24 * 4];
   Uyyvyy411Frame::try_new(&buf, 16, 4, 24).expect("valid");
 }
 
 #[test]
 fn uyyvyy411_frame_try_new_accepts_oversized_stride() {
-  let buf = std::vec![0u8; 48 * 4];
+  let buf = vec![0u8; 48 * 4];
   Uyyvyy411Frame::try_new(&buf, 16, 4, 48).expect("padded stride is valid");
 }
 
 #[test]
 fn uyyvyy411_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 24 * 4];
+  let buf = vec![0u8; 24 * 4];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 0, 4, 24),
     Err(Uyyvyy411FrameError::ZeroDimension(_))
@@ -34,22 +35,28 @@ fn uyyvyy411_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn uyyvyy411_frame_try_new_rejects_width_not_multiple_of_4() {
-  let buf = std::vec![0u8; 100];
+  let buf = vec![0u8; 100];
   // 18 = even but not divisible by 4.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 18, 4, 27),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
+    Err(Uyyvyy411FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::MultipleOfFour,
+      ..
+    }))
   ));
   // 17 = odd.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 17, 4, 26),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
+    Err(Uyyvyy411FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::MultipleOfFour,
+      ..
+    }))
   ));
 }
 
 #[test]
 fn uyyvyy411_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 24 * 4];
+  let buf = vec![0u8; 24 * 4];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 16, 4, 23),
     Err(Uyyvyy411FrameError::InsufficientStride(_))
@@ -59,7 +66,7 @@ fn uyyvyy411_frame_try_new_rejects_stride_too_small() {
 #[test]
 fn uyyvyy411_frame_try_new_rejects_short_plane() {
   // Need 24 * 4 = 96 bytes; supply 32.
-  let small = std::vec![0u8; 32];
+  let small = vec![0u8; 32];
   assert!(matches!(
     Uyyvyy411Frame::try_new(&small, 16, 4, 24),
     Err(Uyyvyy411FrameError::InsufficientPlane(_))
@@ -69,13 +76,13 @@ fn uyyvyy411_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Uyyvyy411Frame")]
 fn uyyvyy411_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Uyyvyy411Frame::new(&buf, 16, 4, 24);
 }
 
 #[test]
 fn uyyvyy411_frame_accessors_return_constructor_args() {
-  let buf = std::vec![0u8; 24 * 4];
+  let buf = vec![0u8; 24 * 4];
   let f = Uyyvyy411Frame::try_new(&buf, 16, 4, 24).unwrap();
   assert_eq!(f.width(), 16);
   assert_eq!(f.height(), 4);

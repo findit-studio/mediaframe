@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 // ---- Rgbf32Frame -------------------------------------------------------
 //
@@ -9,28 +10,28 @@ use super::*;
 
 #[test]
 fn rgbf32_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0.0_f32; 16 * 4 * 3];
+  let buf = vec![0.0_f32; 16 * 4 * 3];
   Rgbf32LeFrame::try_new(&buf, 16, 4, 48).expect("valid");
 }
 
 #[test]
 fn rgbf32_frame_try_new_accepts_oversized_stride() {
-  let buf = std::vec![0.0_f32; 64 * 4];
+  let buf = vec![0.0_f32; 64 * 4];
   Rgbf32LeFrame::try_new(&buf, 16, 4, 64).expect("padded stride is valid");
 }
 
 #[test]
 fn rgbf32_frame_try_new_accepts_hdr_and_negative_values() {
   // Out-of-[0,1] f32 values are permitted; only shape is validated.
-  let buf = std::vec![10.0_f32; 16 * 4 * 3];
+  let buf = vec![10.0_f32; 16 * 4 * 3];
   Rgbf32LeFrame::try_new(&buf, 16, 4, 48).expect("HDR values allowed");
-  let neg = std::vec![-1.0_f32; 16 * 4 * 3];
+  let neg = vec![-1.0_f32; 16 * 4 * 3];
   Rgbf32LeFrame::try_new(&neg, 16, 4, 48).expect("negative values allowed");
 }
 
 #[test]
 fn rgbf32_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0.0_f32; 16 * 4 * 3];
+  let buf = vec![0.0_f32; 16 * 4 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, 0, 4, 48),
     Err(Rgbf32FrameError::ZeroDimension(_))
@@ -43,7 +44,7 @@ fn rgbf32_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgbf32_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0.0_f32; 16 * 4 * 3];
+  let buf = vec![0.0_f32; 16 * 4 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, 16, 4, 47),
     Err(Rgbf32FrameError::InsufficientStride(_))
@@ -52,7 +53,7 @@ fn rgbf32_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn rgbf32_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0.0_f32; 16 * 3];
+  let small = vec![0.0_f32; 16 * 3];
   assert!(matches!(
     Rgbf32LeFrame::try_new(&small, 16, 4, 48),
     Err(Rgbf32FrameError::InsufficientPlane(_))
@@ -62,7 +63,7 @@ fn rgbf32_frame_try_new_rejects_short_plane() {
 #[test]
 fn rgbf32_frame_try_new_rejects_width_overflow() {
   // 3 * width must fit in u32: width > u32::MAX / 3 trips WidthOverflow.
-  let buf = std::vec![0.0_f32; 0];
+  let buf = vec![0.0_f32; 0];
   let too_big = (u32::MAX / 3) + 1;
   assert!(matches!(
     Rgbf32LeFrame::try_new(&buf, too_big, 1, u32::MAX),
@@ -92,13 +93,13 @@ fn rgbf32_frame_try_new_rejects_geometry_overflow() {
 #[test]
 #[should_panic(expected = "invalid Rgbf32Frame")]
 fn rgbf32_frame_new_panics_on_invalid() {
-  let buf = std::vec![0.0_f32; 10];
+  let buf = vec![0.0_f32; 10];
   let _ = Rgbf32LeFrame::new(&buf, 16, 4, 48);
 }
 
 #[test]
 fn rgbf32_frame_accessors_round_trip() {
-  let buf = std::vec![0.25_f32; 8 * 2 * 3];
+  let buf = vec![0.25_f32; 8 * 2 * 3];
   let frame = Rgbf32LeFrame::try_new(&buf, 8, 2, 24).expect("valid");
   assert_eq!(frame.width(), 8);
   assert_eq!(frame.height(), 2);
@@ -112,7 +113,7 @@ fn rgbf32_frame_accessors_round_trip() {
 #[test]
 fn rgbf32_be_frame_alias_constructs() {
   // Phase 4: `Rgbf32BeFrame` alias resolves to `Rgbf32Frame<'_, true>`.
-  let buf = std::vec![0.0_f32; 16 * 4 * 3];
+  let buf = vec![0.0_f32; 16 * 4 * 3];
   let f = Rgbf32BeFrame::try_new(&buf, 16, 4, 48).unwrap();
   assert!(f.is_be());
   assert_eq!(f.width(), 16);

@@ -182,44 +182,63 @@ impl GeometryOverflow {
   }
 }
 
-/// Frame `width` value carried by odd-width errors.
+/// Width-alignment violation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
-#[error("width ({width}) is odd")]
-pub struct OddWidth {
-  width: u32,
+#[error("width ({width}) {required}")]
+pub struct WidthAlignment {
+  /// Sink's configured width.
+  width: usize,
+  /// The alignment requirement that was violated.
+  required: WidthAlignmentRequirement,
 }
 
-impl OddWidth {
-  /// Constructs an `OddWidth` payload.
+impl WidthAlignment {
+  /// Constructs a new `WidthAlignment` payload.
   #[inline]
-  pub const fn new(width: u32) -> Self {
-    Self { width }
+  const fn new(width: usize, required: WidthAlignmentRequirement) -> Self {
+    Self { width, required }
   }
-  /// Returns the supplied width.
+
+  /// Constructs a `WidthAlignment` payload for odd widths.
   #[inline]
-  pub const fn width(&self) -> u32 {
+  pub const fn odd(width: usize) -> Self {
+    Self::new(width, WidthAlignmentRequirement::Even)
+  }
+
+  /// Constructs a `WidthAlignment` payload for widths that are not a
+  #[inline]
+  pub const fn multiple_of_four(width: usize) -> Self {
+    Self::new(width, WidthAlignmentRequirement::MultipleOfFour)
+  }
+
+  /// Sink's configured width.
+  #[inline]
+  pub const fn width(&self) -> usize {
     self.width
   }
+
+  /// The alignment requirement that was violated.
+  #[inline]
+  pub const fn required(&self) -> WidthAlignmentRequirement {
+    self.required
+  }
 }
 
-/// Frame `width` value carried by width-not-a-multiple-of-4 errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, thiserror::Error)]
-#[error("width ({width}) is not a multiple of 4")]
-pub struct WidthNotMultipleOf4 {
-  width: u32,
-}
-
-impl WidthNotMultipleOf4 {
-  /// Constructs a `WidthNotMultipleOf4` payload.
-  #[inline]
-  pub const fn new(width: u32) -> Self {
-    Self { width }
-  }
-  /// Returns the supplied width.
-  #[inline]
-  pub const fn width(&self) -> u32 {
-    self.width
-  }
+/// Discriminates which width-alignment rule was violated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, Display)]
+#[non_exhaustive]
+pub enum WidthAlignmentRequirement {
+  /// Width must be even — 4:2:0 / 4:2:2 chroma-pair stride.
+  #[display("is odd")]
+  Even,
+  /// Width must be a multiple of 4. Fired by planar 4:1:0
+  /// ([`Yuv410p`](crate::source::Yuv410p)) and packed 4:1:1
+  /// ([`Uyyvyy411`](crate::source::Uyyvyy411)). Note: planar 4:1:1
+  /// ([`Yuv411p`](crate::source::Yuv411p)) accepts non-4-aligned
+  /// widths via `width.div_ceil(4)` for the chroma row and is NOT
+  /// covered by this discriminant.
+  #[display("is not a multiple of 4")]
+  MultipleOfFour,
 }
 
 /// Frame `width` value carried by per-row width-overflow errors.
@@ -768,6 +787,7 @@ mod planar_8bit;
 #[cfg(feature = "yuv-planar")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-planar")))]
 mod subsampled_high_bit_planar;
+use derive_more::{Display, IsVariant};
 #[cfg(feature = "yuv-planar")]
 pub use planar_8bit::*;
 #[cfg(feature = "yuv-planar")]

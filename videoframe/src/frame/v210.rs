@@ -43,7 +43,8 @@
 //! reference at the canonical stride.
 
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthOverflow, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthAlignment, WidthOverflow,
+  ZeroDimension,
 };
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -98,7 +99,7 @@ pub enum V210FrameError {
   /// — the last word emits 2 or 4 valid pixels — so only the chroma-pair
   /// constraint applies.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < width.div_ceil(6) * 16`. Each row needs at least
   /// `ceil(width / 6) * 16` bytes to hold all pixels (the final partial
@@ -138,7 +139,9 @@ impl<'a, const BE: bool> V210Frame<'a, BE> {
       )));
     }
     if !width.is_multiple_of(2) {
-      return Err(V210FrameError::OddWidth(OddWidth::new(width)));
+      return Err(V210FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     // `width.div_ceil(6) * 16` — partial last words are supported, so
     // the row byte count rounds up to the next complete word.
@@ -183,7 +186,7 @@ impl<'a, const BE: bool> V210Frame<'a, BE> {
         // const-context-compatible panic message.
         match e {
           V210FrameError::ZeroDimension(_) => panic!("invalid V210Frame: zero dimension"),
-          V210FrameError::OddWidth(_) => panic!("invalid V210Frame: odd width"),
+          V210FrameError::WidthAlignment(_) => panic!("invalid V210Frame: odd width"),
           V210FrameError::InsufficientStride(_) => panic!("invalid V210Frame: stride too small"),
           V210FrameError::InsufficientPlane(_) => panic!("invalid V210Frame: plane too short"),
           V210FrameError::GeometryOverflow(_) => {

@@ -1,3 +1,5 @@
+use crate::frame::{WidthAlignment, WidthAlignmentRequirement};
+
 use super::{
   super::{
     Y2xxFrame, Y2xxFrameError, Y210BeFrame, Y210Frame, Y210LeFrame, Y212BeFrame, Y212Frame,
@@ -6,10 +8,12 @@ use super::{
   util::le_encoded_u16_buf,
 };
 
+use std::vec;
+
 #[test]
 fn y210_frame_try_new_accepts_valid_tight() {
   // Width 4, height 2, stride = 4 * 2 = 8 u16 elements per row.
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let frame = Y210Frame::try_new(&buf, 4, 2, 8).unwrap();
   assert_eq!(frame.width(), 4);
   assert_eq!(frame.height(), 2);
@@ -19,7 +23,7 @@ fn y210_frame_try_new_accepts_valid_tight() {
 #[test]
 fn y210_frame_try_new_accepts_oversized_stride() {
   // Padded-row case: caller may supply a larger stride.
-  let buf = std::vec![0u16; 16 * 4];
+  let buf = vec![0u16; 16 * 4];
   Y210Frame::try_new(&buf, 4, 4, 16).unwrap();
 }
 
@@ -36,23 +40,29 @@ fn y210_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn y210_frame_try_new_rejects_odd_width() {
-  let buf = std::vec![0u16; 64];
+  let buf = vec![0u16; 64];
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y210Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
+    assert!(matches!(
+      err,
+      Y2xxFrameError::WidthAlignment(WidthAlignment {
+        required: WidthAlignmentRequirement::Even,
+        ..
+      })
+    ));
   }
   // 2, 4, 6, 8 must succeed.
   for w in [2u32, 4, 6, 8] {
     let stride = w * 2;
-    let buf = std::vec![0u16; stride as usize];
+    let buf = vec![0u16; stride as usize];
     Y210Frame::try_new(&buf, w, 1, stride).unwrap();
   }
 }
 
 #[test]
 fn y210_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u16; 16];
+  let buf = vec![0u16; 16];
   // For width=4, min_stride = 8 u16 elements.
   let err = Y210Frame::try_new(&buf, 4, 1, 7).unwrap_err();
   assert!(matches!(err, Y2xxFrameError::InsufficientStride(_)));
@@ -60,14 +70,14 @@ fn y210_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn y210_frame_try_new_rejects_short_plane() {
-  let buf = std::vec![0u16; 7]; // need 8 for width=4 height=1
+  let buf = vec![0u16; 7]; // need 8 for width=4 height=1
   let err = Y210Frame::try_new(&buf, 4, 1, 8).unwrap_err();
   assert!(matches!(err, Y2xxFrameError::InsufficientPlane(_)));
 }
 
 #[test]
 fn y210_frame_accessors_round_trip() {
-  let buf = std::vec![0u16; 16 * 4];
+  let buf = vec![0u16; 16 * 4];
   let frame = Y210Frame::try_new(&buf, 8, 4, 16).unwrap();
   assert_eq!(frame.packed().len(), 16 * 4);
   assert_eq!(frame.width(), 8);
@@ -79,7 +89,7 @@ fn y210_frame_accessors_round_trip() {
 fn y2xx_frame_try_new_rejects_unsupported_bits() {
   // BITS must be {10, 12, 16}. The compile-time-asserted dimensions
   // 8 are valid but BITS=11 is not.
-  let buf = std::vec![0u16; 16];
+  let buf = vec![0u16; 16];
   let err = Y2xxFrame::<11>::try_new(&buf, 4, 1, 8).unwrap_err();
   assert!(matches!(err, Y2xxFrameError::UnsupportedBits(_)));
   let err = Y2xxFrame::<8>::try_new(&buf, 4, 1, 8).unwrap_err();
@@ -98,7 +108,7 @@ fn y210_frame_try_new_checked_rejects_low_bit_violations() {
   // rejects on a BE host but for the wrong reason — the host-native
   // `0xFFC0` decodes to `0xC0FF` (low 6 bits = `0x3F`) and triggers
   // rejection on `buf[0]`, which the test claims is valid.
-  let mut intended = std::vec![0u16; 8]; // width=4, height=1
+  let mut intended = vec![0u16; 8]; // width=4, height=1
   intended[0] = 0xFFC0; // valid: 10-bit value 0x3FF in high 10
   intended[1] = 0xFFC1; // INVALID: low 6 bits = 0x01 (non-zero)
   let buf = le_encoded_u16_buf(&intended);
@@ -156,7 +166,7 @@ fn y210_frame_try_new_checked_accepts_le_encoded_buffer() {
 fn y210_frame_try_new_checked_rejects_be_encoded_buffer_with_low_bits() {
   // Use the same `0xFFC0` value across the row so we get a
   // deterministic rejection regardless of host.
-  let intended: std::vec::Vec<u16> = std::vec![0xFFC0u16; 8];
+  let intended: std::vec::Vec<u16> = vec![0xFFC0u16; 8];
   let be_bytes: std::vec::Vec<u8> = intended.iter().flat_map(|v| v.to_be_bytes()).collect();
   let buf: std::vec::Vec<u16> = be_bytes
     .chunks_exact(2)
@@ -182,7 +192,7 @@ fn y210_frame_try_new_checked_ignores_stride_padding_bytes() {
   // All declared-payload samples have low 6 bits == 0 (valid 10-bit MSB-aligned).
   // Padding samples have arbitrary low bits set — must not trigger
   // SampleLowBitsSet (matches PnFrame::try_new_checked behavior).
-  let mut intended = std::vec![0u16; 12 * 2]; // height=2
+  let mut intended = [0u16; 12 * 2]; // height=2
   for row in 0..2 {
     // Declared payload (first 8 u16 of each row) — clean MSB-aligned.
     for i in 0..8 {
@@ -203,7 +213,7 @@ fn y210_frame_try_new_checked_ignores_stride_padding_bytes() {
 
 #[test]
 fn y212_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let frame = Y212Frame::try_new(&buf, 4, 2, 8).unwrap();
   assert_eq!(frame.width(), 4);
   assert_eq!(frame.height(), 2);
@@ -216,7 +226,7 @@ fn y212_frame_try_new_checked_rejects_low_bit_violations() {
   // LE-encoded byte storage so the test asserts the same logical values
   // on every host (see `y210_frame_try_new_checked_rejects_low_bit_violations`
   // for the BE-host failure mode).
-  let mut intended = std::vec![0u16; 8]; // width=4, height=1
+  let mut intended = vec![0u16; 8]; // width=4, height=1
   intended[0] = 0xFFF0; // valid: 12-bit value 0xFFF in high 12, low 4 = 0
   intended[1] = 0xFFF1; // INVALID: low 4 bits = 0x1
   let buf = le_encoded_u16_buf(&intended);
@@ -229,7 +239,7 @@ fn y212_frame_try_new_checked_rejects_low_bit_violations() {
 #[test]
 fn y216_frame_try_new_accepts_valid_tight() {
   // Width 4, height 2, stride = 4 * 2 = 8 u16 elements per row.
-  let buf = std::vec![0xFFFFu16; 8 * 2];
+  let buf = vec![0xFFFFu16; 8 * 2];
   let frame = Y216Frame::try_new(&buf, 4, 2, 8).unwrap();
   assert_eq!(frame.width(), 4);
   assert_eq!(frame.height(), 2);
@@ -239,7 +249,7 @@ fn y216_frame_try_new_accepts_valid_tight() {
 #[test]
 fn y216_frame_try_new_accepts_oversized_stride() {
   // Padded-row case: caller may supply a larger stride.
-  let buf = std::vec![0u16; 16 * 4];
+  let buf = vec![0u16; 16 * 4];
   Y216Frame::try_new(&buf, 4, 4, 16).unwrap();
 }
 
@@ -254,23 +264,29 @@ fn y216_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn y216_frame_try_new_rejects_odd_width() {
-  let buf = std::vec![0u16; 64];
+  let buf = vec![0u16; 64];
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y216Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
+    assert!(matches!(
+      err,
+      Y2xxFrameError::WidthAlignment(WidthAlignment {
+        required: WidthAlignmentRequirement::Even,
+        ..
+      })
+    ));
   }
   // Even widths must succeed.
   for w in [2u32, 4, 6, 8] {
     let stride = w * 2;
-    let buf = std::vec![0u16; stride as usize];
+    let buf = vec![0u16; stride as usize];
     Y216Frame::try_new(&buf, w, 1, stride).unwrap();
   }
 }
 
 #[test]
 fn y216_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u16; 16];
+  let buf = vec![0u16; 16];
   // For width=4, min_stride = 8 u16 elements.
   let err = Y216Frame::try_new(&buf, 4, 1, 7).unwrap_err();
   assert!(matches!(err, Y2xxFrameError::InsufficientStride(_)));
@@ -278,14 +294,14 @@ fn y216_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn y216_frame_try_new_rejects_short_plane() {
-  let buf = std::vec![0u16; 7]; // need 8 for width=4, height=1
+  let buf = vec![0u16; 7]; // need 8 for width=4, height=1
   let err = Y216Frame::try_new(&buf, 4, 1, 8).unwrap_err();
   assert!(matches!(err, Y2xxFrameError::InsufficientPlane(_)));
 }
 
 #[test]
 fn y216_frame_accessors_round_trip() {
-  let buf = std::vec![0xFFFFu16; 16 * 4];
+  let buf = vec![0xFFFFu16; 16 * 4];
   let frame = Y216Frame::try_new(&buf, 8, 4, 16).unwrap();
   assert_eq!(frame.packed().len(), 16 * 4);
   assert_eq!(frame.width(), 8);
@@ -297,7 +313,7 @@ fn y216_frame_accessors_round_trip() {
 fn y216_frame_try_new_checked_accepts_arbitrary_low_bits() {
   // Y216 = full 16-bit range; all bits are active, so any sample value
   // is valid. try_new_checked must succeed even when every bit is set.
-  let buf = std::vec![0xFFFFu16; 8]; // width=4, height=1, stride=8
+  let buf = vec![0xFFFFu16; 8]; // width=4, height=1, stride=8
   Y216Frame::try_new_checked(&buf, 4, 1, 8).unwrap();
   // Also verify with alternating patterns to rule out accidental masking.
   let buf: std::vec::Vec<u16> = (0..8u16).map(|i| 0x0001 + i).collect();
@@ -307,7 +323,7 @@ fn y216_frame_try_new_checked_accepts_arbitrary_low_bits() {
 #[test]
 fn y216_frame_try_new_checked_accepts_valid_tight() {
   // try_new_checked at BITS=16 is identical to try_new — no low-bit scan.
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let frame = Y216Frame::try_new_checked(&buf, 4, 2, 8).unwrap();
   assert_eq!(frame.width(), 4);
   assert_eq!(frame.height(), 2);
@@ -325,7 +341,7 @@ fn y216_frame_new_panics_on_invalid() {
 #[test]
 fn y210_be_frame_alias_constructs() {
   // Phase 4 Tier 4: `Y210BeFrame` alias resolves to `Y2xxFrame<'_, 10, true>`.
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let f = Y210BeFrame::try_new(&buf, 4, 2, 8).unwrap();
   assert!(f.is_be());
   assert_eq!(f.width(), 4);
@@ -334,14 +350,14 @@ fn y210_be_frame_alias_constructs() {
 
 #[test]
 fn y212_be_frame_alias_constructs() {
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let f = Y212BeFrame::try_new(&buf, 4, 2, 8).unwrap();
   assert!(f.is_be());
 }
 
 #[test]
 fn y216_be_frame_alias_constructs() {
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let f = Y216BeFrame::try_new(&buf, 4, 2, 8).unwrap();
   assert!(f.is_be());
 }
@@ -349,7 +365,7 @@ fn y216_be_frame_alias_constructs() {
 #[test]
 fn y210_le_frame_alias_is_default() {
   // Default `Y210Frame` (LE) and explicit `Y210LeFrame` resolve to the same type.
-  let buf = std::vec![0u16; 8 * 2];
+  let buf = vec![0u16; 8 * 2];
   let f_default = Y210Frame::try_new(&buf, 4, 2, 8).unwrap();
   let f_explicit = Y210LeFrame::try_new(&buf, 4, 2, 8).unwrap();
   assert!(!f_default.is_be());
@@ -375,7 +391,7 @@ fn y210_be_frame_try_new_checked_validates_be_encoded_low_bits() {
 fn y210_be_frame_try_new_checked_rejects_be_encoded_low_bits() {
   // Sample with low bits set (0x0001 — 10-bit value with bit 0 set under
   // wrong alignment). Encode as BE and ensure validation rejects.
-  let intended: std::vec::Vec<u16> = std::vec![0x0001u16; 8];
+  let intended: std::vec::Vec<u16> = vec![0x0001u16; 8];
   let pix_be: std::vec::Vec<u16> = intended
     .iter()
     .map(|v| u16::from_ne_bytes(v.to_be_bytes()))

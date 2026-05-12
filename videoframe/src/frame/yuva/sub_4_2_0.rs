@@ -1,5 +1,6 @@
 use crate::frame::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthAlignment,
+  ZeroDimension,
 };
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -21,7 +22,7 @@ pub enum Yuva420pFrameError {
 
   /// `width` was odd. YUVA420p / 4:2:0 subsamples chroma 2:1 in width.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]
@@ -119,7 +120,9 @@ impl<'a> Yuva420pFrame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuva420pFrameError::OddWidth(OddWidth::new(width)));
+      return Err(Yuva420pFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuva420pFrameError::InsufficientYStride(
@@ -313,7 +316,7 @@ pub enum Yuva420pFrame16Error {
 
   /// `width` was odd.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width` (in samples).
   #[error(transparent)]
@@ -424,7 +427,9 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuva420pFrame16Error::OddWidth(OddWidth::new(width)));
+      return Err(Yuva420pFrame16Error::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuva420pFrame16Error::InsufficientYStride(

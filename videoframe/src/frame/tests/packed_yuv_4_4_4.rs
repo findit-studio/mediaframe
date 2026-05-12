@@ -3,6 +3,7 @@ use crate::frame::{
   V410FrameError, V410LeFrame, VuyaFrame, VuyaFrameError, VuyxFrame, VuyxFrameError, Xv36BeFrame,
   Xv36FrameError, Xv36LeFrame,
 };
+use std::vec;
 
 const fn zero_buf<const N: usize>() -> [u32; N] {
   [0u32; N]

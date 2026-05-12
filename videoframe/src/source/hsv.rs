@@ -1,7 +1,6 @@
 use derive_more::{Display, IsVariant};
 
-/// Identifies which of the three HSV planes a
-/// [`MixedSinkerError::InsufficientHsvPlane`] refers to.
+/// Identifies which of the three HSV planes refer to.
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, IsVariant)]
 #[display("{}", self.as_str())]
 pub enum HsvPlane {

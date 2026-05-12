@@ -1096,11 +1096,11 @@ impl ColorCorrectionMatrixElementOutOfBounds {
 /// boundary because Bayer tiles in 2×2: skipping two rows lands on
 /// the same color the missing-tap site would have provided.
 /// Falls back to replicate when `height < 2`. Custom sinks must
-/// honor this convention; calling [`crate::row::bayer_to_rgb_row`]
+/// honor this convention; calling a bayer to rgb row
 /// from a sink that supplies replicate-clamped row borrows will
 /// produce different border pixels than [`super::bayer_to`] does.
 ///
-/// Sinks call into [`crate::row::bayer_to_rgb_row`] (or directly
+/// Sinks call into bayer to rgb row (or directly
 /// the scalar / SIMD primitive of their choice) with these slices to
 /// produce one row of packed RGB output.
 #[derive(Debug, Clone, Copy)]

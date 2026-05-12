@@ -4,6 +4,20 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] May 12, 2026
+
+### Added
+
+- Add bayer structures
+
+### Breakage
+
+- **`cfa`** - remove cfa mod
+
+### Changes
+
+- Make all error enums follows tuple enum errors
+
 ## [0.1.0] May 11, 2026
 
 This is the first release line. Nothing has been published to

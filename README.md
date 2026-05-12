@@ -56,9 +56,9 @@ agreeing on anything heavier.
 
 ```toml
 [dependencies]
-# Lean — color + cfa + pixel_format + frame primitives.
+# Lean — color + pixel_format + frame primitives.
 # Adds `mediatime` + `derive_more`. ~600 LoC compiled.
-videoframe = "0.1"
+videoframe = "0.2"
 ```
 
 Opt into typed `*Frame<'a>` borrow views + the per-format

@@ -2,6 +2,7 @@ use super::{
   util::{be_encoded_u16_buf, le_encoded_u16_buf},
   *,
 };
+use std::vec;
 
 // ---- YUVA high-bit BE-host regression tests ---------------------------
 //
@@ -35,9 +36,9 @@ use super::{
 fn yuva420p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
   // 10-bit-low-packed white = 1023 (LE bytes [0xFF, 0x03]). The alpha
   // plane is full-width × full-height; chroma is half × half.
-  let intended_y = std::vec![1023u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 4];
-  let intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![1023u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 4];
+  let intended_a = vec![1023u16; 16 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
   let v = le_encoded_u16_buf(&intended_uv);
@@ -52,9 +53,9 @@ fn yuva420p10_try_new_checked_rejects_le_encoded_alpha_out_of_range_on_any_host(
   // 1024 (just above the 10-bit max of 1023). On both LE and BE hosts
   // the validator must catch this — the LE-encoded byte buffer carries
   // the logical value 1024 in `a[3 * 16 + 5]`.
-  let intended_y = std::vec![0u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 4];
-  let mut intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![0u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 4];
+  let mut intended_a = vec![1023u16; 16 * 8];
   intended_a[3 * 16 + 5] = 1024;
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
@@ -71,9 +72,9 @@ fn yuva422p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
   // 4:2:2 geometry: Y/A are full-width × full-height; U/V are
   // half-width × full-height. 10-bit white = 1023 (LE bytes
   // [0xFF, 0x03]).
-  let intended_y = std::vec![1023u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 8];
-  let intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![1023u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 8];
+  let intended_a = vec![1023u16; 16 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
   let v = le_encoded_u16_buf(&intended_uv);
@@ -87,9 +88,9 @@ fn yuva422p10_try_new_checked_rejects_le_encoded_alpha_out_of_range_on_any_host(
   // Plant an out-of-range logical alpha sample (1024 > 10-bit max
   // 1023) in the LE byte buffer. The validator must surface the
   // normalized logical value on both LE and BE hosts.
-  let intended_y = std::vec![0u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 8];
-  let mut intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![0u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 8];
+  let mut intended_a = vec![1023u16; 16 * 8];
   intended_a[2 * 16 + 7] = 1024;
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
@@ -105,8 +106,8 @@ fn yuva422p10_try_new_checked_rejects_le_encoded_alpha_out_of_range_on_any_host(
 fn yuva444p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
   // 4:4:4 geometry: every plane (Y, U, V, A) is full-width ×
   // full-height. 10-bit white = 1023 (LE bytes [0xFF, 0x03]).
-  let intended_full = std::vec![1023u16; 16 * 8];
-  let intended_chroma = std::vec![512u16; 16 * 8];
+  let intended_full = vec![1023u16; 16 * 8];
+  let intended_chroma = vec![512u16; 16 * 8];
   let y = le_encoded_u16_buf(&intended_full);
   let u = le_encoded_u16_buf(&intended_chroma);
   let v = le_encoded_u16_buf(&intended_chroma);
@@ -119,9 +120,9 @@ fn yuva444p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
 fn yuva444p10_try_new_checked_rejects_le_encoded_alpha_out_of_range_on_any_host() {
   // Plant an out-of-range logical alpha sample (1024 > 10-bit max
   // 1023). The validator must catch this regardless of host endianness.
-  let intended_y = std::vec![0u16; 16 * 8];
-  let intended_chroma = std::vec![512u16; 16 * 8];
-  let mut intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![0u16; 16 * 8];
+  let intended_chroma = vec![512u16; 16 * 8];
+  let mut intended_a = vec![1023u16; 16 * 8];
   intended_a[4 * 16 + 9] = 1024;
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_chroma);
@@ -140,9 +141,9 @@ fn yuva444p10_try_new_checked_rejects_le_encoded_alpha_out_of_range_on_any_host(
 
 #[test]
 fn yuva420p10_be_try_new_checked_accepts_be_encoded_buffer_on_any_host() {
-  let intended_y = std::vec![1023u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 4];
-  let intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![1023u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 4];
+  let intended_a = vec![1023u16; 16 * 8];
   let y = be_encoded_u16_buf(&intended_y);
   let u = be_encoded_u16_buf(&intended_uv);
   let v = be_encoded_u16_buf(&intended_uv);
@@ -155,9 +156,9 @@ fn yuva420p10_be_try_new_checked_accepts_be_encoded_buffer_on_any_host() {
 fn yuva420p10_be_try_new_checked_rejects_be_encoded_alpha_out_of_range() {
   // Logical 1024 (just above 10-bit max) on the alpha plane —
   // BE-encoded — must be rejected on every host.
-  let intended_y = std::vec![1023u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 4];
-  let mut intended_a = std::vec![1023u16; 16 * 8];
+  let intended_y = vec![1023u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 4];
+  let mut intended_a = vec![1023u16; 16 * 8];
   intended_a[3 * 16 + 5] = 1024;
   let y = be_encoded_u16_buf(&intended_y);
   let u = be_encoded_u16_buf(&intended_uv);

@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 // ---- Rgb24Frame --------------------------------------------------------
 //
@@ -7,20 +8,20 @@ use super::*;
 
 #[test]
 fn rgb24_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   Rgb24Frame::try_new(&buf, 16, 4, 48).expect("valid");
 }
 
 #[test]
 fn rgb24_frame_try_new_accepts_oversized_stride() {
   // stride > 3 * width (row padding) is allowed.
-  let buf = std::vec![0u8; 64 * 4];
+  let buf = vec![0u8; 64 * 4];
   Rgb24Frame::try_new(&buf, 16, 4, 64).expect("padded stride is valid");
 }
 
 #[test]
 fn rgb24_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&buf, 0, 4, 48),
     Err(Rgb24FrameError::ZeroDimension(_))
@@ -33,7 +34,7 @@ fn rgb24_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgb24_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&buf, 16, 4, 47),
     Err(Rgb24FrameError::InsufficientStride(_))
@@ -42,7 +43,7 @@ fn rgb24_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn rgb24_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 3];
+  let small = vec![0u8; 16 * 3];
   assert!(matches!(
     Rgb24Frame::try_new(&small, 16, 4, 48),
     Err(Rgb24FrameError::InsufficientPlane(_))
@@ -52,7 +53,7 @@ fn rgb24_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Rgb24Frame")]
 fn rgb24_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Rgb24Frame::new(&buf, 16, 4, 48);
 }
 
@@ -65,13 +66,13 @@ fn rgb24_frame_new_panics_on_invalid() {
 
 #[test]
 fn bgr24_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   Bgr24Frame::try_new(&buf, 16, 4, 48).expect("valid");
 }
 
 #[test]
 fn bgr24_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&buf, 0, 4, 48),
     Err(Bgr24FrameError::ZeroDimension(_))
@@ -80,7 +81,7 @@ fn bgr24_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn bgr24_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 3];
+  let buf = vec![0u8; 16 * 4 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&buf, 16, 4, 47),
     Err(Bgr24FrameError::InsufficientStride(_))
@@ -89,7 +90,7 @@ fn bgr24_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn bgr24_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 3];
+  let small = vec![0u8; 16 * 3];
   assert!(matches!(
     Bgr24Frame::try_new(&small, 16, 4, 48),
     Err(Bgr24FrameError::InsufficientPlane(_))
@@ -99,7 +100,7 @@ fn bgr24_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid Bgr24Frame")]
 fn bgr24_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = Bgr24Frame::new(&buf, 16, 4, 48);
 }
 
@@ -110,20 +111,20 @@ fn bgr24_frame_new_panics_on_invalid() {
 
 #[test]
 fn rgba_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   RgbaFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn rgba_frame_try_new_accepts_oversized_stride() {
   // stride > 4 * width (row padding) is allowed.
-  let buf = std::vec![0u8; 96 * 4];
+  let buf = vec![0u8; 96 * 4];
   RgbaFrame::try_new(&buf, 16, 4, 96).expect("padded stride is valid");
 }
 
 #[test]
 fn rgba_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&buf, 0, 4, 64),
     Err(RgbaFrameError::ZeroDimension(_))
@@ -136,7 +137,7 @@ fn rgba_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgba_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&buf, 16, 4, 63),
     Err(RgbaFrameError::InsufficientStride(_))
@@ -145,7 +146,7 @@ fn rgba_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn rgba_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     RgbaFrame::try_new(&small, 16, 4, 64),
     Err(RgbaFrameError::InsufficientPlane(_))
@@ -155,7 +156,7 @@ fn rgba_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid RgbaFrame")]
 fn rgba_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = RgbaFrame::new(&buf, 16, 4, 64);
 }
 
@@ -168,13 +169,13 @@ fn rgba_frame_new_panics_on_invalid() {
 
 #[test]
 fn bgra_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   BgraFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn bgra_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     BgraFrame::try_new(&buf, 0, 4, 64),
     Err(BgraFrameError::ZeroDimension(_))
@@ -183,7 +184,7 @@ fn bgra_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn bgra_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     BgraFrame::try_new(&buf, 16, 4, 63),
     Err(BgraFrameError::InsufficientStride(_))
@@ -192,7 +193,7 @@ fn bgra_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn bgra_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     BgraFrame::try_new(&small, 16, 4, 64),
     Err(BgraFrameError::InsufficientPlane(_))
@@ -202,7 +203,7 @@ fn bgra_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid BgraFrame")]
 fn bgra_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = BgraFrame::new(&buf, 16, 4, 64);
 }
 
@@ -213,19 +214,19 @@ fn bgra_frame_new_panics_on_invalid() {
 
 #[test]
 fn argb_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   ArgbFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn argb_frame_try_new_accepts_oversized_stride() {
-  let buf = std::vec![0u8; 96 * 4];
+  let buf = vec![0u8; 96 * 4];
   ArgbFrame::try_new(&buf, 16, 4, 96).expect("padded stride is valid");
 }
 
 #[test]
 fn argb_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&buf, 0, 4, 64),
     Err(ArgbFrameError::ZeroDimension(_))
@@ -238,7 +239,7 @@ fn argb_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn argb_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&buf, 16, 4, 63),
     Err(ArgbFrameError::InsufficientStride(_))
@@ -247,7 +248,7 @@ fn argb_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn argb_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     ArgbFrame::try_new(&small, 16, 4, 64),
     Err(ArgbFrameError::InsufficientPlane(_))
@@ -257,7 +258,7 @@ fn argb_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid ArgbFrame")]
 fn argb_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = ArgbFrame::new(&buf, 16, 4, 64);
 }
 
@@ -265,13 +266,13 @@ fn argb_frame_new_panics_on_invalid() {
 
 #[test]
 fn abgr_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   AbgrFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn abgr_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&buf, 0, 4, 64),
     Err(AbgrFrameError::ZeroDimension(_))
@@ -280,7 +281,7 @@ fn abgr_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn abgr_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&buf, 16, 4, 63),
     Err(AbgrFrameError::InsufficientStride(_))
@@ -289,7 +290,7 @@ fn abgr_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn abgr_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     AbgrFrame::try_new(&small, 16, 4, 64),
     Err(AbgrFrameError::InsufficientPlane(_))
@@ -299,7 +300,7 @@ fn abgr_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid AbgrFrame")]
 fn abgr_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = AbgrFrame::new(&buf, 16, 4, 64);
 }
 
@@ -311,13 +312,13 @@ fn abgr_frame_new_panics_on_invalid() {
 
 #[test]
 fn xrgb_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   XrgbFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn xrgb_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&small, 16, 4, 64),
     Err(XrgbFrameError::InsufficientPlane(_))
@@ -326,7 +327,7 @@ fn xrgb_frame_try_new_rejects_short_plane() {
 
 #[test]
 fn xrgb_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&buf, 0, 4, 64),
     Err(XrgbFrameError::ZeroDimension(_))
@@ -335,7 +336,7 @@ fn xrgb_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn xrgb_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   assert!(matches!(
     XrgbFrame::try_new(&buf, 16, 4, 63),
     Err(XrgbFrameError::InsufficientStride(_))
@@ -345,19 +346,19 @@ fn xrgb_frame_try_new_rejects_stride_too_small() {
 #[test]
 #[should_panic(expected = "invalid XrgbFrame")]
 fn xrgb_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = XrgbFrame::new(&buf, 16, 4, 64);
 }
 
 #[test]
 fn rgbx_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   RgbxFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn rgbx_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     RgbxFrame::try_new(&small, 16, 4, 64),
     Err(RgbxFrameError::InsufficientPlane(_))
@@ -367,19 +368,19 @@ fn rgbx_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid RgbxFrame")]
 fn rgbx_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = RgbxFrame::new(&buf, 16, 4, 64);
 }
 
 #[test]
 fn xbgr_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   XbgrFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn xbgr_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     XbgrFrame::try_new(&small, 16, 4, 64),
     Err(XbgrFrameError::InsufficientPlane(_))
@@ -389,19 +390,19 @@ fn xbgr_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid XbgrFrame")]
 fn xbgr_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = XbgrFrame::new(&buf, 16, 4, 64);
 }
 
 #[test]
 fn bgrx_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 4 * 4];
+  let buf = vec![0u8; 16 * 4 * 4];
   BgrxFrame::try_new(&buf, 16, 4, 64).expect("valid");
 }
 
 #[test]
 fn bgrx_frame_try_new_rejects_short_plane() {
-  let small = std::vec![0u8; 16 * 4];
+  let small = vec![0u8; 16 * 4];
   assert!(matches!(
     BgrxFrame::try_new(&small, 16, 4, 64),
     Err(BgrxFrameError::InsufficientPlane(_))
@@ -411,6 +412,6 @@ fn bgrx_frame_try_new_rejects_short_plane() {
 #[test]
 #[should_panic(expected = "invalid BgrxFrame")]
 fn bgrx_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 10];
+  let buf = vec![0u8; 10];
   let _ = BgrxFrame::new(&buf, 16, 4, 64);
 }

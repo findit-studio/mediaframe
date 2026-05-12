@@ -1,11 +1,12 @@
 use crate::frame::{WidthAlignment, WidthAlignmentRequirement};
 
 use super::super::{V210BeFrame, V210FrameError, V210LeFrame};
+use std::vec;
 
 #[test]
 fn v210_frame_try_new_accepts_valid_tight() {
   // Width 6, height 2, stride = 6 * 8 / 3 = 16 bytes per row.
-  let buf = std::vec![0u8; 16 * 2];
+  let buf = vec![0u8; 16 * 2];
   let frame = V210LeFrame::try_new(&buf, 6, 2, 16).unwrap();
   assert_eq!(frame.width(), 6);
   assert_eq!(frame.height(), 2);
@@ -15,7 +16,7 @@ fn v210_frame_try_new_accepts_valid_tight() {
 #[test]
 fn v210_frame_try_new_accepts_oversized_stride() {
   // FFmpeg pads v210 rows to a multiple of 128 bytes; we accept that.
-  let buf = std::vec![0u8; 128 * 4];
+  let buf = vec![0u8; 128 * 4];
   V210LeFrame::try_new(&buf, 6, 4, 128).unwrap();
 }
 
@@ -37,7 +38,7 @@ fn v210_frame_try_new_rejects_odd_width() {
   // Odd widths violate the 4:2:2 chroma-pair constraint. Even widths
   // that aren't multiples of 6 (e.g. 1280 = 720p) are now supported
   // via partial-word handling — see the dedicated accept tests.
-  let buf = std::vec![0u8; 4096];
+  let buf = vec![0u8; 4096];
   for w in [1u32, 3, 5, 7, 9, 11, 13, 15] {
     let stride = ((w as usize) * 8 / 3 + 16) as u32;
     let err = V210LeFrame::try_new(&buf, w, 1, stride).unwrap_err();
@@ -58,7 +59,7 @@ fn v210_frame_try_new_accepts_partial_word_width() {
   // pixels (Cb, Y, Cr, Y) and 12 unused/undefined bytes.
   let stride = 1280u32.div_ceil(6) * 16;
   assert_eq!(stride, 3424);
-  let buf = std::vec![0u8; stride as usize];
+  let buf = vec![0u8; stride as usize];
   let frame = V210LeFrame::try_new(&buf, 1280, 1, stride).unwrap();
   assert_eq!(frame.width(), 1280);
   assert_eq!(frame.stride(), 3424);
@@ -66,13 +67,13 @@ fn v210_frame_try_new_accepts_partial_word_width() {
   // Width = 1922 (1920 + 2) — forces the partial-word tail right after
   // a long sequence of complete words.
   let stride = 1922u32.div_ceil(6) * 16;
-  let buf = std::vec![0u8; stride as usize];
+  let buf = vec![0u8; stride as usize];
   V210LeFrame::try_new(&buf, 1922, 1, stride).unwrap();
 
   // Smaller partial-word widths.
   for w in [2u32, 4, 8, 10, 14, 16, 20] {
     let stride = w.div_ceil(6) * 16;
-    let buf = std::vec![0u8; stride as usize];
+    let buf = vec![0u8; stride as usize];
     V210LeFrame::try_new(&buf, w, 1, stride).unwrap();
   }
 }
@@ -81,7 +82,7 @@ fn v210_frame_try_new_accepts_partial_word_width() {
 fn v210_frame_accessors_round_trip_partial_word() {
   // Round-trip on a 720p-sized frame (partial-word at end of row).
   let stride = 1280u32.div_ceil(6) * 16;
-  let buf = std::vec![0u8; stride as usize * 720];
+  let buf = vec![0u8; stride as usize * 720];
   let frame = V210LeFrame::try_new(&buf, 1280, 720, stride).unwrap();
   assert_eq!(frame.v210().len(), stride as usize * 720);
   assert_eq!(frame.width(), 1280);
@@ -91,7 +92,7 @@ fn v210_frame_accessors_round_trip_partial_word() {
 
 #[test]
 fn v210_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   // For width=6, min_stride = 16.
   assert!(matches!(
     V210LeFrame::try_new(&buf, 6, 1, 15),
@@ -106,7 +107,7 @@ fn v210_frame_try_new_rejects_stride_too_small() {
 
 #[test]
 fn v210_frame_try_new_rejects_short_plane() {
-  let buf = std::vec![0u8; 15]; // need 16 for width=6 height=1
+  let buf = vec![0u8; 15]; // need 16 for width=6 height=1
   assert!(matches!(
     V210LeFrame::try_new(&buf, 6, 1, 16),
     Err(V210FrameError::InsufficientPlane(_))
@@ -115,7 +116,7 @@ fn v210_frame_try_new_rejects_short_plane() {
 
 #[test]
 fn v210_frame_accessors_round_trip() {
-  let buf = std::vec![0u8; 32 * 4];
+  let buf = vec![0u8; 32 * 4];
   let frame = V210LeFrame::try_new(&buf, 12, 4, 32).unwrap();
   assert_eq!(frame.v210().len(), 32 * 4);
   assert_eq!(frame.width(), 12);
@@ -137,7 +138,7 @@ fn v210_frame_new_panics_on_invalid() {
 #[test]
 fn v210_be_frame_alias_constructs() {
   // Phase 4 Tier 4: `V210BeFrame` alias resolves to `V210Frame<'_, true>`.
-  let buf = std::vec![0u8; 16 * 2];
+  let buf = vec![0u8; 16 * 2];
   let f = V210BeFrame::try_new(&buf, 6, 2, 16).unwrap();
   assert!(f.is_be());
   assert_eq!(f.width(), 6);
@@ -147,7 +148,7 @@ fn v210_be_frame_alias_constructs() {
 #[test]
 fn v210_le_frame_alias_constructs() {
   // `V210LeFrame` alias resolves to `V210Frame<'_, false>`.
-  let buf = std::vec![0u8; 16 * 2];
+  let buf = vec![0u8; 16 * 2];
   let f = V210LeFrame::try_new(&buf, 6, 2, 16).unwrap();
   assert!(!f.is_be());
   assert_eq!(f.width(), 6);

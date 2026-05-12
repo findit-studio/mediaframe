@@ -1,12 +1,15 @@
+#![allow(clippy::useless_vec)]
+
 use super::{util::le_encoded_u16_buf, *};
+use std::{vec, vec::Vec};
 
 // ---- Yuv422pFrame16::try_new_checked ---------------------------------
 
-fn p422_planes_10bit() -> (std::vec::Vec<u16>, std::vec::Vec<u16>, std::vec::Vec<u16>) {
+fn p422_planes_10bit() -> (Vec<u16>, Vec<u16>, Vec<u16>) {
   // Width 16, height 8 — 4:2:2 chroma is half-width, FULL-height.
-  let y = le_encoded_u16_buf(&std::vec![64u16; 16 * 8]);
-  let u = le_encoded_u16_buf(&std::vec![512u16; 8 * 8]);
-  let v = le_encoded_u16_buf(&std::vec![512u16; 8 * 8]);
+  let y = le_encoded_u16_buf(&vec![64u16; 16 * 8]);
+  let u = le_encoded_u16_buf(&vec![512u16; 8 * 8]);
+  let v = le_encoded_u16_buf(&vec![512u16; 8 * 8]);
   (y, u, v)
 }
 
@@ -21,19 +24,19 @@ fn yuv422p10_try_new_checked_accepts_in_range_samples() {
 #[test]
 fn yuv422p10_try_new_checked_accepts_max_valid_value() {
   // Exactly `(1 << 10) - 1 = 1023` must pass.
-  let y = le_encoded_u16_buf(&std::vec![1023u16; 16 * 8]);
-  let u = le_encoded_u16_buf(&std::vec![1023u16; 8 * 8]);
-  let v = le_encoded_u16_buf(&std::vec![1023u16; 8 * 8]);
+  let y = le_encoded_u16_buf(&vec![1023u16; 16 * 8]);
+  let u = le_encoded_u16_buf(&vec![1023u16; 8 * 8]);
+  let v = le_encoded_u16_buf(&vec![1023u16; 8 * 8]);
   Yuv422p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).expect("max valid passes");
 }
 
 #[test]
 fn yuv422p10_try_new_checked_rejects_y_high_bit_set() {
-  let mut intended_y = std::vec![0u16; 16 * 8];
+  let mut intended_y = vec![0u16; 16 * 8];
   intended_y[3 * 16 + 5] = 0x8000;
   let y = le_encoded_u16_buf(&intended_y);
-  let u = le_encoded_u16_buf(&std::vec![512u16; 8 * 8]);
-  let v = le_encoded_u16_buf(&std::vec![512u16; 8 * 8]);
+  let u = le_encoded_u16_buf(&vec![512u16; 8 * 8]);
+  let v = le_encoded_u16_buf(&vec![512u16; 8 * 8]);
   let e = Yuv422p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
   match e {
     Yuv420pFrame16Error::SampleOutOfRange(p) => {
@@ -51,11 +54,11 @@ fn yuv422p10_try_new_checked_rejects_u_plane_sample_in_full_height_chroma() {
   // last chroma row (row 7), which only exists because 4:2:2
   // chroma is full-height (8 rows). The 4:2:0 scan would stop at
   // row 3.
-  let mut intended_u = std::vec![512u16; 8 * 8];
+  let mut intended_u = vec![512u16; 8 * 8];
   intended_u[7 * 8 + 3] = 1024; // last chroma row, just above max
-  let y = le_encoded_u16_buf(&std::vec![0u16; 16 * 8]);
+  let y = le_encoded_u16_buf(&vec![0u16; 16 * 8]);
   let u = le_encoded_u16_buf(&intended_u);
-  let v = le_encoded_u16_buf(&std::vec![512u16; 8 * 8]);
+  let v = le_encoded_u16_buf(&vec![512u16; 8 * 8]);
   let e = Yuv422p10Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
   assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }
@@ -66,9 +69,9 @@ fn yuv422p10_try_new_checked_rejects_v_plane_sample() {
   // pass LE-encoded byte storage to keep the asserted logical values
   // host-independent (see comment on the 4:2:0 sibling test for the
   // failure mode on BE hosts).
-  let intended_y = std::vec![0u16; 16 * 8];
-  let intended_u = std::vec![512u16; 8 * 8];
-  let mut intended_v = std::vec![512u16; 8 * 8];
+  let intended_y = vec![0u16; 16 * 8];
+  let intended_u = vec![512u16; 8 * 8];
+  let mut intended_v = vec![512u16; 8 * 8];
   intended_v[5 * 8 + 6] = 0xFFFF;
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_u);
@@ -79,11 +82,11 @@ fn yuv422p10_try_new_checked_rejects_v_plane_sample() {
 
 #[test]
 fn yuv422p12_try_new_checked_rejects_above_4095() {
-  let mut intended_y = std::vec![2048u16; 16 * 8];
+  let mut intended_y = vec![2048u16; 16 * 8];
   intended_y[0] = 4096; // just above 12-bit max
   let y = le_encoded_u16_buf(&intended_y);
-  let u = le_encoded_u16_buf(&std::vec![2048u16; 8 * 8]);
-  let v = le_encoded_u16_buf(&std::vec![2048u16; 8 * 8]);
+  let u = le_encoded_u16_buf(&vec![2048u16; 8 * 8]);
+  let v = le_encoded_u16_buf(&vec![2048u16; 8 * 8]);
   let e = Yuv422p12Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8).unwrap_err();
   assert!(matches!(e, Yuv420pFrame16Error::SampleOutOfRange(_)));
 }
@@ -91,9 +94,9 @@ fn yuv422p12_try_new_checked_rejects_above_4095() {
 #[test]
 fn yuv422p16_try_new_checked_accepts_full_u16_range() {
   // At 16 bits the full u16 range is valid — no scan needed.
-  let y = std::vec![65535u16; 16 * 8];
-  let u = std::vec![32768u16; 8 * 8];
-  let v = std::vec![32768u16; 8 * 8];
+  let y = vec![65535u16; 16 * 8];
+  let u = vec![32768u16; 8 * 8];
+  let v = vec![32768u16; 8 * 8];
   Yuv422p16Frame::try_new_checked(&y, &u, &v, 16, 8, 16, 8, 8)
     .expect("every u16 value is in range at 16 bits");
 }
@@ -109,8 +112,8 @@ fn yuv422p16_try_new_checked_accepts_full_u16_range() {
 #[test]
 fn yuv422p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
   // 4:2:2: chroma is half-width × full-height.
-  let intended_y = std::vec![1023u16; 16 * 8];
-  let intended_uv = std::vec![512u16; 8 * 8];
+  let intended_y = vec![1023u16; 16 * 8];
+  let intended_uv = vec![512u16; 8 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
   let v = le_encoded_u16_buf(&intended_uv);
@@ -122,9 +125,9 @@ fn yuv422p10_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
 fn yuv422p12_try_new_checked_rejects_le_encoded_out_of_range_on_any_host() {
   // After `from_le` normalization, the offending sample is 4096
   // (just above 12-bit max 4095).
-  let mut intended_y = std::vec![2048u16; 16 * 8];
+  let mut intended_y = vec![2048u16; 16 * 8];
   intended_y[5] = 4096;
-  let intended_uv = std::vec![2048u16; 8 * 8];
+  let intended_uv = vec![2048u16; 8 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let u = le_encoded_u16_buf(&intended_uv);
   let v = le_encoded_u16_buf(&intended_uv);
@@ -137,8 +140,8 @@ fn p210_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
   // P210 white = 1023 << 6 = 0xFFC0; LE bytes [0xC0, 0xFF].
   // 4:2:2 PnFrame422: chroma is half-width pairs × full-height ⇒
   // each UV row holds `width` u16 elements (= width/2 pairs × 2).
-  let intended_y = std::vec![0xFFC0u16; 16 * 8];
-  let intended_uv = std::vec![0x8000u16; 16 * 8];
+  let intended_y = vec![0xFFC0u16; 16 * 8];
+  let intended_uv = vec![0x8000u16; 16 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let uv = le_encoded_u16_buf(&intended_uv);
   P210Frame::try_new_checked(&y, &uv, 16, 8, 16, 16)
@@ -149,9 +152,9 @@ fn p210_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
 fn p210_try_new_checked_rejects_le_encoded_low_bits_on_any_host() {
   // After `from_le` normalization, the logical 0x03FF has all six
   // low bits set — `yuv422p10le`-style data wrongly handed to P210.
-  let mut intended_y = std::vec![0xFFC0u16; 16 * 8];
+  let mut intended_y = vec![0xFFC0u16; 16 * 8];
   intended_y[2 * 16 + 7] = 0x03FF;
-  let intended_uv = std::vec![0x8000u16; 16 * 8];
+  let intended_uv = vec![0x8000u16; 16 * 8];
   let y = le_encoded_u16_buf(&intended_y);
   let uv = le_encoded_u16_buf(&intended_uv);
   let e = P210Frame::try_new_checked(&y, &uv, 16, 8, 16, 16).unwrap_err();

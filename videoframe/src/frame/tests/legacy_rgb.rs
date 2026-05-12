@@ -1,16 +1,17 @@
 use super::*;
+use std::vec;
 
 // ---- Rgb565Frame -----------------------------------------------------------
 
 #[test]
 fn rgb565_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Rgb565Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn rgb565_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Rgb565Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -19,7 +20,7 @@ fn rgb565_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgb565_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Rgb565Frame::try_new(&buf, w, 1, w),
@@ -29,7 +30,7 @@ fn rgb565_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn rgb565_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   // min stride = 2*16 = 32; supply 31
   assert!(matches!(
     Rgb565Frame::try_new(&buf, 16, 4, 31),
@@ -52,7 +53,7 @@ fn rgb565_frame_try_new_rejects_geometry_overflow() {
 #[test]
 fn rgb565_frame_try_new_rejects_plane_too_short() {
   // Valid geometry: 16 px wide, 4 rows, stride=32 → need 128 bytes; give 127
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Rgb565Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))
@@ -63,13 +64,13 @@ fn rgb565_frame_try_new_rejects_plane_too_short() {
 
 #[test]
 fn bgr565_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Bgr565Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn bgr565_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Bgr565Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -78,7 +79,7 @@ fn bgr565_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn bgr565_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Bgr565Frame::try_new(&buf, w, 1, w),
@@ -88,7 +89,7 @@ fn bgr565_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn bgr565_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   assert!(matches!(
     Bgr565Frame::try_new(&buf, 16, 4, 31),
     Err(LegacyRgbFrameError::InsufficientStride(_))
@@ -107,7 +108,7 @@ fn bgr565_frame_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn bgr565_frame_try_new_rejects_plane_too_short() {
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Bgr565Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))
@@ -118,13 +119,13 @@ fn bgr565_frame_try_new_rejects_plane_too_short() {
 
 #[test]
 fn rgb555_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Rgb555Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn rgb555_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Rgb555Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -133,7 +134,7 @@ fn rgb555_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgb555_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Rgb555Frame::try_new(&buf, w, 1, w),
@@ -143,7 +144,7 @@ fn rgb555_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn rgb555_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   assert!(matches!(
     Rgb555Frame::try_new(&buf, 16, 4, 31),
     Err(LegacyRgbFrameError::InsufficientStride(_))
@@ -162,7 +163,7 @@ fn rgb555_frame_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn rgb555_frame_try_new_rejects_plane_too_short() {
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Rgb555Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))
@@ -173,13 +174,13 @@ fn rgb555_frame_try_new_rejects_plane_too_short() {
 
 #[test]
 fn bgr555_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Bgr555Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn bgr555_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Bgr555Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -188,7 +189,7 @@ fn bgr555_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn bgr555_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Bgr555Frame::try_new(&buf, w, 1, w),
@@ -198,7 +199,7 @@ fn bgr555_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn bgr555_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   assert!(matches!(
     Bgr555Frame::try_new(&buf, 16, 4, 31),
     Err(LegacyRgbFrameError::InsufficientStride(_))
@@ -217,7 +218,7 @@ fn bgr555_frame_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn bgr555_frame_try_new_rejects_plane_too_short() {
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Bgr555Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))
@@ -228,13 +229,13 @@ fn bgr555_frame_try_new_rejects_plane_too_short() {
 
 #[test]
 fn rgb444_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Rgb444Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn rgb444_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Rgb444Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -243,7 +244,7 @@ fn rgb444_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn rgb444_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Rgb444Frame::try_new(&buf, w, 1, w),
@@ -253,7 +254,7 @@ fn rgb444_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn rgb444_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   assert!(matches!(
     Rgb444Frame::try_new(&buf, 16, 4, 31),
     Err(LegacyRgbFrameError::InsufficientStride(_))
@@ -272,7 +273,7 @@ fn rgb444_frame_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn rgb444_frame_try_new_rejects_plane_too_short() {
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Rgb444Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))
@@ -284,7 +285,7 @@ fn rgb444_frame_try_new_rejects_plane_too_short() {
 #[test]
 #[should_panic(expected = "invalid Rgb565Frame dimensions or plane length")]
 fn rgb565_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Rgb565Frame::new(&buf, 16, 4, 32);
 }
 
@@ -293,7 +294,7 @@ fn rgb565_frame_new_panics_on_invalid() {
 #[test]
 #[should_panic(expected = "invalid Bgr565Frame dimensions or plane length")]
 fn bgr565_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Bgr565Frame::new(&buf, 16, 4, 32);
 }
 
@@ -302,7 +303,7 @@ fn bgr565_frame_new_panics_on_invalid() {
 #[test]
 #[should_panic(expected = "invalid Rgb555Frame dimensions or plane length")]
 fn rgb555_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Rgb555Frame::new(&buf, 16, 4, 32);
 }
 
@@ -311,7 +312,7 @@ fn rgb555_frame_new_panics_on_invalid() {
 #[test]
 #[should_panic(expected = "invalid Bgr555Frame dimensions or plane length")]
 fn bgr555_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Bgr555Frame::new(&buf, 16, 4, 32);
 }
 
@@ -320,7 +321,7 @@ fn bgr555_frame_new_panics_on_invalid() {
 #[test]
 #[should_panic(expected = "invalid Rgb444Frame dimensions or plane length")]
 fn rgb444_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Rgb444Frame::new(&buf, 16, 4, 32);
 }
 
@@ -329,7 +330,7 @@ fn rgb444_frame_new_panics_on_invalid() {
 #[test]
 #[should_panic(expected = "invalid Bgr444Frame dimensions or plane length")]
 fn bgr444_frame_new_panics_on_invalid() {
-  let buf = std::vec![0u8; 1];
+  let buf = vec![0u8; 1];
   Bgr444Frame::new(&buf, 16, 4, 32);
 }
 
@@ -337,13 +338,13 @@ fn bgr444_frame_new_panics_on_invalid() {
 
 #[test]
 fn bgr444_frame_try_new_accepts_valid_tight() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   Bgr444Frame::try_new(&buf, 16, 4, 32).expect("valid tight stride");
 }
 
 #[test]
 fn bgr444_frame_try_new_rejects_zero_dimension() {
-  let buf = std::vec![0u8; 32];
+  let buf = vec![0u8; 32];
   assert!(matches!(
     Bgr444Frame::try_new(&buf, 0, 0, 0),
     Err(LegacyRgbFrameError::ZeroDimension(_))
@@ -352,7 +353,7 @@ fn bgr444_frame_try_new_rejects_zero_dimension() {
 
 #[test]
 fn bgr444_frame_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u8; 4];
+  let buf = vec![0u8; 4];
   let w = u32::MAX / 2 + 1;
   assert!(matches!(
     Bgr444Frame::try_new(&buf, w, 1, w),
@@ -362,7 +363,7 @@ fn bgr444_frame_try_new_rejects_width_overflow() {
 
 #[test]
 fn bgr444_frame_try_new_rejects_stride_too_small() {
-  let buf = std::vec![0u8; 16 * 2 * 4];
+  let buf = vec![0u8; 16 * 2 * 4];
   assert!(matches!(
     Bgr444Frame::try_new(&buf, 16, 4, 31),
     Err(LegacyRgbFrameError::InsufficientStride(_))
@@ -381,7 +382,7 @@ fn bgr444_frame_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn bgr444_frame_try_new_rejects_plane_too_short() {
-  let buf = std::vec![0u8; 127];
+  let buf = vec![0u8; 127];
   assert!(matches!(
     Bgr444Frame::try_new(&buf, 16, 4, 32),
     Err(LegacyRgbFrameError::InsufficientPlane(_))

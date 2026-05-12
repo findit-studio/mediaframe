@@ -64,6 +64,7 @@ fn ya16_frame_try_new_rejects_plane_too_short() {
   ));
 }
 
+#[cfg(feature = "std")]
 #[test]
 #[cfg(not(target_arch = "wasm32"))] // wasm uses panic=abort; catch_unwind requires unwinding
 fn ya16_frame_new_panics_on_invalid() {

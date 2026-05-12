@@ -1,11 +1,12 @@
 use super::*;
+use std::vec;
 
 // ---- Rgb48Frame tests --------------------------------------------------------
 
 #[test]
 fn rgb48_try_new_happy_path() {
   // width=2, stride=6, height=3 → plane needs 18 u16 elements
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   let f = Rgb48LeFrame::try_new(&buf, 2, 3, 6).unwrap();
   assert_eq!(f.width(), 2);
   assert_eq!(f.height(), 3);
@@ -17,7 +18,7 @@ fn rgb48_try_new_happy_path() {
 
 #[test]
 fn rgb48_stride_too_small() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   // stride=5 < 3*2=6
   assert!(Rgb48LeFrame::try_new(&buf, 2, 3, 5).is_err());
 }
@@ -25,13 +26,13 @@ fn rgb48_stride_too_small() {
 #[test]
 fn rgb48_plane_too_short() {
   // stride=6, height=3 → need 18; supply only 17
-  let buf = std::vec![0u16; 17];
+  let buf = vec![0u16; 17];
   assert!(Rgb48LeFrame::try_new(&buf, 2, 3, 6).is_err());
 }
 
 #[test]
 fn rgb48_zero_dimension() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   assert!(Rgb48LeFrame::try_new(&buf, 0, 3, 6).is_err());
   assert!(Rgb48LeFrame::try_new(&buf, 2, 0, 6).is_err());
 }
@@ -39,7 +40,7 @@ fn rgb48_zero_dimension() {
 #[test]
 fn rgb48_be_frame_alias_constructs() {
   // Phase 4: `Rgb48BeFrame` alias resolves to `Rgb48Frame<'_, true>`.
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   let f = Rgb48BeFrame::try_new(&buf, 2, 3, 6).unwrap();
   assert!(f.is_be());
   assert_eq!(f.width(), 2);
@@ -50,7 +51,7 @@ fn rgb48_be_frame_alias_constructs() {
 
 #[test]
 fn bgr48_try_new_happy_path() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   let f = Bgr48LeFrame::try_new(&buf, 2, 3, 6).unwrap();
   assert_eq!(f.width(), 2);
   assert_eq!(f.height(), 3);
@@ -61,26 +62,26 @@ fn bgr48_try_new_happy_path() {
 
 #[test]
 fn bgr48_stride_too_small() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   assert!(Bgr48LeFrame::try_new(&buf, 2, 3, 5).is_err());
 }
 
 #[test]
 fn bgr48_plane_too_short() {
-  let buf = std::vec![0u16; 17];
+  let buf = vec![0u16; 17];
   assert!(Bgr48LeFrame::try_new(&buf, 2, 3, 6).is_err());
 }
 
 #[test]
 fn bgr48_zero_dimension() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   assert!(Bgr48LeFrame::try_new(&buf, 0, 3, 6).is_err());
   assert!(Bgr48LeFrame::try_new(&buf, 2, 0, 6).is_err());
 }
 
 #[test]
 fn bgr48_be_frame_alias_constructs() {
-  let buf = std::vec![0u16; 18];
+  let buf = vec![0u16; 18];
   let f = Bgr48BeFrame::try_new(&buf, 2, 3, 6).unwrap();
   assert!(f.is_be());
 }
@@ -90,7 +91,7 @@ fn bgr48_be_frame_alias_constructs() {
 #[test]
 fn rgba64_try_new_happy_path() {
   // width=2, stride=8 (4*2), height=3 → plane needs 24 u16 elements
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   let f = Rgba64LeFrame::try_new(&buf, 2, 3, 8).unwrap();
   assert_eq!(f.width(), 2);
   assert_eq!(f.height(), 3);
@@ -101,7 +102,7 @@ fn rgba64_try_new_happy_path() {
 
 #[test]
 fn rgba64_stride_too_small() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   // stride=7 < 4*2=8
   assert!(Rgba64LeFrame::try_new(&buf, 2, 3, 7).is_err());
 }
@@ -109,20 +110,20 @@ fn rgba64_stride_too_small() {
 #[test]
 fn rgba64_plane_too_short() {
   // stride=8, height=3 → need 24; supply only 23
-  let buf = std::vec![0u16; 23];
+  let buf = vec![0u16; 23];
   assert!(Rgba64LeFrame::try_new(&buf, 2, 3, 8).is_err());
 }
 
 #[test]
 fn rgba64_zero_dimension() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   assert!(Rgba64LeFrame::try_new(&buf, 0, 3, 8).is_err());
   assert!(Rgba64LeFrame::try_new(&buf, 2, 0, 8).is_err());
 }
 
 #[test]
 fn rgba64_be_frame_alias_constructs() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   let f = Rgba64BeFrame::try_new(&buf, 2, 3, 8).unwrap();
   assert!(f.is_be());
 }
@@ -131,7 +132,7 @@ fn rgba64_be_frame_alias_constructs() {
 
 #[test]
 fn rgb48_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u16; 0];
+  let buf = vec![0u16; 0];
   let too_big = (u32::MAX / 3) + 1;
   assert!(matches!(
     Rgb48LeFrame::try_new(&buf, too_big, 1, u32::MAX),
@@ -162,7 +163,7 @@ fn rgb48_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn rgba64_try_new_rejects_width_overflow() {
-  let buf = std::vec![0u16; 0];
+  let buf = vec![0u16; 0];
   let too_big = (u32::MAX / 4) + 1;
   assert!(matches!(
     Rgba64LeFrame::try_new(&buf, too_big, 1, u32::MAX),
@@ -193,7 +194,7 @@ fn rgba64_try_new_rejects_geometry_overflow() {
 
 #[test]
 fn bgra64_try_new_happy_path() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   let f = Bgra64LeFrame::try_new(&buf, 2, 3, 8).unwrap();
   assert_eq!(f.width(), 2);
   assert_eq!(f.height(), 3);
@@ -204,26 +205,26 @@ fn bgra64_try_new_happy_path() {
 
 #[test]
 fn bgra64_stride_too_small() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   assert!(Bgra64LeFrame::try_new(&buf, 2, 3, 7).is_err());
 }
 
 #[test]
 fn bgra64_plane_too_short() {
-  let buf = std::vec![0u16; 23];
+  let buf = vec![0u16; 23];
   assert!(Bgra64LeFrame::try_new(&buf, 2, 3, 8).is_err());
 }
 
 #[test]
 fn bgra64_zero_dimension() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   assert!(Bgra64LeFrame::try_new(&buf, 0, 3, 8).is_err());
   assert!(Bgra64LeFrame::try_new(&buf, 2, 0, 8).is_err());
 }
 
 #[test]
 fn bgra64_be_frame_alias_constructs() {
-  let buf = std::vec![0u16; 24];
+  let buf = vec![0u16; 24];
   let f = Bgra64BeFrame::try_new(&buf, 2, 3, 8).unwrap();
   assert!(f.is_be());
 }

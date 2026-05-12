@@ -1,4 +1,5 @@
 use super::*;
+use std::{vec, vec::Vec};
 
 // ---- Gbrpf32Frame ----------------------------------------------------------
 // Three f32 planes. Stride in elements. DimensionOverflow uses i32::MAX + 1.

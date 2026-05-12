@@ -44,7 +44,13 @@ fn yuv420p10_try_new_accepts_odd_height() {
 fn yuv420p10_try_new_rejects_odd_width() {
   let (y, u, v) = p10_planes();
   let e = Yuv420p10Frame::try_new(&y, &u, &v, 15, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrame16Error::OddWidth(_)));
+  assert!(matches!(
+    e,
+    Yuv420pFrame16Error::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]
@@ -300,7 +306,13 @@ fn p010_try_new_accepts_odd_height() {
 fn p010_try_new_rejects_odd_width() {
   let (y, uv) = p010_planes();
   let e = P010Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, PnFrameError::OddWidth(_)));
+  assert!(matches!(
+    e,
+    PnFrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]

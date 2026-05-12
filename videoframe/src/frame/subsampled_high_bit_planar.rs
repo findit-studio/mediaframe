@@ -1,5 +1,6 @@
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthAlignment,
+  ZeroDimension,
 };
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -130,7 +131,9 @@ impl<'a, const BITS: u32, const BE: bool> Yuv420pFrame16<'a, BITS, BE> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuv420pFrame16Error::OddWidth(OddWidth::new(width)));
+      return Err(Yuv420pFrame16Error::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuv420pFrame16Error::InsufficientYStride(
@@ -475,9 +478,9 @@ pub enum Yuv420pFrame16Error {
   ZeroDimension(ZeroDimension),
 
   /// `width` was odd. Same 4:2:0 rationale as
-  /// `Yuv420pFrameError::OddWidth`.
+  /// `Yuv420pFrameError::WidthAlignment`.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width` (in samples).
   #[error(transparent)]
@@ -624,7 +627,9 @@ impl<'a, const BITS: u32, const BE: bool> Yuv422pFrame16<'a, BITS, BE> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuv420pFrame16Error::OddWidth(OddWidth::new(width)));
+      return Err(Yuv420pFrame16Error::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuv420pFrame16Error::InsufficientYStride(

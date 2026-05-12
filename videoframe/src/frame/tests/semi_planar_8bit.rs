@@ -36,7 +36,13 @@ fn nv12_try_new_rejects_zero_dim() {
 fn nv12_try_new_rejects_odd_width() {
   let (y, uv) = nv12_planes();
   let e = Nv12Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv12FrameError::OddWidth(_)));
+  assert!(matches!(
+    e,
+    Nv12FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]
@@ -130,7 +136,13 @@ fn nv16_try_new_rejects_zero_dim() {
 fn nv16_try_new_rejects_odd_width() {
   let (y, uv) = nv16_planes();
   let e = Nv16Frame::try_new(&y, &uv, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv16FrameError::OddWidth(_)));
+  assert!(matches!(
+    e,
+    Nv16FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]
@@ -396,7 +408,13 @@ fn nv21_try_new_accepts_odd_height() {
 fn nv21_try_new_rejects_odd_width() {
   let (y, vu) = nv21_planes();
   let e = Nv21Frame::try_new(&y, &vu, 15, 8, 16, 16).unwrap_err();
-  assert!(matches!(e, Nv21FrameError::OddWidth(_)));
+  assert!(matches!(
+    e,
+    Nv21FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]

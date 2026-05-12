@@ -1,3 +1,5 @@
+use crate::frame::{WidthAlignment, WidthAlignmentRequirement};
+
 use super::super::{V210BeFrame, V210FrameError, V210LeFrame};
 
 #[test]
@@ -39,7 +41,13 @@ fn v210_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13, 15] {
     let stride = ((w as usize) * 8 / 3 + 16) as u32;
     let err = V210LeFrame::try_new(&buf, w, 1, stride).unwrap_err();
-    assert!(matches!(err, V210FrameError::OddWidth(_)));
+    assert!(matches!(
+      err,
+      V210FrameError::WidthAlignment(WidthAlignment {
+        required: WidthAlignmentRequirement::Even,
+        ..
+      })
+    ));
   }
 }
 

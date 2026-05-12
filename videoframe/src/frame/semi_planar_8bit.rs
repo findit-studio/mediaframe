@@ -1,4 +1,6 @@
-use super::{GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, ZeroDimension};
+use super::{
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthAlignment, ZeroDimension,
+};
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
@@ -61,7 +63,9 @@ impl<'a> Nv12Frame<'a> {
     // like 640x481 (the decoder output for a 640x480 source cropped
     // from an encoded 480-row‑plus‑edge MB grid) are representable.
     if width & 1 != 0 {
-      return Err(Nv12FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Nv12FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Nv12FrameError::InsufficientYStride(
@@ -194,7 +198,7 @@ pub enum Nv12FrameError {
   /// assume `width & 1 == 0`. Height is allowed to be odd (handled by
   /// `height.div_ceil(2)` in chroma‑row sizing).
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]
@@ -278,7 +282,9 @@ impl<'a> Nv16Frame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Nv16FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Nv16FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Nv16FrameError::InsufficientYStride(
@@ -404,7 +410,7 @@ pub enum Nv16FrameError {
 
   /// `width` was odd. 4:2:2 subsamples chroma 2:1 in width.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]
@@ -860,7 +866,9 @@ impl<'a> Nv21Frame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Nv21FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Nv21FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Nv21FrameError::InsufficientYStride(
@@ -985,9 +993,9 @@ pub enum Nv21FrameError {
   #[error(transparent)]
   ZeroDimension(ZeroDimension),
 
-  /// `width` was odd. Same rationale as [`Nv12FrameError::OddWidth`].
+  /// `width` was odd. Same rationale as [`Nv12FrameError::WidthAlignment`].
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]

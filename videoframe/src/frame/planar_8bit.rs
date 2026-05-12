@@ -2,8 +2,7 @@ use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
 
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthNotMultipleOf4,
-  ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthAlignment, ZeroDimension,
 };
 
 /// A validated YUV 4:2:0 planar frame.
@@ -70,7 +69,9 @@ impl<'a> Yuv420pFrame<'a> {
     // to chroma row `r / 2`, so a frame like 640x481 works — the last
     // Y row shares chroma with the final chroma row alone.
     if width & 1 != 0 {
-      return Err(Yuv420pFrameError::OddWidth(OddWidth::new(width)));
+      return Err(Yuv420pFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuv420pFrameError::InsufficientYStride(
@@ -268,7 +269,9 @@ impl<'a> Yuv422pFrame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuv422pFrameError::OddWidth(OddWidth::new(width)));
+      return Err(Yuv422pFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(Yuv422pFrameError::InsufficientYStride(
@@ -419,7 +422,7 @@ pub enum Yuv422pFrameError {
   ZeroDimension(ZeroDimension),
   /// `width` was odd. 4:2:2 subsamples chroma 2:1 in width.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
   /// `y_stride < width`.
   #[error(transparent)]
   InsufficientYStride(InsufficientStride),
@@ -873,7 +876,7 @@ pub enum Yuv420pFrameError {
   /// kernels assume `width & 1 == 0`. Height is allowed to be odd
   /// (handled by `height.div_ceil(2)` in chroma‑row sizing).
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
   /// `y_stride < width`.
   #[error(transparent)]
   InsufficientYStride(InsufficientStride),
@@ -986,8 +989,8 @@ impl<'a> Yuv410pFrame<'a> {
     // row group for the trailing 1..=3 Y rows. This matches how
     // `Yuv420pFrame` admits odd heights.
     if width & 3 != 0 {
-      return Err(Yuv410pFrameError::WidthNotMultipleOf4(
-        WidthNotMultipleOf4::new(width),
+      return Err(Yuv410pFrameError::WidthAlignment(
+        WidthAlignment::multiple_of_four(width as usize),
       ));
     }
     if y_stride < width {
@@ -1148,7 +1151,7 @@ pub enum Yuv410pFrameError {
   /// `width` is not a multiple of 4. 4:1:0 subsamples chroma 4:1 in
   /// width — partial 4-column chroma blocks have no defined coverage.
   #[error(transparent)]
-  WidthNotMultipleOf4(WidthNotMultipleOf4),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]
@@ -1414,7 +1417,7 @@ pub enum Yuv411pFrameError {
   /// matches it explicitly. The enum is `#[non_exhaustive]`, so
   /// downstream `match` arms must already include a wildcard.
   #[error(transparent)]
-  WidthNotMultipleOfFour(WidthNotMultipleOf4),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width`.
   #[error(transparent)]

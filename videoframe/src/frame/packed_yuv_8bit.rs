@@ -1,5 +1,6 @@
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, WidthOverflow, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, WidthAlignment, WidthOverflow,
+  ZeroDimension,
 };
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -35,7 +36,7 @@ pub enum Yuyv422FrameError {
   /// chroma pair, so each 2-pixel block needs exactly 4 bytes —
   /// odd widths can't form a complete final block.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < 2 * width`. Each row needs `2 * width` bytes
   /// (4 bytes per 2-pixel block).
@@ -85,7 +86,9 @@ impl<'a> Yuyv422Frame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yuyv422FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Yuyv422FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
@@ -161,7 +164,7 @@ pub enum Uyvy422FrameError {
 
   /// `width` was odd.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < 2 * width`.
   #[error(transparent)]
@@ -211,7 +214,9 @@ impl<'a> Uyvy422Frame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Uyvy422FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Uyvy422FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,
@@ -287,7 +292,7 @@ pub enum Yvyu422FrameError {
 
   /// `width` was odd.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < 2 * width`.
   #[error(transparent)]
@@ -337,7 +342,9 @@ impl<'a> Yvyu422Frame<'a> {
       )));
     }
     if width & 1 != 0 {
-      return Err(Yvyu422FrameError::OddWidth(OddWidth::new(width)));
+      return Err(Yvyu422FrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(v) => v,

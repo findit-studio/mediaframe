@@ -43,9 +43,11 @@
 //! Used by Ship 11b (Y210), Ship 11c (Y212 — wiring-only), and
 //! Ship 11d (Y216 — separate kernel family with i64 chroma path).
 
+use crate::frame::WidthAlignment;
+
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits,
-  WidthOverflow, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthOverflow,
+  ZeroDimension,
 };
 use derive_more::{IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -136,7 +138,7 @@ pub enum Y2xxFrameError {
 
   /// `width % 2 != 0`. 4:2:2 subsampling requires even width.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `stride < width * 2` (u16 elements). Each row needs at least
   /// `width × 2` u16 elements (= `width × 4` bytes) to hold all
@@ -185,7 +187,9 @@ impl<'a, const BITS: u32, const BE: bool> Y2xxFrame<'a, BITS, BE> {
       )));
     }
     if !width.is_multiple_of(2) {
-      return Err(Y2xxFrameError::OddWidth(OddWidth::new(width)));
+      return Err(Y2xxFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     let min_stride = match width.checked_mul(2) {
       Some(n) => n,
@@ -279,7 +283,7 @@ impl<'a, const BITS: u32, const BE: bool> Y2xxFrame<'a, BITS, BE> {
       Err(e) => match e {
         Y2xxFrameError::UnsupportedBits(_) => panic!("invalid Y2xxFrame: unsupported BITS"),
         Y2xxFrameError::ZeroDimension(_) => panic!("invalid Y2xxFrame: zero dimension"),
-        Y2xxFrameError::OddWidth(_) => panic!("invalid Y2xxFrame: odd width"),
+        Y2xxFrameError::WidthAlignment(_) => panic!("invalid Y2xxFrame: odd width"),
         Y2xxFrameError::InsufficientStride(_) => panic!("invalid Y2xxFrame: stride too small"),
         Y2xxFrameError::InsufficientPlane(_) => panic!("invalid Y2xxFrame: plane too short"),
         Y2xxFrameError::GeometryOverflow(_) => panic!("invalid Y2xxFrame: geometry overflow"),

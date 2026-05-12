@@ -99,7 +99,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         $buf: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -109,7 +109,7 @@ macro_rules! walker {
       }
       /// Packed source row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn $buf(&self) -> &'a [$elem] {
+      pub const fn $buf(&self) -> &'a [$elem] {
         self.$buf
       }
       /// Output row index within the frame.
@@ -160,7 +160,7 @@ macro_rules! walker {
 
   // ---------- packed_be (single-buffer with `<const BE: bool>`) -------------
   //
-  // Phase 4 — Frame BE flag. Same shape as `packed { ... }` above, but the
+  // Frame BE flag. Same shape as `packed { ... }` above, but the
   // marker, Sink subtrait, and walker fn carry a `<const BE: bool>` parameter
   // (defaulted on the marker to `false` for back-compat). The frame type is
   // expected to also be `<'a, const BE: bool>` (defaulted to `false`). Sinker
@@ -178,8 +178,6 @@ macro_rules! walker {
   //     downstream explicit-turbofish callers (`$walker::<MySink>(...)`)
   //     keep compiling. Function-position const-generic defaults aren't
   //     allowed by Rust, so the wrapper is required for source compat.
-  //
-  // Used by Tier 8 trial: Rgb48, Bgr48, Rgba64, Bgra64, X2Rgb10, X2Bgr10.
   //
   // NOTE: The Y2xx family (Y210/Y212/Y216) is intentionally handled by a
   // separate `packed_be_y2xx` arm below rather than reusing this arm. The
@@ -325,7 +323,7 @@ macro_rules! walker {
 
   // ---------- packed_be_y2xx (single-buffer Y2xx with `<const BE>`) --------
   //
-  // Phase 4 Tier 4 — variant of `packed_be` for the Y2xx family
+  // variant of `packed_be` for the Y2xx family
   // (`Y210`/`Y212`/`Y216`) whose underlying frame type is the shared
   // `Y2xxFrame<'a, const BITS: u32, const BE: bool = false>`. The macro
   // takes both the underlying `frame_inner: $frame_inner:ident` (always
@@ -343,9 +341,6 @@ macro_rules! walker {
   //     back-compat wrapper preserving the pre-Phase-4 signature so
   //     downstream explicit-turbofish callers (`$walker::<MySink>(...)`)
   //     keep compiling.
-  //
-  // Used by Tier 4: Y210, Y212, Y216 (each pinning a different BITS
-  // literal).
   //
   // NOTE: This arm is kept separate from `packed_be` rather than unified
   // for the reason called out at the head of the `packed_be` arm: the
@@ -391,7 +386,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         $buf: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -401,7 +396,7 @@ macro_rules! walker {
       }
       /// Packed source row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn $buf(&self) -> &'a [$elem] {
+      pub const fn $buf(&self) -> &'a [$elem] {
         self.$buf
       }
       /// Output row index within the frame.
@@ -483,7 +478,7 @@ macro_rules! walker {
 
   // ---------- planar3_bits_be (3 planes: Y/U/V, BITS + BE generic) ---------
   //
-  // Phase 4 — Frame BE flag, Tier 10b. Same shape as `planar3_bits` (full
+  // Frame BE flag. Same shape as `planar3_bits` (full
   // chroma_h + full chroma_v only — the GBR planar layout has no chroma
   // subsampling), but the marker, Sink subtrait, walker fn, and walker_inner
   // carry a `<const BE: bool>` parameter (defaulted on the marker / Sink to
@@ -504,8 +499,6 @@ macro_rules! walker {
   //     compiling. Function-position const-generic defaults aren't allowed
   //     by Rust, so the wrapper is required for source compat. BE-aware
   //     callers should use the `_endian` helper directly.
-  //
-  // Used by Tier 10b: Gbrp9/10/12/14/16.
   (
     planar3_bits_be {
       $(#[$marker_meta:meta])*
@@ -545,7 +538,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -557,17 +550,17 @@ macro_rules! walker {
       }
       /// Full-width Y row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Output row index within the frame.
@@ -671,7 +664,7 @@ macro_rules! walker {
 
   // ---------- planar4_bits_be (4 planes: Y/U/V/A, BITS + BE generic) -------
   //
-  // Phase 4 — Frame BE flag, Tier 10b. Same shape as `planar4_bits` (full
+  // Frame BE flag. Same shape as `planar4_bits` (full
   // chroma_h + full chroma_v only) with `<const BE: bool>` propagation.
   //
   // Two walker fns are generated (mirroring `planar1_bits_be` /
@@ -684,8 +677,6 @@ macro_rules! walker {
   //     compiling. Function-position const-generic defaults aren't allowed
   //     by Rust, so the wrapper is required for source compat. BE-aware
   //     callers should use the `_endian` helper directly.
-  //
-  // Used by Tier 10b: Gbrap10/12/14/16.
   (
     planar4_bits_be {
       $(#[$marker_meta:meta])*
@@ -726,7 +717,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -739,22 +730,22 @@ macro_rules! walker {
       }
       /// Full-width Y row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Full-width alpha row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -921,7 +912,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
@@ -932,12 +923,12 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Interleaved chroma row (UV-ordered or VU-ordered per format).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn $chroma_field(&self) -> &'a [$elem] {
+      pub const fn $chroma_field(&self) -> &'a [$elem] {
         self.$chroma_field
       }
       /// Output row index within the frame.
@@ -1200,7 +1191,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1212,17 +1203,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Output row index within the frame.
@@ -1326,7 +1317,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_quarter: &'a [$elem],
         v_quarter: &'a [$elem],
@@ -1338,7 +1329,7 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Quarter-width U (Cb) row — `width.div_ceil(4)` samples. Each
@@ -1349,14 +1340,14 @@ macro_rules! walker {
       /// final chroma sample may cover a partial 1..3-pixel group of
       /// trailing Y columns.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_quarter(&self) -> &'a [$elem] {
+      pub const fn u_quarter(&self) -> &'a [$elem] {
         self.u_quarter
       }
       /// Quarter-width V (Cr) row — `width.div_ceil(4)` samples
       /// (4:1:1 / 4:1:0). See [`Self::u_quarter`] for the Yuv410p-vs-
       /// Yuv411p width-rounding distinction.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_quarter(&self) -> &'a [$elem] {
+      pub const fn v_quarter(&self) -> &'a [$elem] {
         self.v_quarter
       }
       /// Output row index within the frame.
@@ -1457,7 +1448,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -1469,17 +1460,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Output row index within the frame.
@@ -1576,7 +1567,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1588,17 +1579,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Output row index within the frame.
@@ -1706,7 +1697,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -1718,17 +1709,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Output row index within the frame.
@@ -1833,7 +1824,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -1846,22 +1837,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -1964,7 +1955,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -1977,22 +1968,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -2097,7 +2088,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -2110,22 +2101,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -2204,7 +2195,7 @@ macro_rules! walker {
 
   // ---------- planar3_be (3 planes + `<const BE: bool>`, no bits-generic) --
   //
-  // Phase 4 — Frame BE flag, for 4:2:2/4:4:4/4:4:0 high-bit YUV planar
+  // Frame BE flag, for 4:2:2/4:4:4/4:4:0 high-bit YUV planar
   // formats that do not share an underlying `<const BITS>` walker (each
   // format dispatches to its own kernel family). Mirrors `planar3_be` in
   // shape; just adds the BE generic to marker/Sink/walker. The frame type
@@ -2249,7 +2240,7 @@ macro_rules! walker {
 
   // ---------- planar4_be (4 planes + `<const BE: bool>`, no bits-generic) --
   //
-  // Phase 4 — same as `planar3_be` but for the YUVA family (4:4:4 alpha).
+  // same as `planar3_be` but for the YUVA family (4:4:4 alpha).
   // Used by Yuva444p9..16, which dispatch per-format to dedicated kernels
   // (no `<const BITS>` inner walker).
   (
@@ -2291,7 +2282,7 @@ macro_rules! walker {
 
   // ---------- planar3_bits_be (3 planes + `<const BE: bool>`) --------------
   //
-  // Phase 4 — Frame BE flag. Same shape as `planar3_bits` above, but the
+  // Frame BE flag. Same shape as `planar3_bits` above, but the
   // marker, Sink subtrait, outer walker, and inner walker carry a
   // `<const BE: bool>` parameter (defaulted on the marker to `false` for
   // back-compat). The frame types are expected to also be
@@ -2302,9 +2293,6 @@ macro_rules! walker {
   // The Row type itself is **not** parameterized on BE — Row is just
   // borrowed bytes; the kernel monomorphization picks up `BE` from the
   // sinker type.
-  //
-  // Used by Phase 4 YUV-HB tier: Yuv420p9..16 / Yuv422p9..16 /
-  // Yuv444p9..16 / Yuv440p10..12 (all four planar high-bit families).
   (
     planar3_bits_be {
       $(#[$marker_meta:meta])*
@@ -2350,7 +2338,7 @@ macro_rules! walker {
 
   // ---------- planar4_bits_be (4 planes + `<const BE: bool>`) --------------
   //
-  // Phase 4 — Frame BE flag. Same shape as `planar4_bits`, with
+  // Frame BE flag. Same shape as `planar4_bits`, with
   // `<const BE: bool = false>` added on marker/Sink/walker. Used by
   // Yuva420p9..16 / Yuva422p9..16 / Yuva444p9..16.
   (
@@ -2398,16 +2386,13 @@ macro_rules! walker {
 
   // ---------- semi_planar_be (Y + interleaved chroma + `<const BE>`) -------
   //
-  // Phase 4 — Frame BE flag. Same shape as `semi_planar` above, but the
+  // Frame BE flag. Same shape as `semi_planar` above, but the
   // marker, Sink subtrait, and walker carry a `<const BE: bool>`
   // parameter (defaulted on the marker to `false` for back-compat). The
   // frame type is expected to also be `<'a, const BITS: u32, const BE: bool>`
   // (defaulted to `false`). Sinker impls then specialize as
   // `MixedSinker<Marker<BE>>` and propagate `BE` into the row-kernel
   // call as the runtime `big_endian` arg.
-  //
-  // Used by Phase 4 Pn tier: P010/P012/P016 / P210/P212/P216 /
-  // P410/P412/P416.
   (
     semi_planar_be {
       $(#[$marker_meta:meta])*
@@ -2448,7 +2433,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
@@ -2459,12 +2444,12 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Interleaved chroma row (UV-ordered or VU-ordered per format).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn $chroma_field(&self) -> &'a [$elem] {
+      pub const fn $chroma_field(&self) -> &'a [$elem] {
         self.$chroma_field
       }
       /// Output row index within the frame.
@@ -2585,7 +2570,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -2597,17 +2582,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Output row index within the frame.
@@ -2729,7 +2714,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -2741,17 +2726,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Output row index within the frame.
@@ -2869,7 +2854,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -2882,22 +2867,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -3023,7 +3008,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -3035,17 +3020,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Output row index within the frame.
@@ -3178,7 +3163,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -3190,17 +3175,17 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Output row index within the frame.
@@ -3333,7 +3318,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u_half: &'a [$elem],
         v_half: &'a [$elem],
@@ -3346,22 +3331,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Half-width U (Cb) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u_half(&self) -> &'a [$elem] {
+      pub const fn u_half(&self) -> &'a [$elem] {
         self.u_half
       }
       /// Half-width V (Cr) row — `width / 2` samples.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v_half(&self) -> &'a [$elem] {
+      pub const fn v_half(&self) -> &'a [$elem] {
         self.v_half
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -3502,7 +3487,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -3515,22 +3500,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.
@@ -3665,7 +3650,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -3675,7 +3660,7 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Output row index within the frame.
@@ -3762,7 +3747,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -3772,7 +3757,7 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Output row index within the frame.
@@ -3831,7 +3816,7 @@ macro_rules! walker {
 
   // ---------- planar1_be (single plane with `<const BE: bool>`) ------------
   //
-  // Phase 4 — Frame BE flag. Same shape as `planar1 { ... }` above, but the
+  // Frame BE flag. Same shape as `planar1 { ... }` above, but the
   // marker, Sink subtrait, and walker fn carry a `<const BE: bool>` parameter
   // (defaulted on the marker to `false` for back-compat). The frame type is
   // expected to also be `<'a, const BE: bool>` (defaulted to `false`).
@@ -3848,8 +3833,6 @@ macro_rules! walker {
   //     compiling. Function-position const-generic defaults aren't allowed
   //     by Rust, so the wrapper is required for source compat. BE-aware
   //     callers should use the `_endian` helper directly.
-  //
-  // Used by Tier 11: Gray16 (u16 plane), Grayf32 (f32 plane).
   (
     planar1_be {
       $(#[$marker_meta:meta])*
@@ -3883,7 +3866,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -3893,7 +3876,7 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Output row index within the frame.
@@ -3976,7 +3959,7 @@ macro_rules! walker {
 
   // ---------- planar1_bits_be (BITS-generic + BE-generic, single u16 plane) -
   //
-  // Phase 4 — Frame BE flag. Same shape as `planar1_bits { ... }` above, but
+  // Frame BE flag. Same shape as `planar1_bits { ... }` above, but
   // the marker, Sink subtrait, and walker fn carry an additional
   // `<const BE: bool>` parameter (defaulted on the marker to `false` for
   // back-compat). The outer walker is monomorphic over the specific BITS
@@ -3992,8 +3975,6 @@ macro_rules! walker {
   //     compiling. Function-position const-generic defaults aren't allowed
   //     by Rust, so the wrapper is required for source compat. BE-aware
   //     callers should use the `_endian` helper directly.
-  //
-  // Used by Tier 11: Gray9 / Gray10 / Gray12 / Gray14.
   (
     planar1_bits_be {
       $(#[$marker_meta:meta])*
@@ -4030,7 +4011,7 @@ macro_rules! walker {
 
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         row: usize,
         matrix: $crate::color::ColorMatrix,
@@ -4040,7 +4021,7 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Output row index within the frame.
@@ -4171,7 +4152,7 @@ macro_rules! walker {
     impl<'a> $row<'a> {
       #[cfg_attr(not(tarpaulin), inline(always))]
       #[allow(clippy::too_many_arguments)]
-      pub(crate) fn new(
+      pub(crate) const fn new(
         y: &'a [$elem],
         u: &'a [$elem],
         v: &'a [$elem],
@@ -4184,22 +4165,22 @@ macro_rules! walker {
       }
       /// Full-width Y (luma) row.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn y(&self) -> &'a [$elem] {
+      pub const fn y(&self) -> &'a [$elem] {
         self.y
       }
       /// Full-width U (Cb) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn u(&self) -> &'a [$elem] {
+      pub const fn u(&self) -> &'a [$elem] {
         self.u
       }
       /// Full-width V (Cr) row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn v(&self) -> &'a [$elem] {
+      pub const fn v(&self) -> &'a [$elem] {
         self.v
       }
       /// Full-width alpha row — `width` samples (1:1 with Y).
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub fn a(&self) -> &'a [$elem] {
+      pub const fn a(&self) -> &'a [$elem] {
         self.a
       }
       /// Output row index within the frame.

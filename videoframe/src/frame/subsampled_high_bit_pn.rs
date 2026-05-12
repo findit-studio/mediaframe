@@ -1,5 +1,6 @@
 use super::{
-  GeometryOverflow, InsufficientPlane, InsufficientStride, OddWidth, UnsupportedBits, ZeroDimension,
+  GeometryOverflow, InsufficientPlane, InsufficientStride, UnsupportedBits, WidthAlignment,
+  ZeroDimension,
 };
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use thiserror::Error;
@@ -105,7 +106,9 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame<'a, BITS, BE> {
       )));
     }
     if width & 1 != 0 {
-      return Err(PnFrameError::OddWidth(OddWidth::new(width)));
+      return Err(PnFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(PnFrameError::InsufficientYStride(InsufficientStride::new(
@@ -448,7 +451,9 @@ impl<'a, const BITS: u32, const BE: bool> PnFrame422<'a, BITS, BE> {
       )));
     }
     if width & 1 != 0 {
-      return Err(PnFrameError::OddWidth(OddWidth::new(width)));
+      return Err(PnFrameError::WidthAlignment(WidthAlignment::odd(
+        width as usize,
+      )));
     }
     if y_stride < width {
       return Err(PnFrameError::InsufficientYStride(InsufficientStride::new(
@@ -945,7 +950,7 @@ pub enum PnFrameError {
   /// width must be even. 4:4:4 ([`PnFrame444`]) has no parity
   /// constraint and never emits this variant.
   #[error(transparent)]
-  OddWidth(OddWidth),
+  WidthAlignment(WidthAlignment),
 
   /// `y_stride < width` (in `u16` samples).
   #[error(transparent)]

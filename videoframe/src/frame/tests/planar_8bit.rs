@@ -38,7 +38,13 @@ fn try_new_rejects_zero_dim() {
 fn try_new_rejects_odd_width() {
   let (y, u, v) = planes();
   let e = Yuv420pFrame::try_new(&y, &u, &v, 15, 8, 16, 8, 8).unwrap_err();
-  assert!(matches!(e, Yuv420pFrameError::OddWidth(_)));
+  assert!(matches!(
+    e,
+    Yuv420pFrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    })
+  ));
 }
 
 #[test]
@@ -161,7 +167,13 @@ fn yuv410p_try_new_rejects_width_not_multiple_of_4() {
   let u = std::vec![128u8; 4 * 2];
   let v = std::vec![128u8; 4 * 2];
   let e = Yuv410pFrame::try_new(&y, &u, &v, 14, 8, 14, 4, 4).unwrap_err();
-  assert!(matches!(e, Yuv410pFrameError::WidthNotMultipleOf4(_)));
+  assert!(matches!(
+    e,
+    Yuv410pFrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::MultipleOfFour,
+      ..
+    })
+  ));
 }
 
 #[test]

@@ -1,3 +1,5 @@
+use crate::frame::{WidthAlignment, WidthAlignmentRequirement};
+
 use super::{
   super::{
     Y2xxFrame, Y2xxFrameError, Y210BeFrame, Y210Frame, Y210LeFrame, Y212BeFrame, Y212Frame,
@@ -40,7 +42,13 @@ fn y210_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y210Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
+    assert!(matches!(
+      err,
+      Y2xxFrameError::WidthAlignment(WidthAlignment {
+        required: WidthAlignmentRequirement::Even,
+        ..
+      })
+    ));
   }
   // 2, 4, 6, 8 must succeed.
   for w in [2u32, 4, 6, 8] {
@@ -258,7 +266,13 @@ fn y216_frame_try_new_rejects_odd_width() {
   for w in [1u32, 3, 5, 7, 9, 11, 13] {
     let stride = (w as usize) * 2;
     let err = Y216Frame::try_new(&buf, w, 1, stride as u32).unwrap_err();
-    assert!(matches!(err, Y2xxFrameError::OddWidth(_)));
+    assert!(matches!(
+      err,
+      Y2xxFrameError::WidthAlignment(WidthAlignment {
+        required: WidthAlignmentRequirement::Even,
+        ..
+      })
+    ));
   }
   // Even widths must succeed.
   for w in [2u32, 4, 6, 8] {

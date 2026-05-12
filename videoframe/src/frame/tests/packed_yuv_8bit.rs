@@ -36,7 +36,10 @@ fn yuyv422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yuyv422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yuyv422FrameError::OddWidth(_))
+    Err(Yuyv422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 
@@ -101,7 +104,10 @@ fn uyvy422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Uyvy422Frame::try_new(&buf, 17, 4, 34),
-    Err(Uyvy422FrameError::OddWidth(_))
+    Err(Uyvy422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 
@@ -164,7 +170,10 @@ fn yvyu422_frame_try_new_rejects_odd_width() {
   let buf = std::vec![0u8; 17 * 4 * 2];
   assert!(matches!(
     Yvyu422Frame::try_new(&buf, 17, 4, 34),
-    Err(Yvyu422FrameError::OddWidth(_))
+    Err(Yvyu422FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::Even,
+      ..
+    }))
   ));
 }
 

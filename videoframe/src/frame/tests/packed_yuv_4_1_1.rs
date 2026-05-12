@@ -38,12 +38,18 @@ fn uyyvyy411_frame_try_new_rejects_width_not_multiple_of_4() {
   // 18 = even but not divisible by 4.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 18, 4, 27),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
+    Err(Uyyvyy411FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::MultipleOfFour,
+      ..
+    }))
   ));
   // 17 = odd.
   assert!(matches!(
     Uyyvyy411Frame::try_new(&buf, 17, 4, 26),
-    Err(Uyyvyy411FrameError::WidthNotMultipleOf4(_))
+    Err(Uyyvyy411FrameError::WidthAlignment(WidthAlignment {
+      required: WidthAlignmentRequirement::MultipleOfFour,
+      ..
+    }))
   ));
 }
 

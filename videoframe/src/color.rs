@@ -3,23 +3,50 @@
 
 use derive_more::{Display, IsVariant};
 
+/// Base id for **videoframe-domain** colour concepts that have no
+/// ITU-T H.273 / FFmpeg `AVCol*` code point.
+///
+/// videoframe is a *superset domain vocabulary*, not an `AVColorSpace`
+/// mirror: it serves FFmpeg **and** future RAW SDK backends (R3D /
+/// BRAW / ProRes RAW) whose colour science H.273 does not enumerate.
+///
+/// - **H.273 / FFmpeg code points** use FFmpeg's own numbers (all
+///   `< DOMAIN_EXT_BASE`, xtask-verified against the pinned FFmpeg
+///   n8.1 `libavutil/pixfmt.h`).
+/// - **videoframe-domain concepts** FFmpeg does not enumerate (e.g.
+///   the unified [`ColorMatrix::Bt601`]; future RAW camera colour
+///   science) get stable ids with **bit 31 set** (`>= DOMAIN_EXT_BASE`).
+///   FFmpeg itself reserves `AVCOL_*_EXT_BASE = 256` for its own
+///   extensions, so this clearly-disjoint high base never collides.
+///
+/// Domain ids are **append-only**, stable, and round-trip losslessly.
+/// They are **never produced by the FFmpeg ingest path**:
+/// `from_u32` of any FFmpeg / H.273 code returns the H.273 variant,
+/// never a domain variant. Per-enum domain offsets (`DOMAIN_EXT_BASE
+/// + n`) are append-only and documented at each enum.
+pub const DOMAIN_EXT_BASE: u32 = 0x8000_0000;
+
 /// Color matrix coefficients per ITU-T H.273 MatrixCoefficients
 /// (Table 4) / ISO/IEC 23001-8.
 ///
 /// Read from `AVFrame.colorspace` / `VideoColorSpace.matrix` /
 /// `kCVImageBufferYCbCrMatrixKey`.
 ///
-/// For `AVCOL_SPC_UNSPECIFIED` (value `2`), FFmpeg's convention is
-/// `Bt709` for sources with `height >= 720` and `Bt601` otherwise —
-/// applying that rule is a **consumer** concern; this type stores the
-/// raw signalled value and `Default` is [`Self::Unspecified`]
-/// (FFmpeg `AVCOL_SPC_UNSPECIFIED`, code `2`).
+/// This type's stored `Default` is [`Self::Unspecified`] (FFmpeg
+/// `AVCOL_SPC_UNSPECIFIED`, code `2`). For `AVCOL_SPC_UNSPECIFIED`,
+/// FFmpeg's convention picks BT.709 for sources with `height >= 720`
+/// and BT.601 otherwise — that is a **consumer-side resolution** of
+/// `Unspecified` applied at read time, *not* a stored value (the
+/// `Bt601` reference there denotes the [`Self::Bt601`] domain
+/// variant below).
 ///
 /// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
 /// `AVColorSpace` code points** (ITU-T H.273 MatrixCoefficients);
 /// FFmpeg is the source of truth (the downstream consumer reads these
-/// via a `buffa` `extern_path`). [`Self::Unknown`] carries any
-/// unrecognised code through unchanged so the round-trip is lossless.
+/// via a `buffa` `extern_path`). [`Self::Bt601`] is a
+/// **videoframe-domain** id (no H.273 code; see [`DOMAIN_EXT_BASE`]).
+/// [`Self::Unknown`] carries any unrecognised code through unchanged
+/// so the round-trip is lossless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
@@ -30,6 +57,15 @@ pub enum ColorMatrix {
   Unknown(u32),
   /// GBR (sRGB / ST 428-1); FFmpeg `AVCOL_SPC_RGB` (code `0`).
   Rgb,
+  /// **videoframe-domain** unified ITU-R BT.601 YCbCr matrix
+  /// (Kr=0.299, Kb=0.114). H.273 has **no single BT.601 code**: it
+  /// splits into [`Self::Bt470Bg`] (625-line) and [`Self::Smpte170M`]
+  /// (525-line), which carry the *identical* coefficients. The FFmpeg
+  /// ingest path therefore yields those two, **never** `Bt601`;
+  /// RAW / SDK backends and explicit domain tagging use `Bt601`. Its
+  /// id is in the domain-extension band (see [`DOMAIN_EXT_BASE`]),
+  /// never an FFmpeg code.
+  Bt601,
   /// ITU-R BT.709 (HDTV).
   Bt709,
   /// Unspecified — caller infers (FFmpeg's `height >= 720` →
@@ -81,6 +117,7 @@ impl ColorMatrix {
     match self {
       Self::Unknown(_) => "unknown",
       Self::Rgb => "rgb",
+      Self::Bt601 => "bt601",
       Self::Bt709 => "bt709",
       Self::Unspecified => "unspecified",
       Self::Fcc => "fcc",
@@ -101,15 +138,20 @@ impl ColorMatrix {
   }
 
   /// Stable wire id — the **FFmpeg `AVColorSpace` code point**
-  /// (ITU-T H.273 MatrixCoefficients). [`Self::Unknown`] carries its
-  /// original `u32` through unchanged so `from_u32(to_u32(x)) == x`
-  /// for every `x`. Note `Rgb` is code `0` (non-default, so the
-  /// `buffa` codec encodes it explicitly).
+  /// (ITU-T H.273 MatrixCoefficients) for the H.273 variants, or a
+  /// **videoframe-domain** id `>= DOMAIN_EXT_BASE` for concepts
+  /// H.273 does not enumerate ([`Self::Bt601`] is the first, at
+  /// offset `0`). [`Self::Unknown`] carries its original `u32`
+  /// through unchanged so `from_u32(to_u32(x)) == x` for every `x`.
+  /// Note `Rgb` is code `0` (non-default, so the `buffa` codec
+  /// encodes it explicitly).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
       Self::Unknown(v) => *v,
       Self::Rgb => 0,
+      // domain ext offsets (append-only): 0 = Bt601
+      Self::Bt601 => DOMAIN_EXT_BASE,
       Self::Bt709 => 1,
       Self::Unspecified => 2,
       Self::Fcc => 4,
@@ -129,10 +171,15 @@ impl ColorMatrix {
     }
   }
 
-  /// Decodes from the FFmpeg `AVColorSpace` code produced by
-  /// [`Self::to_u32`]. Unrecognised codes (including reserved code
-  /// `3`) map to [`Self::Unknown`] carrying the original value, so
-  /// the round-trip is lossless.
+  /// Decodes from the code produced by [`Self::to_u32`]. FFmpeg
+  /// `AVColorSpace` codes map to their H.273 variant — in particular
+  /// `5`/`6` decode to [`Self::Bt470Bg`]/[`Self::Smpte170M`],
+  /// **never** [`Self::Bt601`] (the FFmpeg ingest path never yields a
+  /// domain variant). [`DOMAIN_EXT_BASE`] (offset `0`) decodes to the
+  /// videoframe-domain [`Self::Bt601`]. Any other unrecognised code
+  /// (including reserved code `3`, or an unassigned `>=
+  /// DOMAIN_EXT_BASE` id) maps to [`Self::Unknown`] carrying the
+  /// original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
@@ -153,6 +200,9 @@ impl ColorMatrix {
       15 => Self::IptC2,
       16 => Self::YCgCoRe,
       17 => Self::YCgCoRo,
+      // videoframe-domain ids (append-only): DOMAIN_EXT_BASE + 0 =
+      // Bt601. Never reached by the FFmpeg ingest path above.
+      DOMAIN_EXT_BASE => Self::Bt601,
       _ => Self::Unknown(v),
     }
   }
@@ -1339,6 +1389,7 @@ mod tests {
     // Round-trip `from_u32(to_u32()) == v` for EVERY named variant.
     for m in [
       ColorMatrix::Rgb,
+      ColorMatrix::Bt601,
       ColorMatrix::Bt709,
       ColorMatrix::Unspecified,
       ColorMatrix::Fcc,
@@ -1430,6 +1481,50 @@ mod tests {
     assert_eq!(ChromaLocation::from_u32(42), ChromaLocation::Unknown(42));
     assert_eq!(DcpTargetGamut::from_u32(9_999), DcpTargetGamut::Unknown(9_999));
     assert_eq!(DcpTargetGamut::Unknown(9_999).to_u32(), 9_999);
+  }
+
+  #[test]
+  fn color_matrix_bt601_is_domain_variant() {
+    // Released-API slug restored (the public removal is reverted).
+    assert_eq!(ColorMatrix::Bt601.as_str(), "bt601");
+    #[cfg(feature = "std")]
+    {
+      use std::format;
+      assert_eq!(format!("{}", ColorMatrix::Bt601), "bt601");
+    }
+
+    // `Bt601` lives in the videoframe-domain extension band at
+    // offset 0, NOT an FFmpeg code; it round-trips losslessly.
+    assert_eq!(ColorMatrix::Bt601.to_u32(), DOMAIN_EXT_BASE);
+    assert_eq!(ColorMatrix::Bt601.to_u32(), 0x8000_0000);
+    assert_eq!(ColorMatrix::from_u32(0x8000_0000), ColorMatrix::Bt601);
+    assert_eq!(
+      ColorMatrix::from_u32(ColorMatrix::Bt601.to_u32()),
+      ColorMatrix::Bt601
+    );
+
+    // Regression: FFmpeg codes 5/6 stay BT.470BG / SMPTE170M and are
+    // NEVER decoded as the domain `Bt601` (FFmpeg ingest path never
+    // yields a domain variant).
+    assert_eq!(ColorMatrix::from_u32(5), ColorMatrix::Bt470Bg);
+    assert_eq!(ColorMatrix::from_u32(6), ColorMatrix::Smpte170M);
+    assert_ne!(ColorMatrix::from_u32(5), ColorMatrix::Bt601);
+    assert_ne!(ColorMatrix::from_u32(6), ColorMatrix::Bt601);
+
+    // `Bt601` is NOT the default (stays `Unspecified`).
+    assert_eq!(ColorMatrix::default(), ColorMatrix::Unspecified);
+    assert_ne!(ColorMatrix::default(), ColorMatrix::Bt601);
+
+    // An unassigned bit-31 id stays lossless `Unknown` and
+    // round-trips (domain band is append-only, not exhaustive).
+    assert_eq!(
+      ColorMatrix::from_u32(0x8000_00FF),
+      ColorMatrix::Unknown(0x8000_00FF)
+    );
+    assert_eq!(ColorMatrix::Unknown(0x8000_00FF).to_u32(), 0x8000_00FF);
+
+    // `is_variant` helper is generated for the new variant.
+    assert!(ColorMatrix::Bt601.is_bt_601());
   }
 
   #[test]

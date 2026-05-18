@@ -1067,6 +1067,26 @@ mod tests {
   }
 
   #[test]
+  fn color_matrix_bt601_domain_variant_round_trips() {
+    // `ColorMatrix::Bt601` is a videoframe-domain id
+    // (`DOMAIN_EXT_BASE` = 0x8000_0000), non-default, so it must be
+    // explicitly encoded to NON-zero bytes and round-trip losslessly
+    // via the `Message` impl (uint32 carrying 0x8000_0000).
+    let b = ColorMatrix::Bt601.encode_to_vec();
+    assert!(!b.is_empty(), "non-default domain Bt601 must be encoded");
+    let back = ColorMatrix::decode_from_slice(&b).unwrap();
+    assert_eq!(back, ColorMatrix::Bt601);
+    assert!(back.is_bt_601());
+    assert_ne!(back, ColorMatrix::default());
+    // Default `Unspecified` still elides to zero bytes.
+    assert!(ColorMatrix::default().encode_to_vec().is_empty());
+    assert_eq!(
+      ColorMatrix::decode_from_slice(&[]).unwrap(),
+      ColorMatrix::default()
+    );
+  }
+
+  #[test]
   fn color_matrix_default_instance_and_clear() {
     assert_eq!(
       *<ColorMatrix as DefaultInstance>::default_instance(),

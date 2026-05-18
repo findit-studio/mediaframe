@@ -24,8 +24,13 @@
 //!     **videoframe extras** (cinema-RAW etc.) are informational.
 //!   - Colour enums: reads the `to_u32()` matches in `src/color.rs`
 //!     and asserts every distinct FFmpeg colour code has a named
-//!     videoframe variant mapping to that value. A missing code fails
-//!     CI.
+//!     videoframe variant mapping to that value (and the covering
+//!     variant's id is `< DOMAIN_EXT_BASE` — the FFmpeg ingest path
+//!     never yields a videoframe-domain variant). A missing code
+//!     fails CI. videoframe-domain variants (id `>= DOMAIN_EXT_BASE`,
+//!     e.g. `ColorMatrix::Bt601`, which H.273 / FFmpeg does not
+//!     enumerate) are exempt from FFmpeg coverage and additionally
+//!     asserted disjoint from the vendored FFmpeg colour codes.
 //!
 //! The vendored files are plain text (not the FFmpeg header verbatim),
 //! which sidesteps the LGPL question that would apply to checking in
@@ -210,10 +215,23 @@ fn check_color(root: &Path) -> bool {
     }
   };
 
+  // videoframe-domain colour-id base (ids `>=` this have no H.273
+  // code and are never produced by the FFmpeg ingest path).
+  let domain_base = match parse_domain_ext_base(&color_rs) {
+    Some(b) => b,
+    None => {
+      eprintln!(
+        "error: cannot parse `pub const DOMAIN_EXT_BASE: u32 = ...;` \
+                 from {COLOR_RS} — the colour domain-extension check needs it."
+      );
+      return false;
+    }
+  };
+
   // FFmpeg side: ENUM -> { distinct code -> first FFmpeg name }.
   let ffmpeg = parse_color_vendored(&vendor);
   // videoframe side: ENUM -> { variant-ident -> (value, has_slug) }.
-  let videoframe = parse_color_named_codes(&color_rs);
+  let videoframe = parse_color_named_codes(&color_rs, domain_base);
 
   let mut ok = true;
   let mut total_codes = 0usize;
@@ -241,9 +259,22 @@ fn check_color(root: &Path) -> bool {
         continue;
       }
       total_codes += 1;
+      // No FFmpeg/H.273 code may itself land in the videoframe
+      // domain-extension band — that band is reserved for concepts
+      // FFmpeg does NOT enumerate.
+      if *code >= domain_base {
+        eprintln!(
+          "FAIL: FFmpeg color code {vf_enum} = {code} (FFmpeg \
+                   {ff_name}) collides with the videoframe domain band \
+                   (>= DOMAIN_EXT_BASE = {domain_base})."
+        );
+        ok = false;
+      }
       // A code is covered iff some NAMED variant's `to_u32()` maps
       // to it (this mirrors `from_u32(code)` landing on a non-Unknown
-      // variant whose `to_u32()` round-trips to `code`).
+      // variant whose `to_u32()` round-trips to `code`). That covering
+      // variant's id must be `< DOMAIN_EXT_BASE` — the FFmpeg ingest
+      // path never yields a domain variant.
       match vf_named.values().find(|nc| nc.value == *code) {
         None => {
           eprintln!(
@@ -260,7 +291,52 @@ fn check_color(root: &Path) -> bool {
           );
           ok = false;
         }
+        Some(nc) if nc.value >= domain_base => {
+          eprintln!(
+            "FAIL: {vf_enum} variant covering FFmpeg code {code} \
+                     ({ff_name}) maps to a domain id {} (>= \
+                     DOMAIN_EXT_BASE = {domain_base}) — the FFmpeg \
+                     path must never yield a domain variant.",
+            nc.value
+          );
+          ok = false;
+        }
         Some(_) => {}
+      }
+    }
+  }
+
+  // Domain invariant (b): `ColorMatrix::Bt601` is a videoframe-domain
+  // concept — its id must be `>= DOMAIN_EXT_BASE` AND absent from the
+  // vendored FFmpeg colour table (no domain/FFmpeg collision).
+  let empty = BTreeMap::new();
+  let cm_named = videoframe.get("ColorMatrix").unwrap_or(&empty);
+  match cm_named.get("Bt601") {
+    None => {
+      eprintln!(
+        "FAIL: ColorMatrix::Bt601 not found in {COLOR_RS} to_u32() — \
+                 it is a required videoframe-domain variant."
+      );
+      ok = false;
+    }
+    Some(nc) => {
+      if nc.value < domain_base {
+        eprintln!(
+          "FAIL: ColorMatrix::Bt601.to_u32() = {} must be >= \
+                   DOMAIN_EXT_BASE ({domain_base}) — it is a \
+                   videoframe-domain concept, not an FFmpeg code.",
+          nc.value
+        );
+        ok = false;
+      }
+      let cm_ff = ffmpeg.get("ColorMatrix").cloned().unwrap_or_default();
+      if cm_ff.contains_key(&nc.value) {
+        eprintln!(
+          "FAIL: ColorMatrix::Bt601 id {} collides with a vendored \
+                   FFmpeg ColorMatrix code — domain ids must be disjoint.",
+          nc.value
+        );
+        ok = false;
       }
     }
   }
@@ -268,7 +344,10 @@ fn check_color(root: &Path) -> bool {
   if ok {
     println!(
       "OK: every FFmpeg {FFMPEG_TAG} color code ({total_codes} across \
-             {} enums) is covered by videoframe.",
+             {} enums) is covered by videoframe; videoframe-domain \
+             variants (id >= DOMAIN_EXT_BASE = {domain_base}, e.g. \
+             ColorMatrix::Bt601) are exempt from FFmpeg coverage and \
+             verified disjoint.",
       COLOR_ENUMS.len()
     );
   }
@@ -365,7 +444,55 @@ struct NamedCode {
 /// inside, `Self::<ident> => <int>,` arms seen after the
 /// `fn to_u32(` line are values and `Self::<ident> => "..."` arms
 /// after the `fn as_str(` line are slugs.
-fn parse_color_named_codes(rs: &str) -> BTreeMap<String, BTreeMap<String, NamedCode>> {
+/// Parse the `pub const DOMAIN_EXT_BASE: u32 = <lit>;` line from
+/// `src/color.rs` (the videoframe-domain colour-id base; ids `>=`
+/// this are domain concepts H.273 does not enumerate, never produced
+/// by the FFmpeg ingest path). Accepts a decimal or `0x`-hex literal
+/// with optional `_` digit separators. Returns `None` if absent /
+/// unparseable so the caller can fail loudly.
+fn parse_domain_ext_base(rs: &str) -> Option<u32> {
+  for raw in rs.lines() {
+    let line = raw.trim();
+    let Some(rest) = line.strip_prefix("pub const DOMAIN_EXT_BASE") else {
+      continue;
+    };
+    let eq = rest.find('=')?;
+    let lit = rest[eq + 1..]
+      .trim()
+      .trim_end_matches(';')
+      .trim()
+      .replace('_', "");
+    return if let Some(hex) = lit.strip_prefix("0x").or_else(|| lit.strip_prefix("0X")) {
+      u32::from_str_radix(hex, 16).ok()
+    } else {
+      lit.parse::<u32>().ok()
+    };
+  }
+  None
+}
+
+/// Resolve a `to_u32()` right-hand side that is either a bare
+/// `u32` literal or a `DOMAIN_EXT_BASE`-relative expression
+/// (`DOMAIN_EXT_BASE` or `DOMAIN_EXT_BASE + <n>`). Returns the
+/// numeric value, or `None` if it is neither (e.g. `*v`).
+fn eval_to_u32_rhs(rhs: &str, domain_base: u32) -> Option<u32> {
+  let rhs = rhs.trim();
+  if let Ok(v) = rhs.parse::<u32>() {
+    return Some(v);
+  }
+  let after = rhs.strip_prefix("DOMAIN_EXT_BASE")?.trim();
+  if after.is_empty() {
+    return Some(domain_base);
+  }
+  let off = after.strip_prefix('+')?.trim().replace('_', "");
+  let n = off.parse::<u32>().ok()?;
+  domain_base.checked_add(n)
+}
+
+fn parse_color_named_codes(
+  rs: &str,
+  domain_base: u32,
+) -> BTreeMap<String, BTreeMap<String, NamedCode>> {
   let wanted: BTreeSet<&str> = COLOR_ENUMS.iter().map(|(_, _, vf)| *vf).collect();
   let mut values: BTreeMap<String, BTreeMap<String, u32>> = BTreeMap::new();
   let mut slugs: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -425,7 +552,7 @@ fn parse_color_named_codes(rs: &str) -> BTreeMap<String, BTreeMap<String, NamedC
       .collect();
     if in_to_u32 {
       let val_part = rest[arrow + 2..].trim().trim_end_matches(',').trim();
-      if let Ok(v) = val_part.parse::<u32>() {
+      if let Some(v) = eval_to_u32_rhs(val_part, domain_base) {
         values.entry(enum_name).or_default().insert(ident, v);
       }
     } else if in_as_str {

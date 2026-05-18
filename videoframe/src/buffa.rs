@@ -25,14 +25,26 @@
 //! ```
 //!
 //! Each enum encodes its stable `to_u32()` id as a single `uint32`
-//! at field #1, decoded via `from_u32()` (unknown id → that enum's
-//! `#[default]` variant; `PixelFormat` → `Unknown(n)`). proto3
-//! enum-zero elision applies: id `0` is **not** written, because
-//! every enum's `#[default]` variant maps to wire id `0` *and* the
-//! decoder seeds the message from `Default`, so an absent field
-//! decodes back to the default — round-trip-safe. Wrong wire type
-//! on field #1 → `DecodeError::WireTypeMismatch`; unknown fields are
-//! skipped via `skip_field_depth`.
+//! at field #1, decoded via `from_u32()`. The colour enums now use
+//! the **FFmpeg code points** (e.g. `ColorMatrix::Unspecified` → 2,
+//! `ColorMatrix::Rgb` → 0); an unrecognised id round-trips losslessly
+//! as `Unknown(n)` (every enum, including `PixelFormat`, has a
+//! data-carrying `Unknown(u32)`).
+//!
+//! **Default-elision (not proto3 zero-elision):** the field is
+//! written iff `*self != <Ty>::default()`. The decoder seeds the
+//! message from `Default` (= FFmpeg `UNSPECIFIED` for the colour
+//! enums — code `2` for primaries/transfer/matrix, `0` for
+//! range/chroma), so an absent field decodes back to `Default`. A
+//! *present* field always carries the exact `to_u32()` code —
+//! **including code `0`** (`ColorMatrix::Rgb`, FFmpeg
+//! `AVCOL_SPC_RGB`), which is *non-default* and therefore explicitly
+//! encoded, so it is never conflated with an absent field. Plain
+//! proto3 zero-elision would be **unsound** here (it would drop the
+//! non-default code-`0` `Rgb`); default-elision is exact for every
+//! value and `Unknown(n)` is lossless. Wrong wire type on field #1 →
+//! `DecodeError::WireTypeMismatch`; unknown fields are skipped via
+//! `skip_field_depth`.
 //!
 //! ## Structs
 //!
@@ -69,16 +81,15 @@
 //!   zero would mis-decode. Both fields are always written; a
 //!   malformed `den == 0` on the wire (never produced by this
 //!   encoder) is clamped to `1` to keep decode total.
-//! - `ColorInfo` — **all five enum fields are always encoded.**
-//!   `matrix`'s semantic default inside `ColorInfo` is `Bt709`.
-//!   `Bt709` currently maps to wire id `0`, so elision would happen
-//!   to be sound *today*, but always-encoding decouples the wire
-//!   round-trip from the enum discriminant assignment (a future
-//!   reordering of `ColorMatrix` must not silently break stored
-//!   bytes) — the same defensive stance `mediatime::Timebase`
-//!   takes. For uniformity the other four enum fields are encoded
-//!   the same way. Each is the bare `uint32` id (not a nested
-//!   message), tags #1–#5 are single-byte.
+//! - `ColorInfo` — **all five enum fields are always encoded** as
+//!   the bare FFmpeg-code `uint32` id (not a nested message); tags
+//!   #1–#5 are single-byte. `ColorInfo`'s own seed is
+//!   `ColorInfo::UNSPECIFIED` (every field FFmpeg `UNSPECIFIED`).
+//!   Always-encoding keeps the round-trip exact regardless of which
+//!   FFmpeg code a field holds — in particular `matrix ==
+//!   ColorMatrix::Rgb` (FFmpeg code `0`) survives because the id is
+//!   written unconditionally, never elided — the same defensive
+//!   `mediatime::Timebase` always-encode stance.
 //! - `MasteringDisplay` — the three primaries and the white point
 //!   are always-encoded length-delimited sub-messages so presence
 //!   is unambiguous and `decode(encode(x)) == x` holds regardless of
@@ -117,10 +128,17 @@ const LEN: u8 = WireType::LengthDelimited as u8;
 // Enum codec helper.
 //
 // A standalone enum is a one-field message: `uint32 value = 1`,
-// where `value` is the stable `to_u32()` id. proto3 enum-zero
-// elision is sound because every enum's `#[default]` variant maps to
-// wire id 0 and the decoder seeds the message from `Default`, so an
-// absent field round-trips back to the default.
+// where `value` is the stable `to_u32()` id (the FFmpeg code point
+// for the colour enums). The field is encoded with **default-elision**
+// (NOT proto3 zero-elision): written iff `*self != <Ty>::default()`.
+// The decoder seeds from `Default` (= FFmpeg `UNSPECIFIED` for the
+// colour enums), so an absent field decodes back to the default; a
+// present field always carries the exact code — including code 0
+// (`ColorMatrix::Rgb`), which is non-default and therefore explicitly
+// encoded, so it is never conflated with an absent field. Plain
+// zero-elision would drop that non-default code-0 value and is thus
+// unsound here. `Unknown(n)` round-trips losslessly. Requires
+// `Ty: PartialEq` (every enum derives it).
 // ----------------------------------------------------------------------------
 
 macro_rules! impl_enum_message {
@@ -134,10 +152,12 @@ macro_rules! impl_enum_message {
 
     impl Message for $ty {
       fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
-        let v: u32 = $to(self);
-        // proto3 enum-zero elision: sound — the decoder seeds from
-        // `Default`, whose id is 0.
-        if v != 0 {
+        // Default-elision (NOT proto3 zero-elision): the decoder
+        // seeds from `Default`, so only a non-default value needs
+        // its FFmpeg-code id written. Code 0 (`ColorMatrix::Rgb`)
+        // is non-default and is therefore encoded.
+        if *self != <$ty>::default() {
+          let v: u32 = $to(self);
           1 + uint32_encoded_len(v) as u32
         } else {
           0
@@ -145,9 +165,9 @@ macro_rules! impl_enum_message {
       }
 
       fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
-        let v: u32 = $to(self);
-        // proto3 enum-zero elision: sound — see `compute_size`.
-        if v != 0 {
+        // Default-elision (NOT proto3 zero-elision): see `compute_size`.
+        if *self != <$ty>::default() {
+          let v: u32 = $to(self);
           Tag::new(1, WireType::Varint).encode(buf);
           encode_uint32(v, buf);
         }
@@ -208,7 +228,8 @@ impl_enum_message!(
 impl_enum_message!(Rotation, |s: &Rotation| s.to_u32(), Rotation::from_u32);
 // `PixelFormat::to_u32` consumes `self` (it is `Copy`); `from_u32`
 // maps unrecognised ids to `Unknown(n)` so the round-trip is
-// lossless even for the elided-zero case (`Unknown(0)` is Default).
+// lossless even for the elided-default case (`Unknown(0)` is the
+// `Default`, so it elides and decodes back to `Unknown(0)`).
 impl_enum_message!(PixelFormat, |s: &PixelFormat| s.to_u32(), PixelFormat::from_u32);
 
 // ----------------------------------------------------------------------------
@@ -943,26 +964,106 @@ mod tests {
     ChromaCoord::new(x, y)
   }
 
-  // ---- enums (representative: ColorMatrix, ColorRange, Rotation,
-  //      plus PixelFormat for the Unknown(n) path) ----
+  // ---- enums: default-elision codec (FFmpeg code points) ----
+  //
+  // For every enum: (a) `default()` encodes to ZERO bytes and
+  // decodes back to `default()`; (b) a non-default value whose
+  // `to_u32() == 0` (`ColorMatrix::Rgb`, FFmpeg `AVCOL_SPC_RGB`)
+  // encodes to NON-zero bytes and round-trips — proving an absent
+  // field is never conflated with code-0 `Rgb`; (c) `Unknown(12345)`
+  // round-trips losslessly; (d) a normal non-default value
+  // round-trips.
 
   #[test]
-  fn color_matrix_round_trip_default_and_nondefault() {
-    // Default (Bt709 → id 0) → empty wire → decodes back to default.
-    let bytes = ColorMatrix::default().encode_to_vec();
-    assert!(bytes.is_empty(), "enum-zero elided");
+  fn enum_default_elides_to_zero_bytes() {
+    // (a) Default value → empty wire → decodes back to default.
+    assert!(ColorMatrix::default().encode_to_vec().is_empty());
+    assert!(ColorPrimaries::default().encode_to_vec().is_empty());
+    assert!(ColorTransfer::default().encode_to_vec().is_empty());
+    assert!(ColorRange::default().encode_to_vec().is_empty());
+    assert!(ChromaLocation::default().encode_to_vec().is_empty());
+    assert!(DcpTargetGamut::default().encode_to_vec().is_empty());
     assert_eq!(
-      ColorMatrix::decode_from_slice(&bytes).unwrap(),
+      ColorMatrix::decode_from_slice(&[]).unwrap(),
       ColorMatrix::default()
     );
-    for m in [
-      ColorMatrix::Bt601,
-      ColorMatrix::Bt2020Ncl,
-      ColorMatrix::YCgCo,
-    ] {
-      let b = m.encode_to_vec();
-      assert_eq!(ColorMatrix::decode_from_slice(&b).unwrap(), m);
+    assert_eq!(
+      ColorPrimaries::decode_from_slice(&[]).unwrap(),
+      ColorPrimaries::default()
+    );
+    assert_eq!(
+      ColorTransfer::decode_from_slice(&[]).unwrap(),
+      ColorTransfer::default()
+    );
+    assert_eq!(
+      ColorRange::decode_from_slice(&[]).unwrap(),
+      ColorRange::default()
+    );
+    assert_eq!(
+      ChromaLocation::decode_from_slice(&[]).unwrap(),
+      ChromaLocation::default()
+    );
+    assert_eq!(
+      DcpTargetGamut::decode_from_slice(&[]).unwrap(),
+      DcpTargetGamut::default()
+    );
+  }
+
+  #[test]
+  fn enum_non_default_code_zero_is_encoded_not_conflated() {
+    // (b) `ColorMatrix::Rgb` is FFmpeg code 0 but is NON-default, so
+    // it must be explicitly encoded (non-empty) and round-trip to
+    // `Rgb` — never decoded as the absent/default `Unspecified`.
+    let b = ColorMatrix::Rgb.encode_to_vec();
+    assert!(!b.is_empty(), "non-default code-0 Rgb must be encoded");
+    let back = ColorMatrix::decode_from_slice(&b).unwrap();
+    assert_eq!(back, ColorMatrix::Rgb);
+    assert!(back.is_rgb());
+    assert_ne!(back, ColorMatrix::default());
+  }
+
+  #[test]
+  fn enum_unknown_round_trips_losslessly() {
+    // (c) `Unknown(12345)` survives encode/decode for every enum.
+    macro_rules! rt_unknown {
+      ($ty:ty) => {{
+        let v = <$ty>::Unknown(12_345);
+        let b = v.encode_to_vec();
+        assert_eq!(<$ty>::decode_from_slice(&b).unwrap(), v);
+      }};
     }
+    rt_unknown!(ColorMatrix);
+    rt_unknown!(ColorPrimaries);
+    rt_unknown!(ColorTransfer);
+    rt_unknown!(ColorRange);
+    rt_unknown!(ChromaLocation);
+    rt_unknown!(DcpTargetGamut);
+    rt_unknown!(PixelFormat);
+  }
+
+  #[test]
+  fn enum_non_default_round_trips() {
+    // (d) A normal non-default value round-trips for every enum.
+    let cm = ColorMatrix::Bt2020Ncl.encode_to_vec();
+    assert_eq!(
+      ColorMatrix::decode_from_slice(&cm).unwrap(),
+      ColorMatrix::Bt2020Ncl
+    );
+    let cp = ColorPrimaries::Bt2020.encode_to_vec();
+    assert_eq!(
+      ColorPrimaries::decode_from_slice(&cp).unwrap(),
+      ColorPrimaries::Bt2020
+    );
+    let ct = ColorTransfer::AribStdB67Hlg.encode_to_vec();
+    assert_eq!(
+      ColorTransfer::decode_from_slice(&ct).unwrap(),
+      ColorTransfer::AribStdB67Hlg
+    );
+    let dg = DcpTargetGamut::Rec2020.encode_to_vec();
+    assert_eq!(
+      DcpTargetGamut::decode_from_slice(&dg).unwrap(),
+      DcpTargetGamut::Rec2020
+    );
   }
 
   #[test]
@@ -986,6 +1087,8 @@ mod tests {
 
   #[test]
   fn rotation_round_trip() {
+    // `Rotation` is a closed set; `D0` is the default (wire id 0)
+    // so default-elision and zero-elision coincide for it.
     for r in [Rotation::D0, Rotation::D90, Rotation::D180, Rotation::D270] {
       let b = r.encode_to_vec();
       assert_eq!(Rotation::decode_from_slice(&b).unwrap(), r);
@@ -1017,13 +1120,15 @@ mod tests {
   }
 
   #[test]
-  fn enum_unknown_id_maps_to_default() {
+  fn enum_unknown_id_decodes_losslessly() {
+    // An unrecognised on-wire id now decodes to `Unknown(n)` (no
+    // silent collapse to `default()`), preserving the value.
     let mut buf: Vec<u8> = Vec::new();
     Tag::new(1, WireType::Varint).encode(&mut buf);
     encode_uint32(9_999, &mut buf);
     assert_eq!(
       <ColorTransfer as Message>::decode_from_slice(&buf).unwrap(),
-      ColorTransfer::default()
+      ColorTransfer::Unknown(9_999)
     );
   }
 
@@ -1166,19 +1271,21 @@ mod tests {
   }
 
   #[test]
-  fn color_info_matrix_always_encoded_round_trips_non_default_matrix() {
-    // Bt601 (id 1) and the default-construction path both survive.
+  fn color_info_matrix_always_encoded_round_trips_code_zero_matrix() {
+    // `ColorMatrix::Rgb` is FFmpeg code 0; `ColorInfo` always-encodes
+    // all five ids as bare uint32, so a code-0 matrix survives and is
+    // never conflated with an unset field.
     let ci = ColorInfo::new(
       ColorPrimaries::Unspecified,
       ColorTransfer::Unspecified,
-      ColorMatrix::Bt601,
+      ColorMatrix::Rgb,
       ColorRange::Unspecified,
       ChromaLocation::Unspecified,
     );
     let b = ci.encode_to_vec();
     let back = ColorInfo::decode_from_slice(&b).unwrap();
     assert_eq!(back, ci);
-    assert!(back.matrix().is_bt_601());
+    assert!(back.matrix().is_rgb());
   }
 
   #[test]

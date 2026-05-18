@@ -1,0 +1,71 @@
+# FFmpeg colour-enum code points — vendored for `cargo xtask check`.
+# Source: FFmpeg n8.1 libavutil/pixfmt.h
+# Fetched: 2026-05-18
+#
+# Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.
+# One `<ENUM> <FFMPEG_NAME> <VALUE>` per line; AVColor*/AVChroma* enums,
+# C-counter rules. *_NB sentinels, the post-NB custom EXT extensions,
+# and the RESERVED*-prefix stripped names are kept verbatim; aliases
+# collapse to the first name seen for each distinct value.
+
+ColorPrimaries RESERVED0 0
+ColorPrimaries BT709 1
+ColorPrimaries UNSPECIFIED 2
+ColorPrimaries RESERVED 3
+ColorPrimaries BT470M 4
+ColorPrimaries BT470BG 5
+ColorPrimaries SMPTE170M 6
+ColorPrimaries SMPTE240M 7
+ColorPrimaries FILM 8
+ColorPrimaries BT2020 9
+ColorPrimaries SMPTE428 10
+ColorPrimaries SMPTE431 11
+ColorPrimaries SMPTE432 12
+ColorPrimaries EBU3213 22
+ColorTransfer RESERVED0 0
+ColorTransfer BT709 1
+ColorTransfer UNSPECIFIED 2
+ColorTransfer RESERVED 3
+ColorTransfer GAMMA22 4
+ColorTransfer GAMMA28 5
+ColorTransfer SMPTE170M 6
+ColorTransfer SMPTE240M 7
+ColorTransfer LINEAR 8
+ColorTransfer LOG 9
+ColorTransfer LOG_SQRT 10
+ColorTransfer IEC61966_2_4 11
+ColorTransfer BT1361_ECG 12
+ColorTransfer IEC61966_2_1 13
+ColorTransfer BT2020_10 14
+ColorTransfer BT2020_12 15
+ColorTransfer SMPTE2084 16
+ColorTransfer SMPTE428 17
+ColorTransfer ARIB_STD_B67 18
+ColorMatrix RGB 0
+ColorMatrix BT709 1
+ColorMatrix UNSPECIFIED 2
+ColorMatrix RESERVED 3
+ColorMatrix FCC 4
+ColorMatrix BT470BG 5
+ColorMatrix SMPTE170M 6
+ColorMatrix SMPTE240M 7
+ColorMatrix YCGCO 8
+ColorMatrix BT2020_NCL 9
+ColorMatrix BT2020_CL 10
+ColorMatrix SMPTE2085 11
+ColorMatrix CHROMA_DERIVED_NCL 12
+ColorMatrix CHROMA_DERIVED_CL 13
+ColorMatrix ICTCP 14
+ColorMatrix IPT_C2 15
+ColorMatrix YCGCO_RE 16
+ColorMatrix YCGCO_RO 17
+ColorRange UNSPECIFIED 0
+ColorRange MPEG 1
+ColorRange JPEG 2
+ChromaLocation UNSPECIFIED 0
+ChromaLocation LEFT 1
+ChromaLocation CENTER 2
+ChromaLocation TOPLEFT 3
+ChromaLocation TOP 4
+ChromaLocation BOTTOMLEFT 5
+ChromaLocation BOTTOM 6

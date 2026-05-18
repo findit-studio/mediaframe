@@ -172,6 +172,10 @@ pub(crate) const fn luma_weights_q15_for_gamut(g: DcpTargetGamut) -> (i32, i32, 
     DcpTargetGamut::DciP3 => (6865, 23645, 2258),
     // Rec.2020: Y = 0.2627 R + 0.6780 G + 0.0593 B (D65).
     DcpTargetGamut::Rec2020 => (8607, 22217, 1944),
+    // No FFmpeg analog exists for an unknown gamut id; fall back to
+    // the default `DciP3` theatrical decode (matches the type's
+    // documented `Default` / `default_dcp`).
+    DcpTargetGamut::Unknown(_) => (6865, 23645, 2258),
   }
 }
 

@@ -11,38 +11,66 @@ use derive_more::{Display, IsVariant};
 ///
 /// For `AVCOL_SPC_UNSPECIFIED` (value `2`), FFmpeg's convention is
 /// `Bt709` for sources with `height >= 720` and `Bt601` otherwise —
-/// the caller applies that rule when building `ColorInfo`. The
-/// `Default` for this enum is `Bt709` (matches FFmpeg's
-/// height-≥-720 default).
+/// applying that rule is a **consumer** concern; this type stores the
+/// raw signalled value and `Default` is [`Self::Unspecified`]
+/// (FFmpeg `AVCOL_SPC_UNSPECIFIED`, code `2`).
 ///
-/// Copied verbatim from `colconv::ColorMatrix` (`#[default]`
-/// attribute on `Bt709` is the only addition to enable
-/// `ColorInfo::default()`).
-///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `Bt709` is `0`); see
-/// [`Self::to_u32`] / [`Self::from_u32`]. These do **not** match the
-/// ITU-T H.273 numeric codes — they are videoframe-local ids for the
-/// `buffa` encoding.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+/// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
+/// `AVColorSpace` code points** (ITU-T H.273 MatrixCoefficients);
+/// FFmpeg is the source of truth (the downstream consumer reads these
+/// via a `buffa` `extern_path`). [`Self::Unknown`] carries any
+/// unrecognised code through unchanged so the round-trip is lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum ColorMatrix {
+  /// Unknown / unrecognised `AVColorSpace` code. The wrapped `u32`
+  /// is the original value passed to [`Self::from_u32`] — preserved
+  /// so round-tripping unknown codes is lossless.
+  Unknown(u32),
+  /// GBR (sRGB / ST 428-1); FFmpeg `AVCOL_SPC_RGB` (code `0`).
+  Rgb,
   /// ITU-R BT.709 (HDTV).
-  #[default]
-  Bt709 = 0,
-  /// ITU-R BT.601 (SDTV); also the correct choice for SMPTE170M /
-  /// BT470BG (identical coefficients).
-  Bt601 = 1,
-  /// ITU-R BT.2020 non-constant-luminance (UHDTV / HDR10).
-  Bt2020Ncl = 2,
-  /// SMPTE 240M (legacy 1990s HDTV).
-  Smpte240m = 3,
+  Bt709,
+  /// Unspecified — caller infers (FFmpeg's `height >= 720` →
+  /// BT.709, else BT.601 rule is applied downstream).
+  Unspecified,
   /// FCC CFR 47 §73.682 (legacy NTSC, very close to BT.601 numerically).
-  Fcc = 4,
+  Fcc,
+  /// ITU-R BT.470 System BG / BT.601 625 (SDTV; identical
+  /// coefficients to SMPTE170M).
+  Bt470Bg,
+  /// SMPTE 170M / BT.601 525 (SDTV).
+  Smpte170M,
+  /// SMPTE 240M (legacy 1990s HDTV).
+  Smpte240m,
   /// YCgCo per ITU-T H.273 MatrixCoefficients = 8.
-  YCgCo = 5,
+  YCgCo,
+  /// ITU-R BT.2020 non-constant-luminance (UHDTV / HDR10).
+  Bt2020Ncl,
+  /// ITU-R BT.2020 constant-luminance.
+  Bt2020Cl,
+  /// SMPTE 2085 (Y'D'zD'x).
+  Smpte2085,
+  /// Chromaticity-derived non-constant luminance.
+  ChromaDerivedNcl,
+  /// Chromaticity-derived constant luminance.
+  ChromaDerivedCl,
+  /// ITU-R BT.2100-0 ICtCp.
+  Ictcp,
+  /// SMPTE ST 2128 IPT-C2.
+  IptC2,
+  /// YCgCo-R, even bit addition.
+  YCgCoRe,
+  /// YCgCo-R, odd bit addition.
+  YCgCoRo,
+}
+
+impl Default for ColorMatrix {
+  #[inline]
+  fn default() -> Self {
+    Self::Unspecified
+  }
 }
 
 impl ColorMatrix {
@@ -51,42 +79,81 @@ impl ColorMatrix {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
-      Self::Bt601 => "bt601",
+      Self::Unknown(_) => "unknown",
+      Self::Rgb => "rgb",
       Self::Bt709 => "bt709",
-      Self::Bt2020Ncl => "bt2020nc",
-      Self::Smpte240m => "smpte240m",
+      Self::Unspecified => "unspecified",
       Self::Fcc => "fcc",
+      Self::Bt470Bg => "bt470bg",
+      Self::Smpte170M => "smpte170m",
+      Self::Smpte240m => "smpte240m",
       Self::YCgCo => "ycgco",
+      Self::Bt2020Ncl => "bt2020nc",
+      Self::Bt2020Cl => "bt2020c",
+      Self::Smpte2085 => "smpte2085",
+      Self::ChromaDerivedNcl => "chroma-derived-nc",
+      Self::ChromaDerivedCl => "chroma-derived-c",
+      Self::Ictcp => "ictcp",
+      Self::IptC2 => "ipt-c2",
+      Self::YCgCoRe => "ycgco-re",
+      Self::YCgCoRo => "ycgco-ro",
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `Bt709` (the default) is `0`. Additive helper for the `buffa`
-  /// wire encoding — the mapping is stable and append-only.
+  /// Stable wire id — the **FFmpeg `AVColorSpace` code point**
+  /// (ITU-T H.273 MatrixCoefficients). [`Self::Unknown`] carries its
+  /// original `u32` through unchanged so `from_u32(to_u32(x)) == x`
+  /// for every `x`. Note `Rgb` is code `0` (non-default, so the
+  /// `buffa` codec encodes it explicitly).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
-      Self::Bt709 => 0,
-      Self::Bt601 => 1,
-      Self::Bt2020Ncl => 2,
-      Self::Smpte240m => 3,
+      Self::Unknown(v) => *v,
+      Self::Rgb => 0,
+      Self::Bt709 => 1,
+      Self::Unspecified => 2,
       Self::Fcc => 4,
-      Self::YCgCo => 5,
+      Self::Bt470Bg => 5,
+      Self::Smpte170M => 6,
+      Self::Smpte240m => 7,
+      Self::YCgCo => 8,
+      Self::Bt2020Ncl => 9,
+      Self::Bt2020Cl => 10,
+      Self::Smpte2085 => 11,
+      Self::ChromaDerivedNcl => 12,
+      Self::ChromaDerivedCl => 13,
+      Self::Ictcp => 14,
+      Self::IptC2 => 15,
+      Self::YCgCoRe => 16,
+      Self::YCgCoRo => 17,
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::Bt709`].
+  /// Decodes from the FFmpeg `AVColorSpace` code produced by
+  /// [`Self::to_u32`]. Unrecognised codes (including reserved code
+  /// `3`) map to [`Self::Unknown`] carrying the original value, so
+  /// the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
-      1 => Self::Bt601,
-      2 => Self::Bt2020Ncl,
-      3 => Self::Smpte240m,
+      0 => Self::Rgb,
+      1 => Self::Bt709,
+      2 => Self::Unspecified,
       4 => Self::Fcc,
-      5 => Self::YCgCo,
-      _ => Self::Bt709,
+      5 => Self::Bt470Bg,
+      6 => Self::Smpte170M,
+      7 => Self::Smpte240m,
+      8 => Self::YCgCo,
+      9 => Self::Bt2020Ncl,
+      10 => Self::Bt2020Cl,
+      11 => Self::Smpte2085,
+      12 => Self::ChromaDerivedNcl,
+      13 => Self::ChromaDerivedCl,
+      14 => Self::Ictcp,
+      15 => Self::IptC2,
+      16 => Self::YCgCoRe,
+      17 => Self::YCgCoRo,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -97,41 +164,53 @@ impl ColorMatrix {
 /// Read from `AVFrame.color_primaries` / `VideoColorSpace.primaries` /
 /// `kCVImageBufferColorPrimariesKey`.
 ///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `Unspecified` is `0`);
-/// see [`Self::to_u32`] / [`Self::from_u32`]. These are
-/// videoframe-local ids for the `buffa` encoding, not the ITU-T
-/// H.273 ColourPrimaries codes.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+/// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
+/// `AVColorPrimaries` code points** (ITU-T H.273 ColourPrimaries);
+/// FFmpeg is the source of truth (the downstream consumer reads these
+/// via a `buffa` `extern_path`). `Default` is [`Self::Unspecified`]
+/// (FFmpeg `AVCOL_PRI_UNSPECIFIED`, code `2`); [`Self::Unknown`]
+/// carries any unrecognised code (incl. reserved `0`/`3`) through
+/// unchanged so the round-trip is lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum ColorPrimaries {
-  /// Unspecified — caller infers from height.
-  #[default]
-  Unspecified = 0,
+  /// Unknown / unrecognised `AVColorPrimaries` code (incl. the
+  /// reserved `0`/`3`). The wrapped `u32` is the original value
+  /// passed to [`Self::from_u32`] — preserved so round-tripping
+  /// unknown codes is lossless.
+  Unknown(u32),
   /// ITU-R BT.709 (HDTV).
-  Bt709 = 1,
+  Bt709,
+  /// Unspecified — caller infers from height.
+  Unspecified,
   /// ITU-R BT.470 System M (legacy NTSC).
-  Bt470M = 2,
+  Bt470M,
   /// ITU-R BT.470 System BG (PAL/SECAM).
-  Bt470Bg = 3,
+  Bt470Bg,
   /// SMPTE 170M (NTSC SD; same primaries as BT.601).
-  Smpte170M = 4,
+  Smpte170M,
   /// SMPTE 240M (legacy 1990s HDTV).
-  Smpte240M = 5,
+  Smpte240M,
   /// Generic film (ITU-T H.273).
-  Film = 6,
+  Film,
   /// ITU-R BT.2020 (UHDTV / HDR10).
-  Bt2020 = 7,
+  Bt2020,
   /// SMPTE ST 428-1 (XYZ).
-  SmpteSt428 = 8,
+  SmpteSt428,
   /// SMPTE RP 431-2 (DCI-P3).
-  SmpteRp431 = 9,
+  SmpteRp431,
   /// SMPTE EG 432-1 (Display P3).
-  SmpteEg432 = 10,
-  /// EBU Tech. 3213-E (legacy).
-  Ebu3213E = 11,
+  SmpteEg432,
+  /// EBU Tech. 3213-E (legacy) / JEDEC P22.
+  Ebu3213E,
+}
+
+impl Default for ColorPrimaries {
+  #[inline]
+  fn default() -> Self {
+    Self::Unspecified
+  }
 }
 
 impl ColorPrimaries {
@@ -140,6 +219,7 @@ impl ColorPrimaries {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
+      Self::Unknown(_) => "unknown",
       Self::Bt709 => "bt709",
       Self::Unspecified => "unspecified",
       Self::Bt470M => "bt470m",
@@ -155,45 +235,49 @@ impl ColorPrimaries {
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `Unspecified` (the default) is `0`. Additive helper for the
-  /// `buffa` wire encoding — stable and append-only.
+  /// Stable wire id — the **FFmpeg `AVColorPrimaries` code point**
+  /// (ITU-T H.273 ColourPrimaries). [`Self::Unknown`] carries its
+  /// original `u32` through unchanged so `from_u32(to_u32(x)) == x`
+  /// for every `x`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
-      Self::Unspecified => 0,
+      Self::Unknown(v) => *v,
       Self::Bt709 => 1,
-      Self::Bt470M => 2,
-      Self::Bt470Bg => 3,
-      Self::Smpte170M => 4,
-      Self::Smpte240M => 5,
-      Self::Film => 6,
-      Self::Bt2020 => 7,
-      Self::SmpteSt428 => 8,
-      Self::SmpteRp431 => 9,
-      Self::SmpteEg432 => 10,
-      Self::Ebu3213E => 11,
+      Self::Unspecified => 2,
+      Self::Bt470M => 4,
+      Self::Bt470Bg => 5,
+      Self::Smpte170M => 6,
+      Self::Smpte240M => 7,
+      Self::Film => 8,
+      Self::Bt2020 => 9,
+      Self::SmpteSt428 => 10,
+      Self::SmpteRp431 => 11,
+      Self::SmpteEg432 => 12,
+      Self::Ebu3213E => 22,
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::Unspecified`].
+  /// Decodes from the FFmpeg `AVColorPrimaries` code produced by
+  /// [`Self::to_u32`]. Unrecognised codes (including reserved `0`
+  /// and `3`) map to [`Self::Unknown`] carrying the original value,
+  /// so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
       1 => Self::Bt709,
-      2 => Self::Bt470M,
-      3 => Self::Bt470Bg,
-      4 => Self::Smpte170M,
-      5 => Self::Smpte240M,
-      6 => Self::Film,
-      7 => Self::Bt2020,
-      8 => Self::SmpteSt428,
-      9 => Self::SmpteRp431,
-      10 => Self::SmpteEg432,
-      11 => Self::Ebu3213E,
-      _ => Self::Unspecified,
+      2 => Self::Unspecified,
+      4 => Self::Bt470M,
+      5 => Self::Bt470Bg,
+      6 => Self::Smpte170M,
+      7 => Self::Smpte240M,
+      8 => Self::Film,
+      9 => Self::Bt2020,
+      10 => Self::SmpteSt428,
+      11 => Self::SmpteRp431,
+      12 => Self::SmpteEg432,
+      22 => Self::Ebu3213E,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -203,51 +287,64 @@ impl ColorPrimaries {
 /// Read from `AVFrame.color_trc` / `VideoColorSpace.transfer` /
 /// `kCVImageBufferTransferFunctionKey`.
 ///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `Unspecified` is `0`);
-/// see [`Self::to_u32`] / [`Self::from_u32`]. These are
-/// videoframe-local ids for the `buffa` encoding, not the ITU-T
-/// H.273 TransferCharacteristics codes.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+/// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
+/// `AVColorTransferCharacteristic` code points** (ITU-T H.273
+/// TransferCharacteristics); FFmpeg is the source of truth (the
+/// downstream consumer reads these via a `buffa` `extern_path`).
+/// `Default` is [`Self::Unspecified`] (FFmpeg
+/// `AVCOL_TRC_UNSPECIFIED`, code `2`); [`Self::Unknown`] carries any
+/// unrecognised code (incl. reserved `0`/`3`) through unchanged so
+/// the round-trip is lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum ColorTransfer {
-  /// Unspecified.
-  #[default]
-  Unspecified = 0,
+  /// Unknown / unrecognised `AVColorTransferCharacteristic` code
+  /// (incl. the reserved `0`/`3`). The wrapped `u32` is the original
+  /// value passed to [`Self::from_u32`] — preserved so round-tripping
+  /// unknown codes is lossless.
+  Unknown(u32),
   /// ITU-R BT.709.
-  Bt709 = 1,
-  /// BT.470 System M (gamma 2.2).
-  Bt470M = 2,
-  /// BT.470 System BG (gamma 2.8).
-  Bt470Bg = 3,
+  Bt709,
+  /// Unspecified.
+  Unspecified,
+  /// BT.470 System M (gamma 2.2); FFmpeg `AVCOL_TRC_GAMMA22`.
+  Gamma22,
+  /// BT.470 System BG (gamma 2.8); FFmpeg `AVCOL_TRC_GAMMA28`.
+  Gamma28,
   /// SMPTE 170M (BT.601).
-  Smpte170M = 4,
+  Smpte170M,
   /// SMPTE 240M.
-  Smpte240M = 5,
+  Smpte240M,
   /// Linear transfer.
-  Linear = 6,
+  Linear,
   /// Log 100:1.
-  Log100 = 7,
+  Log100,
   /// Log 316.22:1.
-  Log316 = 8,
+  Log316,
   /// IEC 61966-2-4 (xvYCC).
-  Iec6196624 = 9,
+  Iec6196624,
   /// ITU-R BT.1361 ECG.
-  Bt1361Ecg = 10,
+  Bt1361Ecg,
   /// IEC 61966-2-1 (sRGB).
-  Iec6196621 = 11,
+  Iec6196621,
   /// ITU-R BT.2020 10-bit.
-  Bt2020_10Bit = 12,
+  Bt2020_10Bit,
   /// ITU-R BT.2020 12-bit.
-  Bt2020_12Bit = 13,
+  Bt2020_12Bit,
   /// SMPTE ST 2084 — Perceptual Quantizer (HDR10).
-  SmpteSt2084Pq = 14,
+  SmpteSt2084Pq,
   /// SMPTE ST 428.
-  SmpteSt428 = 15,
+  SmpteSt428,
   /// ARIB STD-B67 — Hybrid Log-Gamma.
-  AribStdB67Hlg = 16,
+  AribStdB67Hlg,
+}
+
+impl Default for ColorTransfer {
+  #[inline]
+  fn default() -> Self {
+    Self::Unspecified
+  }
 }
 
 impl ColorTransfer {
@@ -256,10 +353,11 @@ impl ColorTransfer {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
+      Self::Unknown(_) => "unknown",
       Self::Bt709 => "bt709",
       Self::Unspecified => "unspecified",
-      Self::Bt470M => "gamma22",
-      Self::Bt470Bg => "gamma28",
+      Self::Gamma22 => "gamma22",
+      Self::Gamma28 => "gamma28",
       Self::Smpte170M => "smpte170m",
       Self::Smpte240M => "smpte240m",
       Self::Linear => "linear",
@@ -276,76 +374,94 @@ impl ColorTransfer {
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `Unspecified` (the default) is `0`. Additive helper for the
-  /// `buffa` wire encoding — stable and append-only.
+  /// Stable wire id — the **FFmpeg
+  /// `AVColorTransferCharacteristic` code point** (ITU-T H.273
+  /// TransferCharacteristics). [`Self::Unknown`] carries its original
+  /// `u32` through unchanged so `from_u32(to_u32(x)) == x` for every
+  /// `x`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
-      Self::Unspecified => 0,
+      Self::Unknown(v) => *v,
       Self::Bt709 => 1,
-      Self::Bt470M => 2,
-      Self::Bt470Bg => 3,
-      Self::Smpte170M => 4,
-      Self::Smpte240M => 5,
-      Self::Linear => 6,
-      Self::Log100 => 7,
-      Self::Log316 => 8,
-      Self::Iec6196624 => 9,
-      Self::Bt1361Ecg => 10,
-      Self::Iec6196621 => 11,
-      Self::Bt2020_10Bit => 12,
-      Self::Bt2020_12Bit => 13,
-      Self::SmpteSt2084Pq => 14,
-      Self::SmpteSt428 => 15,
-      Self::AribStdB67Hlg => 16,
+      Self::Unspecified => 2,
+      Self::Gamma22 => 4,
+      Self::Gamma28 => 5,
+      Self::Smpte170M => 6,
+      Self::Smpte240M => 7,
+      Self::Linear => 8,
+      Self::Log100 => 9,
+      Self::Log316 => 10,
+      Self::Iec6196624 => 11,
+      Self::Bt1361Ecg => 12,
+      Self::Iec6196621 => 13,
+      Self::Bt2020_10Bit => 14,
+      Self::Bt2020_12Bit => 15,
+      Self::SmpteSt2084Pq => 16,
+      Self::SmpteSt428 => 17,
+      Self::AribStdB67Hlg => 18,
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::Unspecified`].
+  /// Decodes from the FFmpeg `AVColorTransferCharacteristic` code
+  /// produced by [`Self::to_u32`]. Unrecognised codes (including
+  /// reserved `0` and `3`) map to [`Self::Unknown`] carrying the
+  /// original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
       1 => Self::Bt709,
-      2 => Self::Bt470M,
-      3 => Self::Bt470Bg,
-      4 => Self::Smpte170M,
-      5 => Self::Smpte240M,
-      6 => Self::Linear,
-      7 => Self::Log100,
-      8 => Self::Log316,
-      9 => Self::Iec6196624,
-      10 => Self::Bt1361Ecg,
-      11 => Self::Iec6196621,
-      12 => Self::Bt2020_10Bit,
-      13 => Self::Bt2020_12Bit,
-      14 => Self::SmpteSt2084Pq,
-      15 => Self::SmpteSt428,
-      16 => Self::AribStdB67Hlg,
-      _ => Self::Unspecified,
+      2 => Self::Unspecified,
+      4 => Self::Gamma22,
+      5 => Self::Gamma28,
+      6 => Self::Smpte170M,
+      7 => Self::Smpte240M,
+      8 => Self::Linear,
+      9 => Self::Log100,
+      10 => Self::Log316,
+      11 => Self::Iec6196624,
+      12 => Self::Bt1361Ecg,
+      13 => Self::Iec6196621,
+      14 => Self::Bt2020_10Bit,
+      15 => Self::Bt2020_12Bit,
+      16 => Self::SmpteSt2084Pq,
+      17 => Self::SmpteSt428,
+      18 => Self::AribStdB67Hlg,
+      _ => Self::Unknown(v),
     }
   }
 }
 
 /// Sample range — limited (TV / studio swing) vs. full (PC).
 ///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `Unspecified` is `0`);
-/// see [`Self::to_u32`] / [`Self::from_u32`].
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+/// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
+/// `AVColorRange` code points** (`UNSPECIFIED`=0, `MPEG`=1,
+/// `JPEG`=2); FFmpeg is the source of truth. `Default` is
+/// [`Self::Unspecified`] (FFmpeg `AVCOL_RANGE_UNSPECIFIED`, code
+/// `0`); [`Self::Unknown`] carries any unrecognised code through
+/// unchanged so the round-trip is lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum ColorRange {
+  /// Unknown / unrecognised `AVColorRange` code. The wrapped `u32`
+  /// is the original value passed to [`Self::from_u32`] — preserved
+  /// so round-tripping unknown codes is lossless.
+  Unknown(u32),
   /// Unspecified — caller assumes Limited.
-  #[default]
-  Unspecified = 0,
-  /// Limited / studio swing (8-bit luma 16..235, chroma 16..240).
-  Limited = 1,
-  /// Full / PC swing (8-bit 0..255).
-  Full = 2,
+  Unspecified,
+  /// Limited / studio swing (8-bit luma 16..235, chroma 16..240);
+  /// FFmpeg `AVCOL_RANGE_MPEG`.
+  Limited,
+  /// Full / PC swing (8-bit 0..255); FFmpeg `AVCOL_RANGE_JPEG`.
+  Full,
+}
+
+impl Default for ColorRange {
+  #[inline]
+  fn default() -> Self {
+    Self::Unspecified
+  }
 }
 
 impl ColorRange {
@@ -354,33 +470,36 @@ impl ColorRange {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
+      Self::Unknown(_) => "unknown",
       Self::Unspecified => "unspecified",
       Self::Limited => "tv",
       Self::Full => "pc",
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `Unspecified` (the default) is `0`. Additive helper for the
-  /// `buffa` wire encoding — stable and append-only.
+  /// Stable wire id — the **FFmpeg `AVColorRange` code point**.
+  /// [`Self::Unknown`] carries its original `u32` through unchanged
+  /// so `from_u32(to_u32(x)) == x` for every `x`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
+      Self::Unknown(v) => *v,
       Self::Unspecified => 0,
       Self::Limited => 1,
       Self::Full => 2,
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::Unspecified`].
+  /// Decodes from the FFmpeg `AVColorRange` code produced by
+  /// [`Self::to_u32`]. Unrecognised codes map to [`Self::Unknown`]
+  /// carrying the original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
+      0 => Self::Unspecified,
       1 => Self::Limited,
       2 => Self::Full,
-      _ => Self::Unspecified,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -389,31 +508,41 @@ impl ColorRange {
 ///
 /// Aligns with H.265 SPS chroma_loc / FFmpeg `AVChromaLocation`.
 ///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `Unspecified` is `0`);
-/// see [`Self::to_u32`] / [`Self::from_u32`]. These are
-/// videoframe-local ids for the `buffa` encoding, not the
-/// `AVChromaLocation` numeric codes.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+/// [`Self::to_u32`] / [`Self::from_u32`] use the **FFmpeg
+/// `AVChromaLocation` code points**; FFmpeg is the source of truth.
+/// `Default` is [`Self::Unspecified`] (FFmpeg
+/// `AVCHROMA_LOC_UNSPECIFIED`, code `0`); [`Self::Unknown`] carries
+/// any unrecognised code through unchanged so the round-trip is
+/// lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum ChromaLocation {
+  /// Unknown / unrecognised `AVChromaLocation` code. The wrapped
+  /// `u32` is the original value passed to [`Self::from_u32`] —
+  /// preserved so round-tripping unknown codes is lossless.
+  Unknown(u32),
   /// Unspecified.
-  #[default]
-  Unspecified = 0,
+  Unspecified,
   /// MPEG-2 / H.264 default (chroma at the left of two luma samples).
-  Left = 1,
+  Left,
   /// MPEG-1 / JPEG (chroma centered between four luma samples).
-  Center = 2,
+  Center,
   /// DV PAL — top-left.
-  TopLeft = 3,
+  TopLeft,
   /// Top.
-  Top = 4,
+  Top,
   /// Bottom-left.
-  BottomLeft = 5,
+  BottomLeft,
   /// Bottom.
-  Bottom = 6,
+  Bottom,
+}
+
+impl Default for ChromaLocation {
+  #[inline]
+  fn default() -> Self {
+    Self::Unspecified
+  }
 }
 
 impl ChromaLocation {
@@ -422,6 +551,7 @@ impl ChromaLocation {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
+      Self::Unknown(_) => "unknown",
       Self::Unspecified => "unspecified",
       Self::Left => "left",
       Self::Center => "center",
@@ -432,12 +562,13 @@ impl ChromaLocation {
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `Unspecified` (the default) is `0`. Additive helper for the
-  /// `buffa` wire encoding — stable and append-only.
+  /// Stable wire id — the **FFmpeg `AVChromaLocation` code point**.
+  /// [`Self::Unknown`] carries its original `u32` through unchanged
+  /// so `from_u32(to_u32(x)) == x` for every `x`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
+      Self::Unknown(v) => *v,
       Self::Unspecified => 0,
       Self::Left => 1,
       Self::Center => 2,
@@ -448,19 +579,20 @@ impl ChromaLocation {
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::Unspecified`].
+  /// Decodes from the FFmpeg `AVChromaLocation` code produced by
+  /// [`Self::to_u32`]. Unrecognised codes map to [`Self::Unknown`]
+  /// carrying the original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
+      0 => Self::Unspecified,
       1 => Self::Left,
       2 => Self::Center,
       3 => Self::TopLeft,
       4 => Self::Top,
       5 => Self::BottomLeft,
       6 => Self::Bottom,
-      _ => Self::Unspecified,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -482,12 +614,16 @@ pub struct ColorInfo {
 
 impl ColorInfo {
   /// All-`Unspecified` color info (for `Default` / RAW-backend use).
-  /// Matrix defaults to `Bt709` (matches FFmpeg's height-≥-720
-  /// fallback for `AVCOL_SPC_UNSPECIFIED`).
+  /// Every field — including `matrix` — stores the FFmpeg
+  /// `UNSPECIFIED` code; this is exactly `#[derive(Default)]` since
+  /// each enum's `Default` is now its `Unspecified` variant. The
+  /// FFmpeg BT.709-vs-BT.601-by-height fallback for an unspecified
+  /// matrix is a **consumer** concern applied at read time, not
+  /// stored here.
   pub const UNSPECIFIED: Self = Self {
     primaries: ColorPrimaries::Unspecified,
     transfer: ColorTransfer::Unspecified,
-    matrix: ColorMatrix::Bt709,
+    matrix: ColorMatrix::Unspecified,
     range: ColorRange::Unspecified,
     chroma_location: ChromaLocation::Unspecified,
   };
@@ -633,13 +769,18 @@ impl ColorInfo {
 /// exact 27 f32 matrix constants per gamut, derived from each
 /// standard's chromaticity coordinates.
 ///
-/// The explicit `#[repr(u32)]` discriminants form a stable,
-/// append-only wire mapping (the `#[default]` `DciP3` is `0`); see
-/// [`Self::to_u32`] / [`Self::from_u32`].
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, IsVariant)]
+/// This enum has **no FFmpeg analog** (it selects a videoframe XYZ →
+/// RGB matrix); it keeps its own videoframe-local wire numbering
+/// (`DciP3`=0, `Rec709`=1, `Rec2020`=2) rather than an FFmpeg code.
+/// `Default` is [`Self::DciP3`]; [`Self::Unknown`] carries any
+/// unrecognised id through unchanged so the round-trip is lossless.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant)]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum DcpTargetGamut {
+  /// Unknown / unrecognised wire id. The wrapped `u32` is the
+  /// original value passed to [`Self::from_u32`] — preserved so
+  /// round-tripping unknown ids is lossless.
+  Unknown(u32),
   /// **DCI-P3 (theatrical, DCI white)** — the SMPTE ST 428-1 / RP
   /// 431-2 §5.1 D-Cinema decode target. White point is **DCI white**
   /// `(0.314, 0.351)` (~6300 K), *not* D65. Default for `xyz12_to`
@@ -647,13 +788,19 @@ pub enum DcpTargetGamut {
   /// Display-P3** (which re-uses the P3 primaries with a D65 white
   /// point and is the Apple / web `display-p3` colour space) — for
   /// sRGB / web preview select [`Self::Rec709`] instead.
-  #[default]
-  DciP3 = 0,
+  DciP3,
   /// **Rec.709 / sRGB** (D65) — for sRGB-target deliverables and web
   /// preview.
-  Rec709 = 1,
+  Rec709,
   /// **Rec.2020** (D65) — for HDR theatrical / archival.
-  Rec2020 = 2,
+  Rec2020,
+}
+
+impl Default for DcpTargetGamut {
+  #[inline]
+  fn default() -> Self {
+    Self::DciP3
+  }
 }
 
 impl DcpTargetGamut {
@@ -665,27 +812,30 @@ impl DcpTargetGamut {
     Self::DciP3
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant);
-  /// `DciP3` (the default) is `0`. Additive helper for the `buffa`
-  /// wire encoding — stable and append-only.
+  /// Stable videoframe-local wire id (no FFmpeg analog); `DciP3`
+  /// (the default) is `0`. [`Self::Unknown`] carries its original
+  /// `u32` through unchanged so `from_u32(to_u32(x)) == x` for every
+  /// `x`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
+      Self::Unknown(v) => *v,
       Self::DciP3 => 0,
       Self::Rec709 => 1,
       Self::Rec2020 => 2,
     }
   }
 
-  /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::DciP3`].
+  /// Decodes from the videoframe-local wire id produced by
+  /// [`Self::to_u32`]. Unrecognised ids map to [`Self::Unknown`]
+  /// carrying the original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
+      0 => Self::DciP3,
       1 => Self::Rec709,
       2 => Self::Rec2020,
-      _ => Self::DciP3,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -1033,7 +1183,10 @@ mod tests {
 
   #[test]
   fn defaults_match_spec() {
-    assert!(matches!(ColorMatrix::default(), ColorMatrix::Bt709));
+    // The five FFmpeg colour enums default to their `Unspecified`
+    // variant (FFmpeg `UNSPECIFIED` code: 2 for primaries/transfer/
+    // matrix, 0 for range/chroma).
+    assert!(matches!(ColorMatrix::default(), ColorMatrix::Unspecified));
     assert!(matches!(
       ColorPrimaries::default(),
       ColorPrimaries::Unspecified
@@ -1047,11 +1200,14 @@ mod tests {
       ChromaLocation::default(),
       ChromaLocation::Unspecified
     ));
+    // `DcpTargetGamut` has no FFmpeg analog; its default is `DciP3`.
+    assert!(matches!(DcpTargetGamut::default(), DcpTargetGamut::DciP3));
   }
 
   #[test]
   fn is_variant_helpers_compile_for_each_enum() {
     assert!(ColorMatrix::Bt709.is_bt_709());
+    assert!(ColorMatrix::Rgb.is_rgb());
     assert!(ColorPrimaries::Bt2020.is_bt_2020());
     assert!(ColorTransfer::SmpteSt2084Pq.is_smpte_st_2084_pq());
     assert!(ColorRange::Full.is_full());
@@ -1066,11 +1222,16 @@ mod tests {
   }
 
   #[test]
-  fn color_info_default_is_unspecified_with_bt709_matrix() {
+  fn color_info_default_is_all_unspecified() {
     let ci = ColorInfo::default();
     assert_eq!(ci, ColorInfo::UNSPECIFIED);
     assert!(ci.primaries().is_unspecified());
-    assert!(ci.matrix().is_bt_709());
+    // Matrix is now stored as `Unspecified` too (the FFmpeg
+    // height-fallback is a consumer concern, not stored).
+    assert!(ci.matrix().is_unspecified());
+    assert!(ci.transfer().is_unspecified());
+    assert!(ci.range().is_unspecified());
+    assert!(ci.chroma_location().is_unspecified());
   }
 
   #[test]
@@ -1119,8 +1280,8 @@ mod tests {
     // Spot-check: every variant's Display goes through `as_str()`.
     for (s, d) in [
       (
-        ColorMatrix::Bt601.as_str(),
-        format!("{}", ColorMatrix::Bt601),
+        ColorMatrix::Bt709.as_str(),
+        format!("{}", ColorMatrix::Bt709),
       ),
       (
         ColorMatrix::Bt2020Ncl.as_str(),
@@ -1133,47 +1294,103 @@ mod tests {
     ] {
       assert_eq!(s, d, "ColorMatrix as_str/Display mismatch");
     }
+    // Pre-existing slugs are byte-stable (no churn).
+    assert_eq!(ColorMatrix::Bt2020Ncl.as_str(), "bt2020nc");
+    assert_eq!(ColorMatrix::Smpte240m.as_str(), "smpte240m");
+    assert_eq!(ColorMatrix::YCgCo.as_str(), "ycgco");
     assert_eq!(ColorPrimaries::SmpteSt428.as_str(), "smpte428");
     assert_eq!(ColorTransfer::SmpteSt2084Pq.as_str(), "smpte2084");
     assert_eq!(ColorTransfer::Bt2020_10Bit.as_str(), "bt2020-10");
+    // `Gamma22`/`Gamma28` keep the pre-existing gamma slugs.
+    assert_eq!(ColorTransfer::Gamma22.as_str(), "gamma22");
+    assert_eq!(ColorTransfer::Gamma28.as_str(), "gamma28");
     assert_eq!(ColorRange::Limited.as_str(), "tv");
     assert_eq!(ColorRange::Full.as_str(), "pc");
     assert_eq!(ChromaLocation::TopLeft.as_str(), "topleft");
   }
 
   #[test]
-  fn enum_u32_round_trips_and_defaults_at_zero() {
-    // Every default maps to wire id 0.
-    assert_eq!(ColorMatrix::default().to_u32(), 0);
-    assert_eq!(ColorPrimaries::default().to_u32(), 0);
-    assert_eq!(ColorTransfer::default().to_u32(), 0);
-    assert_eq!(ColorRange::default().to_u32(), 0);
-    assert_eq!(ChromaLocation::default().to_u32(), 0);
-    assert_eq!(DcpTargetGamut::default().to_u32(), 0);
+  fn enum_u32_uses_ffmpeg_codes_and_round_trips() {
+    // `to_u32()` returns the real FFmpeg n8.1 code point for the
+    // named variants (spot-checks against libavutil/pixfmt.h).
+    assert_eq!(ColorPrimaries::Unspecified.to_u32(), 2);
+    assert_eq!(ColorPrimaries::Bt709.to_u32(), 1);
+    assert_eq!(ColorPrimaries::Ebu3213E.to_u32(), 22);
+    assert_eq!(ColorTransfer::Unspecified.to_u32(), 2);
+    assert_eq!(ColorTransfer::SmpteSt2084Pq.to_u32(), 16);
+    assert_eq!(ColorTransfer::AribStdB67Hlg.to_u32(), 18);
+    assert_eq!(ColorMatrix::Rgb.to_u32(), 0);
+    assert_eq!(ColorMatrix::Unspecified.to_u32(), 2);
+    assert_eq!(ColorMatrix::Ictcp.to_u32(), 14);
+    assert_eq!(ColorRange::Unspecified.to_u32(), 0);
+    assert_eq!(ColorRange::Limited.to_u32(), 1);
+    assert_eq!(ColorRange::Full.to_u32(), 2);
+    assert_eq!(ChromaLocation::Unspecified.to_u32(), 0);
 
+    // `default()` is the `Unspecified` variant for the five FFmpeg
+    // enums (NOT necessarily wire id 0).
+    assert_eq!(ColorMatrix::default(), ColorMatrix::Unspecified);
+    assert_eq!(ColorPrimaries::default(), ColorPrimaries::Unspecified);
+    assert_eq!(ColorTransfer::default(), ColorTransfer::Unspecified);
+    assert_eq!(ColorRange::default(), ColorRange::Unspecified);
+    assert_eq!(ChromaLocation::default(), ChromaLocation::Unspecified);
+    assert_eq!(DcpTargetGamut::default(), DcpTargetGamut::DciP3);
+
+    // Round-trip `from_u32(to_u32()) == v` for EVERY named variant.
     for m in [
+      ColorMatrix::Rgb,
       ColorMatrix::Bt709,
-      ColorMatrix::Bt601,
-      ColorMatrix::Bt2020Ncl,
-      ColorMatrix::Smpte240m,
+      ColorMatrix::Unspecified,
       ColorMatrix::Fcc,
+      ColorMatrix::Bt470Bg,
+      ColorMatrix::Smpte170M,
+      ColorMatrix::Smpte240m,
       ColorMatrix::YCgCo,
+      ColorMatrix::Bt2020Ncl,
+      ColorMatrix::Bt2020Cl,
+      ColorMatrix::Smpte2085,
+      ColorMatrix::ChromaDerivedNcl,
+      ColorMatrix::ChromaDerivedCl,
+      ColorMatrix::Ictcp,
+      ColorMatrix::IptC2,
+      ColorMatrix::YCgCoRe,
+      ColorMatrix::YCgCoRo,
     ] {
       assert_eq!(ColorMatrix::from_u32(m.to_u32()), m);
     }
     for p in [
-      ColorPrimaries::Unspecified,
       ColorPrimaries::Bt709,
+      ColorPrimaries::Unspecified,
+      ColorPrimaries::Bt470M,
+      ColorPrimaries::Bt470Bg,
+      ColorPrimaries::Smpte170M,
+      ColorPrimaries::Smpte240M,
+      ColorPrimaries::Film,
       ColorPrimaries::Bt2020,
+      ColorPrimaries::SmpteSt428,
+      ColorPrimaries::SmpteRp431,
       ColorPrimaries::SmpteEg432,
       ColorPrimaries::Ebu3213E,
     ] {
       assert_eq!(ColorPrimaries::from_u32(p.to_u32()), p);
     }
     for t in [
-      ColorTransfer::Unspecified,
       ColorTransfer::Bt709,
+      ColorTransfer::Unspecified,
+      ColorTransfer::Gamma22,
+      ColorTransfer::Gamma28,
+      ColorTransfer::Smpte170M,
+      ColorTransfer::Smpte240M,
+      ColorTransfer::Linear,
+      ColorTransfer::Log100,
+      ColorTransfer::Log316,
+      ColorTransfer::Iec6196624,
+      ColorTransfer::Bt1361Ecg,
+      ColorTransfer::Iec6196621,
+      ColorTransfer::Bt2020_10Bit,
+      ColorTransfer::Bt2020_12Bit,
       ColorTransfer::SmpteSt2084Pq,
+      ColorTransfer::SmpteSt428,
       ColorTransfer::AribStdB67Hlg,
     ] {
       assert_eq!(ColorTransfer::from_u32(t.to_u32()), t);
@@ -1184,6 +1401,10 @@ mod tests {
     for c in [
       ChromaLocation::Unspecified,
       ChromaLocation::Left,
+      ChromaLocation::Center,
+      ChromaLocation::TopLeft,
+      ChromaLocation::Top,
+      ChromaLocation::BottomLeft,
       ChromaLocation::Bottom,
     ] {
       assert_eq!(ChromaLocation::from_u32(c.to_u32()), c);
@@ -1196,13 +1417,19 @@ mod tests {
       assert_eq!(DcpTargetGamut::from_u32(g.to_u32()), g);
     }
 
-    // Unknown values fall back to the default variant.
-    assert_eq!(ColorMatrix::from_u32(9_999), ColorMatrix::Bt709);
-    assert_eq!(ColorPrimaries::from_u32(9_999), ColorPrimaries::Unspecified);
-    assert_eq!(ColorTransfer::from_u32(9_999), ColorTransfer::Unspecified);
-    assert_eq!(ColorRange::from_u32(9_999), ColorRange::Unspecified);
-    assert_eq!(ChromaLocation::from_u32(9_999), ChromaLocation::Unspecified);
-    assert_eq!(DcpTargetGamut::from_u32(9_999), DcpTargetGamut::DciP3);
+    // Unrecognised codes are now LOSSLESS via `Unknown(n)` (no
+    // silent collapse to the default), and round-trip exactly.
+    assert_eq!(ColorMatrix::from_u32(9_999), ColorMatrix::Unknown(9_999));
+    assert_eq!(ColorMatrix::Unknown(9_999).to_u32(), 9_999);
+    // Reserved FFmpeg code 3 is Unknown for every FFmpeg enum.
+    assert_eq!(ColorPrimaries::from_u32(3), ColorPrimaries::Unknown(3));
+    assert_eq!(ColorPrimaries::from_u32(0), ColorPrimaries::Unknown(0));
+    assert_eq!(ColorTransfer::from_u32(3), ColorTransfer::Unknown(3));
+    assert_eq!(ColorRange::from_u32(7), ColorRange::Unknown(7));
+    assert_eq!(ColorRange::Unknown(7).to_u32(), 7);
+    assert_eq!(ChromaLocation::from_u32(42), ChromaLocation::Unknown(42));
+    assert_eq!(DcpTargetGamut::from_u32(9_999), DcpTargetGamut::Unknown(9_999));
+    assert_eq!(DcpTargetGamut::Unknown(9_999).to_u32(), 9_999);
   }
 
   #[test]

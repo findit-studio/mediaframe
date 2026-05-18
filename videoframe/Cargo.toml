@@ -17,6 +17,7 @@ rust-version = "1.95.0"
 default = ["std"]
 alloc   = []
 std     = ["thiserror/default"]
+buffa   = ["dep:buffa"]
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [
@@ -46,6 +47,7 @@ derive_more = { version = "2", default-features = false, features = ["display", 
 mediatime   = { version = "0.1", default-features = false }
 thiserror   = { version = "2", default-features = false }
 half        = { version = "2", default-features = false, optional = true }
+buffa       = { version = "0.6", default-features = false, optional = true }
 
 [profile.bench]
 opt-level         = 3

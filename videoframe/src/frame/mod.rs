@@ -5,6 +5,8 @@
 //! - [`Dimensions`] — a `(width, height)` pair in pixels.
 //! - [`Rect`] — an axis-aligned integer rectangle (used for visible-region
 //!   crops on `VideoFrame`).
+//! - [`Rotation`] — display rotation (0 / 90 / 180 / 270).
+//! - [`SampleAspectRatio`] — pixel aspect ratio (SAR).
 //! - [`Plane<B>`] — one plane of pixel data, generic over the buffer type.
 //! - [`VideoFrame<P, B>`] — runtime-tagged frame (no timestamp).
 //! - [`TimestampedFrame<F>`] — orthogonal time-carrying wrapper.
@@ -468,6 +470,169 @@ impl Rect {
   pub const fn set_height(&mut self, h: u32) -> &mut Self {
     self.height = h;
     self
+  }
+}
+
+/// Display rotation applied to the decoded picture before presentation.
+///
+/// Read from the FFmpeg display matrix side data
+/// (`AV_FRAME_DATA_DISPLAYMATRIX` → `av_display_rotation_get`, which
+/// returns a counter-clockwise angle in degrees) and from the
+/// WebCodecs `VideoFrame` rotation attribute. Only the four
+/// axis-aligned multiples of 90° are representable — every container
+/// rotation tag in practice is one of these; arbitrary skews are not
+/// modelled here.
+///
+/// The angle is the **clockwise** rotation to apply for display
+/// (matching WebCodecs' `rotation`); callers normalising FFmpeg's
+/// counter-clockwise convention negate accordingly. [`Self::D0`] is
+/// the default (no rotation / square presentation).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+#[display("{}", self.as_str())]
+#[non_exhaustive]
+#[repr(u32)]
+pub enum Rotation {
+  /// No rotation.
+  #[default]
+  D0 = 0,
+  /// 90° clockwise.
+  D90 = 1,
+  /// 180°.
+  D180 = 2,
+  /// 270° clockwise (= 90° counter-clockwise).
+  D270 = 3,
+}
+
+impl Rotation {
+  /// Degree string for this rotation (`"0"` / `"90"` / `"180"` /
+  /// `"270"`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_str(&self) -> &'static str {
+    match self {
+      Self::D0 => "0",
+      Self::D90 => "90",
+      Self::D180 => "180",
+      Self::D270 => "270",
+    }
+  }
+
+  /// Stable wire id (the explicit `#[repr(u32)]` discriminant).
+  /// `0`/`1`/`2`/`3` for `D0`/`D90`/`D180`/`D270`. Additive helper
+  /// for the `buffa` wire encoding; the mapping is stable and
+  /// append-only.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn to_u32(&self) -> u32 {
+    match self {
+      Self::D0 => 0,
+      Self::D90 => 1,
+      Self::D180 => 2,
+      Self::D270 => 3,
+    }
+  }
+
+  /// Decodes from the stable `u32` wire id produced by
+  /// [`Self::to_u32`]. Unrecognised values map to the default
+  /// [`Self::D0`].
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_u32(v: u32) -> Self {
+    match v {
+      1 => Self::D90,
+      2 => Self::D180,
+      3 => Self::D270,
+      _ => Self::D0,
+    }
+  }
+}
+
+/// Pixel (sample) aspect ratio — the ratio of a pixel's display
+/// width to its display height.
+///
+/// Read from `AVStream.sample_aspect_ratio` /
+/// `AVFrame.sample_aspect_ratio` (an FFmpeg `AVRational`) and from
+/// the WebCodecs display-size derivation. A `0:1` numerator in
+/// FFmpeg means "unknown"; callers normalise that to the `1:1`
+/// default (square pixels) before constructing this type.
+///
+/// `den` is a [`core::num::NonZeroU32`] so a SAR can never have a
+/// zero denominator; the manual [`Default`] is `1:1` (square),
+/// mirroring `mediatime::Timebase`'s non-proto-zero default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SampleAspectRatio {
+  num: u32,
+  den: core::num::NonZeroU32,
+}
+
+impl Default for SampleAspectRatio {
+  /// `1:1` — square pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self {
+      num: 1,
+      den: core::num::NonZeroU32::MIN,
+    }
+  }
+}
+
+impl SampleAspectRatio {
+  /// Constructs a `SampleAspectRatio` from an explicit
+  /// numerator / (non-zero) denominator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(num: u32, den: core::num::NonZeroU32) -> Self {
+    Self { num, den }
+  }
+
+  /// Returns the numerator (display-width units).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn num(&self) -> u32 {
+    self.num
+  }
+
+  /// Returns the (non-zero) denominator (display-height units).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn den(&self) -> core::num::NonZeroU32 {
+    self.den
+  }
+
+  /// `true` when the pixels are square (`num == den`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_square(&self) -> bool {
+    self.num == self.den.get()
+  }
+
+  /// Sets the numerator (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_num(mut self, num: u32) -> Self {
+    self.num = num;
+    self
+  }
+
+  /// Sets the denominator (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_den(mut self, den: core::num::NonZeroU32) -> Self {
+    self.den = den;
+    self
+  }
+
+  /// Sets the numerator in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_num(&mut self, num: u32) -> &mut Self {
+    self.num = num;
+    self
+  }
+
+  /// Sets the denominator in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_den(&mut self, den: core::num::NonZeroU32) -> &mut Self {
+    self.den = den;
+    self
+  }
+}
+
+impl core::fmt::Display for SampleAspectRatio {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "{}:{}", self.num, self.den)
   }
 }
 
@@ -962,6 +1127,59 @@ mod tests_primitives {
       .with_width(640)
       .with_height(360);
     assert_eq!((r.x(), r.y(), r.width(), r.height()), (8, 8, 640, 360));
+  }
+
+  #[test]
+  fn rotation_defaults_and_as_str() {
+    assert!(matches!(Rotation::default(), Rotation::D0));
+    assert_eq!(Rotation::D0.as_str(), "0");
+    assert_eq!(Rotation::D90.as_str(), "90");
+    assert_eq!(Rotation::D180.as_str(), "180");
+    assert_eq!(Rotation::D270.as_str(), "270");
+    assert!(Rotation::D90.is_d_90());
+  }
+
+  #[test]
+  fn rotation_u32_round_trip_and_unknown() {
+    for r in [Rotation::D0, Rotation::D90, Rotation::D180, Rotation::D270] {
+      assert_eq!(Rotation::from_u32(r.to_u32()), r);
+    }
+    assert_eq!(Rotation::from_u32(0), Rotation::D0);
+    assert_eq!(Rotation::from_u32(3), Rotation::D270);
+    // Out-of-range → default.
+    assert_eq!(Rotation::from_u32(99), Rotation::D0);
+  }
+
+  #[test]
+  fn sample_aspect_ratio_default_is_square() {
+    let s = SampleAspectRatio::default();
+    assert_eq!(s.num(), 1);
+    assert_eq!(s.den().get(), 1);
+    assert!(s.is_square());
+  }
+
+  #[test]
+  fn sample_aspect_ratio_construction_and_builders() {
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    let s = SampleAspectRatio::new(40, nz(33));
+    assert_eq!(s.num(), 40);
+    assert_eq!(s.den().get(), 33);
+    assert!(!s.is_square());
+    let s2 = SampleAspectRatio::default().with_num(16).with_den(nz(9));
+    assert_eq!((s2.num(), s2.den().get()), (16, 9));
+    let mut s3 = SampleAspectRatio::default();
+    s3.set_num(4).set_den(nz(3));
+    assert_eq!((s3.num(), s3.den().get()), (4, 3));
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn sample_aspect_ratio_display() {
+    let nz = core::num::NonZeroU32::new(11).unwrap();
+    assert_eq!(
+      std::format!("{}", SampleAspectRatio::new(10, nz)),
+      "10:11"
+    );
   }
 
   #[test]

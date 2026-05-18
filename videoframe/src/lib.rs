@@ -18,6 +18,8 @@ extern crate alloc as std;
 #[allow(unused_extern_crates)]
 extern crate std;
 
+#[cfg(feature = "buffa")]
+mod buffa;
 pub mod color;
 pub mod frame;
 pub mod pixel_format;

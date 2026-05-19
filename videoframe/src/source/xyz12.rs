@@ -214,6 +214,16 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   target_gamut: DcpTargetGamut,
   sink: &mut S,
 ) -> Result<(), S::Error> {
+  // Enforce the gamut precondition BEFORE touching the sink: an
+  // `Unknown(_)` gamut must panic before any `begin_frame` side
+  // effects, and the panic must not be maskable by a `begin_frame`
+  // error (Codex adversarial-review F7).
+  let luma_q15 = luma_weights_q15_for_gamut(target_gamut).expect(
+    "xyz12_to: target_gamut is DcpTargetGamut::Unknown(_); resolve it \
+     to a concrete gamut (Rec709/DciP3/Rec2020) before XYZ->RGB \
+     conversion -- an unknown gamut must not be silently colour-converted",
+  );
+
   sink.begin_frame(src.width(), src.height())?;
 
   let w = src.width() as usize;
@@ -221,11 +231,6 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   let stride = src.stride() as usize;
   let row_elems: usize = w * 3;
   let plane = src.xyz();
-  let luma_q15 = luma_weights_q15_for_gamut(target_gamut).expect(
-    "xyz12_to: target_gamut is DcpTargetGamut::Unknown(_); resolve it \
-     to a concrete gamut (Rec709/DciP3/Rec2020) before XYZ->RGB \
-     conversion -- an unknown gamut must not be silently colour-converted",
-  );
 
   for row in 0..h {
     let start = row * stride;
@@ -233,4 +238,76 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
     sink.process(Xyz12Row::<BE>::new(xyz, row, target_gamut, luma_q15))?;
   }
   Ok(())
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+  use super::*;
+  use crate::{PixelSink, color::DcpTargetGamut, frame::Xyz12Frame};
+  use core::convert::Infallible;
+
+  #[test]
+  fn unknown_gamut_has_no_luma_weights() {
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Unknown(7)).is_none());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Unknown(0)).is_none());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Rec709).is_some());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::DciP3).is_some());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Rec2020).is_some());
+  }
+
+  // `begin_frame` panics with a distinct sentinel. If the gamut
+  // precondition is enforced first (Codex F7), `xyz12_to` panics with
+  // the precondition message and this sentinel is never reached.
+  struct PanicBeginSink;
+  impl PixelSink for PanicBeginSink {
+    type Input<'r> = Xyz12Row<'r, false>;
+    type Error = Infallible;
+    fn begin_frame(&mut self, _w: u32, _h: u32) -> Result<(), Infallible> {
+      panic!("begin_frame ran before the gamut precondition check");
+    }
+    fn process(&mut self, _row: Xyz12Row<'_, false>) -> Result<(), Infallible> {
+      unreachable!("process must not run for an Unknown gamut");
+    }
+  }
+  impl Xyz12Sink for PanicBeginSink {}
+
+  #[test]
+  #[should_panic(expected = "DcpTargetGamut::Unknown")]
+  fn xyz12_to_unknown_gamut_panics_before_begin_frame() {
+    let plane = [0u16; 3];
+    let frame = Xyz12Frame::new(&plane, 1, 1, 3);
+    let mut sink = PanicBeginSink;
+    let _ = xyz12_to(&frame, DcpTargetGamut::Unknown(7), &mut sink);
+  }
+
+  struct CountingSink {
+    began: bool,
+    rows: usize,
+  }
+  impl PixelSink for CountingSink {
+    type Input<'r> = Xyz12Row<'r, false>;
+    type Error = Infallible;
+    fn begin_frame(&mut self, _w: u32, _h: u32) -> Result<(), Infallible> {
+      self.began = true;
+      Ok(())
+    }
+    fn process(&mut self, _row: Xyz12Row<'_, false>) -> Result<(), Infallible> {
+      self.rows += 1;
+      Ok(())
+    }
+  }
+  impl Xyz12Sink for CountingSink {}
+
+  #[test]
+  fn xyz12_to_concrete_gamut_walks_rows() {
+    let plane = [0u16; 3 * 2];
+    let frame = Xyz12Frame::new(&plane, 1, 2, 3);
+    let mut sink = CountingSink {
+      began: false,
+      rows: 0,
+    };
+    xyz12_to(&frame, DcpTargetGamut::Rec709, &mut sink).unwrap();
+    assert!(sink.began);
+    assert_eq!(sink.rows, 2);
+  }
 }

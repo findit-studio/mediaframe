@@ -961,43 +961,47 @@ impl ContentLightLevel {
 /// A CIE 1931 `xy` chromaticity coordinate in SMPTE ST 2086
 /// fixed-point units.
 ///
-/// Both `x` and `y` are stored in **0.00002 increments** (i.e. the
-/// floating value is `raw / 50000.0`), matching the spec-integer
-/// encoding of FFmpeg's `AVMasteringDisplayMetadata` (which uses
-/// `AVRational`s of `n/50000`). Storing the raw `u16` ST 2086 units
-/// keeps the type lossless and `Copy`/`const`-friendly.
+/// Both `x` and `y` are in **0.00002 increments** (the floating
+/// value is `raw / 50000.0`), matching the spec-integer encoding of
+/// FFmpeg's `AVMasteringDisplayMetadata` (`AVRational`s of
+/// `n/50000`). In-range ST 2086 values fit a `u16` (≤ 50000), but
+/// the buffa wire field is `uint32`; storage is **`u32` so any
+/// out-of-range / future / corrupt producer value round-trips
+/// losslessly** rather than being silently saturated (Codex
+/// adversarial-review F3). Validity is a separate concern from
+/// preservation — see [`HdrStaticMetadata`].
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChromaCoord {
-  x: u16,
-  y: u16,
+  x: u32,
+  y: u32,
 }
 
 impl ChromaCoord {
   /// Constructs a `ChromaCoord` from raw ST 2086 units (0.00002
   /// increments; floating value = `raw / 50000.0`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn new(x: u16, y: u16) -> Self {
+  pub const fn new(x: u32, y: u32) -> Self {
     Self { x, y }
   }
 
   /// Returns the `x` coordinate in ST 2086 units (0.00002
   /// increments).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn x(&self) -> u16 {
+  pub const fn x(&self) -> u32 {
     self.x
   }
 
   /// Returns the `y` coordinate in ST 2086 units (0.00002
   /// increments).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn y(&self) -> u16 {
+  pub const fn y(&self) -> u32 {
     self.y
   }
 
   /// Sets `x` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_x(mut self, x: u16) -> Self {
+  pub const fn with_x(mut self, x: u32) -> Self {
     self.x = x;
     self
   }
@@ -1005,21 +1009,21 @@ impl ChromaCoord {
   /// Sets `y` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_y(mut self, y: u16) -> Self {
+  pub const fn with_y(mut self, y: u32) -> Self {
     self.y = y;
     self
   }
 
   /// Sets `x` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_x(&mut self, x: u16) -> &mut Self {
+  pub const fn set_x(&mut self, x: u32) -> &mut Self {
     self.x = x;
     self
   }
 
   /// Sets `y` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_y(&mut self, y: u16) -> &mut Self {
+  pub const fn set_y(&mut self, y: u32) -> &mut Self {
     self.y = y;
     self
   }

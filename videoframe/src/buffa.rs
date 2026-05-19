@@ -654,7 +654,9 @@ impl Message for ContentLightLevel {
 
 // ----------------------------------------------------------------------------
 // ChromaCoord — { uint32 x = 1; uint32 y = 2; }
-// (u16 fields widened to uint32 — protobuf has no 16-bit scalar.)
+// `x`/`y` are `u32` storage == the wire scalar; every value (incl.
+// out-of-range / future / corrupt) round-trips losslessly — no
+// saturation (Codex adversarial-review F3).
 // Default is (0, 0) == proto-zero, so zero-elision is sound.
 // ----------------------------------------------------------------------------
 
@@ -670,10 +672,10 @@ impl Message for ChromaCoord {
     let mut size = 0u32;
     // proto3 zero-elision: sound — seed is ChromaCoord::default() = (0, 0).
     if self.x() != 0 {
-      size += 1 + uint32_encoded_len(self.x() as u32) as u32;
+      size += 1 + uint32_encoded_len(self.x()) as u32;
     }
     if self.y() != 0 {
-      size += 1 + uint32_encoded_len(self.y() as u32) as u32;
+      size += 1 + uint32_encoded_len(self.y()) as u32;
     }
     size
   }
@@ -682,11 +684,11 @@ impl Message for ChromaCoord {
     // proto3 zero-elision: sound — see `compute_size`.
     if self.x() != 0 {
       Tag::new(1, WireType::Varint).encode(buf);
-      encode_uint32(self.x() as u32, buf);
+      encode_uint32(self.x(), buf);
     }
     if self.y() != 0 {
       Tag::new(2, WireType::Varint).encode(buf);
-      encode_uint32(self.y() as u32, buf);
+      encode_uint32(self.y(), buf);
     }
   }
 
@@ -700,14 +702,9 @@ impl Message for ChromaCoord {
             actual: tag.wire_type() as u8,
           });
         }
-        // u32 on the wire is narrowed to the u16 storage; values
-        // above u16::MAX (never produced by our encoder) saturate.
-        let v = decode_uint32(buf)?;
-        self.set_x(if v > u16::MAX as u32 {
-          u16::MAX
-        } else {
-          v as u16
-        });
+        // u32 storage == wire scalar: preserved verbatim, no
+        // saturation (Codex F3).
+        self.set_x(decode_uint32(buf)?);
       }
       2 => {
         if tag.wire_type() != WireType::Varint {
@@ -717,12 +714,7 @@ impl Message for ChromaCoord {
             actual: tag.wire_type() as u8,
           });
         }
-        let v = decode_uint32(buf)?;
-        self.set_y(if v > u16::MAX as u32 {
-          u16::MAX
-        } else {
-          v as u16
-        });
+        self.set_y(decode_uint32(buf)?);
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -960,7 +952,7 @@ mod tests {
     NonZeroU32::new(n).unwrap()
   }
 
-  fn cc(x: u16, y: u16) -> ChromaCoord {
+  fn cc(x: u32, y: u32) -> ChromaCoord {
     ChromaCoord::new(x, y)
   }
 
@@ -1379,7 +1371,11 @@ mod tests {
       ChromaCoord::default(),
       cc(34000, 16000),
       cc(0, 3000),
-      cc(u16::MAX, u16::MAX),
+      cc(u16::MAX as u32, u16::MAX as u32),
+      // Out-of-ST 2086-range / corrupt / future producer values are
+      // preserved verbatim, NOT saturated (Codex F3).
+      cc(70_000, 100_000),
+      cc(u32::MAX, u32::MAX - 1),
     ] {
       let b = c.encode_to_vec();
       assert_eq!(ChromaCoord::decode_from_slice(&b).unwrap(), c);

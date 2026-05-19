@@ -872,9 +872,18 @@ impl<P, B> VideoFrame<P, B> {
 /// the `mediatime` crate (no_std, zero deps, exact arithmetic). Both
 /// PTS and duration are `Option` because backends do not always know
 /// them.
+///
+/// `duration` is deliberately the **same** `mediatime::Timestamp`
+/// (timebase ticks) as `pts`, mirroring FFmpeg's `AVFrame.duration`
+/// — an `int64` in the stream `time_base`, *not* a wall-clock value.
+/// It is intentionally **not** a `core::time::Duration`: that would
+/// lose exact rational-timebase precision and diverge from the
+/// FFmpeg / `mediatime` model this crate faithfully mirrors. (Codex
+/// adversarial-review F2 — reviewed and intentionally kept as-is.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TimestampedFrame<F> {
   pts: Option<mediatime::Timestamp>,
+  // Timebase ticks, like FFmpeg `AVFrame.duration` — see type doc.
   duration: Option<mediatime::Timestamp>,
   frame: F,
 }

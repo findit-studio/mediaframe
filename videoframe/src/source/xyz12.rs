@@ -159,23 +159,27 @@ impl<'a, const BE: bool> Xyz12Row<'a, BE> {
 ///   DCI-P3 path.
 /// - **Rec.2020** (D65) — `Y = 0.2627 R + 0.6780 G + 0.0593 B`
 ///   → `(8607, 22217, 1944)`. (Matches `ColorMatrix::Bt2020Ncl`.)
+/// Returns `None` for [`DcpTargetGamut::Unknown`]: an unknown /
+/// future / corrupt gamut id has no defined luma basis and **must
+/// not** be silently colour-converted as if it were DCI-P3 (Codex
+/// adversarial-review F4). Callers must resolve `Unknown(_)` to a
+/// concrete gamut before conversion.
 #[cfg_attr(not(tarpaulin), inline(always))]
-pub(crate) const fn luma_weights_q15_for_gamut(g: DcpTargetGamut) -> (i32, i32, i32) {
+pub(crate) const fn luma_weights_q15_for_gamut(g: DcpTargetGamut) -> Option<(i32, i32, i32)> {
   match g {
     // Rec.709 / sRGB: Y = 0.2126 R + 0.7152 G + 0.0722 B (D65).
-    DcpTargetGamut::Rec709 => (6966, 23436, 2366),
+    DcpTargetGamut::Rec709 => Some((6966, 23436, 2366)),
     // DCI-P3 theatrical (DCI white): Y row of the P3-DCI rgb_to_xyz
     // matrix derived in `examples/derive_xyz_matrices.rs`
     // (`Y_red = 0.2094916779`, `Y_green = 0.7215952542`,
     // `Y_blue = 0.0689130679`); each coefficient × 32768 rounded to
     // nearest gives `(6865, 23645, 2258)` with `sum = 32768` exactly.
-    DcpTargetGamut::DciP3 => (6865, 23645, 2258),
+    DcpTargetGamut::DciP3 => Some((6865, 23645, 2258)),
     // Rec.2020: Y = 0.2627 R + 0.6780 G + 0.0593 B (D65).
-    DcpTargetGamut::Rec2020 => (8607, 22217, 1944),
-    // No FFmpeg analog exists for an unknown gamut id; fall back to
-    // the default `DciP3` theatrical decode (matches the type's
-    // documented `Default` / `default_dcp`).
-    DcpTargetGamut::Unknown(_) => (6865, 23645, 2258),
+    DcpTargetGamut::Rec2020 => Some((8607, 22217, 1944)),
+    // Unknown has no defined luma basis — explicit `None`, never a
+    // silent DCI-P3 fallback.
+    DcpTargetGamut::Unknown(_) => None,
   }
 }
 
@@ -197,6 +201,14 @@ pub trait Xyz12Sink<const BE: bool = false>:
 /// The const-generic `BE: bool` parameter is taken from the frame's
 /// own const generic and forwarded to the row marker so kernels can
 /// const-branch on byte-swap; no runtime overhead.
+///
+/// # Panics
+///
+/// `target_gamut` must be a concrete gamut. Passing
+/// [`DcpTargetGamut::Unknown`] is a caller error (an unknown / future
+/// / corrupt gamut has no defined luma basis and must not be silently
+/// colour-converted) and panics with a descriptive message — resolve
+/// `Unknown(_)` to `Rec709` / `DciP3` / `Rec2020` before calling.
 pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   src: &Xyz12Frame<'_, BE>,
   target_gamut: DcpTargetGamut,
@@ -209,7 +221,11 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   let stride = src.stride() as usize;
   let row_elems: usize = w * 3;
   let plane = src.xyz();
-  let luma_q15 = luma_weights_q15_for_gamut(target_gamut);
+  let luma_q15 = luma_weights_q15_for_gamut(target_gamut).expect(
+    "xyz12_to: target_gamut is DcpTargetGamut::Unknown(_); resolve it \
+     to a concrete gamut (Rec709/DciP3/Rec2020) before XYZ->RGB \
+     conversion -- an unknown gamut must not be silently colour-converted",
+  );
 
   for row in 0..h {
     let start = row * stride;

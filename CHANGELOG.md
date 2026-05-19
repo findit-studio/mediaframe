@@ -4,6 +4,51 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] May 19, 2026
+
+### Added
+
+- **`buffa`** — optional `buffa` wire serialization for the colour /
+  frame / HDR vocabulary (hand-written `Message`/`DefaultInstance`,
+  no codegen); lets downstream proto schemas extern-map
+  `.videoframe.v1` → `::videoframe`.
+- **`color`/`frame`** — lossless `Unknown(u32)` catch-all on every
+  colour enum, `Rotation`, and `DcpTargetGamut`: unrecognised /
+  future / corrupt wire ids round-trip verbatim instead of collapsing
+  to a default.
+- **`color`** — `DOMAIN_EXT_BASE` + `ColorMatrix::Bt601`
+  (videoframe-domain superset id, disjoint from FFmpeg/H.273 codes).
+- **`color`/`frame`** — `ContentLightLevel`, `ChromaCoord`,
+  `MasteringDisplay`, `HdrStaticMetadata` (SMPTE ST 2086 / FFmpeg
+  HDR10 static side-data); `Rotation`; `SampleAspectRatio`.
+- **xtask** — `check` verifies colour-enum numbering against the
+  pinned FFmpeg n8.1 header (vendored `ffmpeg-color.txt`).
+
+### Breakage
+
+- **`color`** — `ColorPrimaries`/`ColorTransfer`/`ColorMatrix`/
+  `ColorRange`/`ChromaLocation` renumbered to exact FFmpeg n8.1 /
+  ITU-T H.273 code points; `to_u32`/`from_u32` now lossless.
+- **`color::ColorTransfer`** — `Bt470M`/`Bt470Bg` renamed to
+  `Gamma22`/`Gamma28` (FFmpeg-canonical names for the identical
+  transfer code 4/5; slugs / `Display` unchanged).
+- **`color::ColorMatrix`** — `Default` changed `Bt709` →
+  `Unspecified` (FFmpeg `AVCOL_SPC_UNSPECIFIED`); `ColorInfo`
+  default/`UNSPECIFIED` `matrix` likewise.
+- **`color::ChromaCoord`** — `x`/`y` widened `u16` → `u32` so
+  out-of-range wire values are preserved losslessly (no saturation).
+- **`frame::Rotation`** — no longer `#[repr(u32)]`; gains
+  `Unknown(u32)`.
+
+### Changes
+
+- **`buffa`** — standalone-enum codec elides on the type's `Default`
+  (FFmpeg `UNSPECIFIED`), not proto3 wire-zero, so code `0` (e.g.
+  `ColorMatrix::Rgb`) is no longer conflated with "absent".
+- **`source::xyz12`** — `xyz12_to` requires a concrete
+  `DcpTargetGamut`; passing `Unknown(_)` panics with a descriptive
+  message instead of silently decoding as DCI-P3.
+
 ## [0.2.0] May 12, 2026
 
 ### Added

@@ -1,6 +1,6 @@
 # FFmpeg AVPixelFormat slugs — vendored for `cargo xtask check`.
 # Source: FFmpeg n8.1 libavutil/pixfmt.h
-# Fetched: 2026-05-11
+# Fetched: 2026-05-18
 #
 # Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.
 # One slug per line, lowercase of the AV_PIX_FMT_<NAME> suffix.

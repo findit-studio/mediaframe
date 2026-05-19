@@ -159,19 +159,28 @@ impl<'a, const BE: bool> Xyz12Row<'a, BE> {
 ///   DCI-P3 path.
 /// - **Rec.2020** (D65) — `Y = 0.2627 R + 0.6780 G + 0.0593 B`
 ///   → `(8607, 22217, 1944)`. (Matches `ColorMatrix::Bt2020Ncl`.)
+///
+/// Returns `None` for [`DcpTargetGamut::Unknown`]: an unknown /
+/// future / corrupt gamut id has no defined luma basis and **must
+/// not** be silently colour-converted as if it were DCI-P3 (Codex
+/// adversarial-review F4). Callers must resolve `Unknown(_)` to a
+/// concrete gamut before conversion.
 #[cfg_attr(not(tarpaulin), inline(always))]
-pub(crate) const fn luma_weights_q15_for_gamut(g: DcpTargetGamut) -> (i32, i32, i32) {
+pub(crate) const fn luma_weights_q15_for_gamut(g: DcpTargetGamut) -> Option<(i32, i32, i32)> {
   match g {
     // Rec.709 / sRGB: Y = 0.2126 R + 0.7152 G + 0.0722 B (D65).
-    DcpTargetGamut::Rec709 => (6966, 23436, 2366),
+    DcpTargetGamut::Rec709 => Some((6966, 23436, 2366)),
     // DCI-P3 theatrical (DCI white): Y row of the P3-DCI rgb_to_xyz
     // matrix derived in `examples/derive_xyz_matrices.rs`
     // (`Y_red = 0.2094916779`, `Y_green = 0.7215952542`,
     // `Y_blue = 0.0689130679`); each coefficient × 32768 rounded to
     // nearest gives `(6865, 23645, 2258)` with `sum = 32768` exactly.
-    DcpTargetGamut::DciP3 => (6865, 23645, 2258),
+    DcpTargetGamut::DciP3 => Some((6865, 23645, 2258)),
     // Rec.2020: Y = 0.2627 R + 0.6780 G + 0.0593 B (D65).
-    DcpTargetGamut::Rec2020 => (8607, 22217, 1944),
+    DcpTargetGamut::Rec2020 => Some((8607, 22217, 1944)),
+    // Unknown has no defined luma basis — explicit `None`, never a
+    // silent DCI-P3 fallback.
+    DcpTargetGamut::Unknown(_) => None,
   }
 }
 
@@ -193,11 +202,29 @@ pub trait Xyz12Sink<const BE: bool = false>:
 /// The const-generic `BE: bool` parameter is taken from the frame's
 /// own const generic and forwarded to the row marker so kernels can
 /// const-branch on byte-swap; no runtime overhead.
+///
+/// # Panics
+///
+/// `target_gamut` must be a concrete gamut. Passing
+/// [`DcpTargetGamut::Unknown`] is a caller error (an unknown / future
+/// / corrupt gamut has no defined luma basis and must not be silently
+/// colour-converted) and panics with a descriptive message — resolve
+/// `Unknown(_)` to `Rec709` / `DciP3` / `Rec2020` before calling.
 pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   src: &Xyz12Frame<'_, BE>,
   target_gamut: DcpTargetGamut,
   sink: &mut S,
 ) -> Result<(), S::Error> {
+  // Enforce the gamut precondition BEFORE touching the sink: an
+  // `Unknown(_)` gamut must panic before any `begin_frame` side
+  // effects, and the panic must not be maskable by a `begin_frame`
+  // error (Codex adversarial-review F7).
+  let luma_q15 = luma_weights_q15_for_gamut(target_gamut).expect(
+    "xyz12_to: target_gamut is DcpTargetGamut::Unknown(_); resolve it \
+     to a concrete gamut (Rec709/DciP3/Rec2020) before XYZ->RGB \
+     conversion -- an unknown gamut must not be silently colour-converted",
+  );
+
   sink.begin_frame(src.width(), src.height())?;
 
   let w = src.width() as usize;
@@ -205,7 +232,6 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
   let stride = src.stride() as usize;
   let row_elems: usize = w * 3;
   let plane = src.xyz();
-  let luma_q15 = luma_weights_q15_for_gamut(target_gamut);
 
   for row in 0..h {
     let start = row * stride;
@@ -213,4 +239,76 @@ pub fn xyz12_to<const BE: bool, S: Xyz12Sink<BE>>(
     sink.process(Xyz12Row::<BE>::new(xyz, row, target_gamut, luma_q15))?;
   }
   Ok(())
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+  use super::*;
+  use crate::{PixelSink, color::DcpTargetGamut, frame::Xyz12Frame};
+  use core::convert::Infallible;
+
+  #[test]
+  fn unknown_gamut_has_no_luma_weights() {
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Unknown(7)).is_none());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Unknown(0)).is_none());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Rec709).is_some());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::DciP3).is_some());
+    assert!(luma_weights_q15_for_gamut(DcpTargetGamut::Rec2020).is_some());
+  }
+
+  // `begin_frame` panics with a distinct sentinel. If the gamut
+  // precondition is enforced first (Codex F7), `xyz12_to` panics with
+  // the precondition message and this sentinel is never reached.
+  struct PanicBeginSink;
+  impl PixelSink for PanicBeginSink {
+    type Input<'r> = Xyz12Row<'r, false>;
+    type Error = Infallible;
+    fn begin_frame(&mut self, _w: u32, _h: u32) -> Result<(), Infallible> {
+      panic!("begin_frame ran before the gamut precondition check");
+    }
+    fn process(&mut self, _row: Xyz12Row<'_, false>) -> Result<(), Infallible> {
+      unreachable!("process must not run for an Unknown gamut");
+    }
+  }
+  impl Xyz12Sink for PanicBeginSink {}
+
+  #[test]
+  #[should_panic(expected = "DcpTargetGamut::Unknown")]
+  fn xyz12_to_unknown_gamut_panics_before_begin_frame() {
+    let plane = [0u16; 3];
+    let frame = Xyz12Frame::new(&plane, 1, 1, 3);
+    let mut sink = PanicBeginSink;
+    let _ = xyz12_to(&frame, DcpTargetGamut::Unknown(7), &mut sink);
+  }
+
+  struct CountingSink {
+    began: bool,
+    rows: usize,
+  }
+  impl PixelSink for CountingSink {
+    type Input<'r> = Xyz12Row<'r, false>;
+    type Error = Infallible;
+    fn begin_frame(&mut self, _w: u32, _h: u32) -> Result<(), Infallible> {
+      self.began = true;
+      Ok(())
+    }
+    fn process(&mut self, _row: Xyz12Row<'_, false>) -> Result<(), Infallible> {
+      self.rows += 1;
+      Ok(())
+    }
+  }
+  impl Xyz12Sink for CountingSink {}
+
+  #[test]
+  fn xyz12_to_concrete_gamut_walks_rows() {
+    let plane = [0u16; 3 * 2];
+    let frame = Xyz12Frame::new(&plane, 1, 2, 3);
+    let mut sink = CountingSink {
+      began: false,
+      rows: 0,
+    };
+    xyz12_to(&frame, DcpTargetGamut::Rec709, &mut sink).unwrap();
+    assert!(sink.began);
+    assert_eq!(sink.rows, 2);
+  }
 }

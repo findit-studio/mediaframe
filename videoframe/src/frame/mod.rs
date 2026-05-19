@@ -480,8 +480,10 @@ impl Rect {
 /// returns a counter-clockwise angle in degrees) and from the
 /// WebCodecs `VideoFrame` rotation attribute. Only the four
 /// axis-aligned multiples of 90° are representable — every container
-/// rotation tag in practice is one of these; arbitrary skews are not
-/// modelled here.
+/// rotation tag in practice is one of these. Any other / future /
+/// corrupt wire value is preserved verbatim as [`Self::Unknown`]
+/// rather than silently collapsed to a valid rotation (mirrors the
+/// lossless `Unknown(u32)` convention of the colour enums).
 ///
 /// The angle is the **clockwise** rotation to apply for display
 /// (matching WebCodecs' `rotation`); callers normalising FFmpeg's
@@ -490,25 +492,29 @@ impl Rect {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[repr(u32)]
 pub enum Rotation {
+  /// Unknown / unrecognised rotation wire value. The wrapped `u32`
+  /// is the original value passed to [`Self::from_u32`] — preserved
+  /// so the round-trip is lossless (no silent collapse to `D0`).
+  Unknown(u32),
   /// No rotation.
   #[default]
-  D0 = 0,
+  D0,
   /// 90° clockwise.
-  D90 = 1,
+  D90,
   /// 180°.
-  D180 = 2,
+  D180,
   /// 270° clockwise (= 90° counter-clockwise).
-  D270 = 3,
+  D270,
 }
 
 impl Rotation {
   /// Degree string for this rotation (`"0"` / `"90"` / `"180"` /
-  /// `"270"`).
+  /// `"270"`); [`Self::Unknown`] renders as `"unknown"`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
+      Self::Unknown(_) => "unknown",
       Self::D0 => "0",
       Self::D90 => "90",
       Self::D180 => "180",
@@ -516,13 +522,14 @@ impl Rotation {
     }
   }
 
-  /// Stable wire id (the explicit `#[repr(u32)]` discriminant).
-  /// `0`/`1`/`2`/`3` for `D0`/`D90`/`D180`/`D270`. Additive helper
-  /// for the `buffa` wire encoding; the mapping is stable and
-  /// append-only.
+  /// Stable `u32` wire id: `0`/`1`/`2`/`3` for
+  /// `D0`/`D90`/`D180`/`D270`; [`Self::Unknown`] carries its
+  /// original value through unchanged so `from_u32(to_u32(x)) == x`
+  /// for every unrecognised `x`. Stable and append-only.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn to_u32(&self) -> u32 {
     match self {
+      Self::Unknown(v) => *v,
       Self::D0 => 0,
       Self::D90 => 1,
       Self::D180 => 2,
@@ -531,15 +538,16 @@ impl Rotation {
   }
 
   /// Decodes from the stable `u32` wire id produced by
-  /// [`Self::to_u32`]. Unrecognised values map to the default
-  /// [`Self::D0`].
+  /// [`Self::to_u32`]. Unrecognised values are preserved as
+  /// [`Self::Unknown`] (lossless) rather than mapped to a default.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {
     match v {
+      0 => Self::D0,
       1 => Self::D90,
       2 => Self::D180,
       3 => Self::D270,
-      _ => Self::D0,
+      _ => Self::Unknown(v),
     }
   }
 }
@@ -1141,13 +1149,21 @@ mod tests_primitives {
 
   #[test]
   fn rotation_u32_round_trip_and_unknown() {
-    for r in [Rotation::D0, Rotation::D90, Rotation::D180, Rotation::D270] {
+    for r in [
+      Rotation::D0,
+      Rotation::D90,
+      Rotation::D180,
+      Rotation::D270,
+      Rotation::Unknown(99),
+      Rotation::Unknown(4242),
+    ] {
       assert_eq!(Rotation::from_u32(r.to_u32()), r);
     }
     assert_eq!(Rotation::from_u32(0), Rotation::D0);
     assert_eq!(Rotation::from_u32(3), Rotation::D270);
-    // Out-of-range → default.
-    assert_eq!(Rotation::from_u32(99), Rotation::D0);
+    // Unrecognised → preserved losslessly (no silent collapse to D0).
+    assert_eq!(Rotation::from_u32(99), Rotation::Unknown(99));
+    assert_eq!(Rotation::from_u32(99).to_u32(), 99);
   }
 
   #[test]

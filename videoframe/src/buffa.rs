@@ -1107,9 +1107,18 @@ mod tests {
 
   #[test]
   fn rotation_round_trip() {
-    // `Rotation` is a closed set; `D0` is the default (wire id 0)
-    // so default-elision and zero-elision coincide for it.
-    for r in [Rotation::D0, Rotation::D90, Rotation::D180, Rotation::D270] {
+    // `D0` is the default (wire id 0) so it elides. `Unknown(n)`
+    // preserves unrecognised / corrupt / future wire ids losslessly
+    // through the shared enum codec — no silent collapse to `D0`
+    // (Codex adversarial-review F1).
+    for r in [
+      Rotation::D0,
+      Rotation::D90,
+      Rotation::D180,
+      Rotation::D270,
+      Rotation::Unknown(7),
+      Rotation::Unknown(4242),
+    ] {
       let b = r.encode_to_vec();
       assert_eq!(Rotation::decode_from_slice(&b).unwrap(), r);
     }

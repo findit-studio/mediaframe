@@ -461,8 +461,14 @@ impl Message for SampleAspectRatio {
           });
         }
         // `den` is NonZeroU32; a malformed 0 on the wire (never
-        // produced by our own encoder) is clamped to 1 to keep
-        // decode total.
+        // produced by our own encoder) is clamped to 1. This is
+        // byte-identical to `mediatime::Timebase`'s decode in the
+        // published `mediatime` extern (>= 0.1.6) that SAR mirrors,
+        // and upholds the codec family's total-scalar-decode
+        // invariant (scalar values never raise decode errors; only
+        // structural errors do). Codex adversarial-review F6:
+        // resolved as a coordinated mediatime/buffa policy, NOT a
+        // videoframe-only divergence.
         let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
         self.set_den(den);
       }
@@ -1056,6 +1062,33 @@ mod tests {
       DcpTargetGamut::decode_from_slice(&dg).unwrap(),
       DcpTargetGamut::Rec2020
     );
+  }
+
+  #[test]
+  fn dcp_target_gamut_unknown_canonicalization() {
+    // Codex adversarial-review F8. `Unknown` is decoder-only: the
+    // decoder never emits `Unknown(0..=2)` (`from_u32` maps the
+    // canonical ids to their named variants), so a *decoded* value
+    // always round-trips. Manually wrapping a canonical id in
+    // `Unknown` is a misuse; it canonicalises to the named variant
+    // on a buffa round-trip (correct — the id *is* that gamut),
+    // never silent data loss.
+    for (misuse, named) in [
+      (DcpTargetGamut::Unknown(0), DcpTargetGamut::DciP3),
+      (DcpTargetGamut::Unknown(1), DcpTargetGamut::Rec709),
+      (DcpTargetGamut::Unknown(2), DcpTargetGamut::Rec2020),
+    ] {
+      let b = misuse.encode_to_vec();
+      assert_eq!(DcpTargetGamut::decode_from_slice(&b).unwrap(), named);
+    }
+    // Non-canonical ids are preserved losslessly and the decoder
+    // yields `Unknown` (still F7-rejected by `xyz12_to`).
+    for v in [3u32, 4242, u32::MAX] {
+      let u = DcpTargetGamut::Unknown(v);
+      let b = u.encode_to_vec();
+      assert_eq!(DcpTargetGamut::decode_from_slice(&b).unwrap(), u);
+      assert_eq!(DcpTargetGamut::from_u32(v), DcpTargetGamut::Unknown(v));
+    }
   }
 
   #[test]

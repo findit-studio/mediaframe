@@ -822,8 +822,16 @@ impl ColorInfo {
 /// This enum has **no FFmpeg analog** (it selects a videoframe XYZ →
 /// RGB matrix); it keeps its own videoframe-local wire numbering
 /// (`DciP3`=0, `Rec709`=1, `Rec2020`=2) rather than an FFmpeg code.
-/// `Default` is [`Self::DciP3`]; [`Self::Unknown`] carries any
-/// unrecognised id through unchanged so the round-trip is lossless.
+/// `Default` is [`Self::DciP3`]. [`Self::Unknown`] is
+/// **decoder-only**: [`Self::from_u32`] returns a named variant for a
+/// canonical id (`0`/`1`/`2`) and `Unknown(v)` only for a
+/// non-canonical `v`, so a *decoded* value always round-trips
+/// losslessly and `Unknown` never aliases a known gamut in practice.
+/// Manually constructing `Unknown(0..=2)` is a misuse (those ids have
+/// named variants); it canonicalises to the named variant on a buffa
+/// round-trip — which is correct (the id *is* that gamut), not data
+/// loss. Shared convention of every lossless `Unknown(u32)` enum here
+/// (Codex adversarial-review F8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant)]
 #[non_exhaustive]
 pub enum DcpTargetGamut {

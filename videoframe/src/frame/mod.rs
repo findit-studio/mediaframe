@@ -607,6 +607,15 @@ impl SampleAspectRatio {
     self.num == self.den.get()
   }
 
+  /// Views this SAR as a generic [`Rational`]. The layout is
+  /// identical (`{num: u32, den: NonZeroU32}`) so the mapping is a
+  /// direct field copy — purely additive interop, no public-API
+  /// change to `SampleAspectRatio` itself.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_rational(&self) -> Rational {
+    Rational::new(self.num, self.den)
+  }
+
   /// Sets the numerator (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -641,6 +650,394 @@ impl SampleAspectRatio {
 impl core::fmt::Display for SampleAspectRatio {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     write!(f, "{}:{}", self.num, self.den)
+  }
+}
+
+impl From<SampleAspectRatio> for Rational {
+  /// Direct field copy — `SampleAspectRatio` and `Rational` share the
+  /// exact `{num: u32, den: NonZeroU32}` layout. Additive interop;
+  /// `SampleAspectRatio`'s own public API is unchanged.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn from(sar: SampleAspectRatio) -> Self {
+    Rational::new(sar.num, sar.den)
+  }
+}
+
+/// A generic exact ratio `num / den`.
+///
+/// The reusable rational primitive the rest of the frame layer builds
+/// on (e.g. [`FrameRate`]). `den` is a [`core::num::NonZeroU32`] so a
+/// ratio can never have a zero denominator; the manual [`Default`] is
+/// `1/1` (the multiplicative identity), mirroring
+/// [`SampleAspectRatio`]'s non-proto-zero default and
+/// `mediatime::Timebase`'s convention.
+///
+/// This is the format-agnostic numerator/denominator pair; semantic
+/// wrappers ([`SampleAspectRatio`] for pixel aspect, [`FrameRate`] for
+/// frames-per-second) carry the domain meaning. A `0` numerator is a
+/// valid representable state (e.g. an "unknown" FFmpeg `AVRational`
+/// `0/1`) — see [`Self::is_zero`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Rational {
+  num: u32,
+  den: core::num::NonZeroU32,
+}
+
+impl Default for Rational {
+  /// `1/1` — the multiplicative identity.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self {
+      num: 1,
+      den: core::num::NonZeroU32::MIN,
+    }
+  }
+}
+
+impl Rational {
+  /// Constructs a `Rational` from an explicit
+  /// numerator / (non-zero) denominator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(num: u32, den: core::num::NonZeroU32) -> Self {
+    Self { num, den }
+  }
+
+  /// Returns the numerator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn num(&self) -> u32 {
+    self.num
+  }
+
+  /// Returns the (non-zero) denominator.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn den(&self) -> core::num::NonZeroU32 {
+    self.den
+  }
+
+  /// `true` when the numerator is `0` (the ratio is exactly zero —
+  /// e.g. an "unknown" `0/1` FFmpeg `AVRational`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_zero(&self) -> bool {
+    self.num == 0
+  }
+
+  /// Sets the numerator (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_num(mut self, num: u32) -> Self {
+    self.num = num;
+    self
+  }
+
+  /// Sets the denominator (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_den(mut self, den: core::num::NonZeroU32) -> Self {
+    self.den = den;
+    self
+  }
+
+  /// Sets the numerator in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_num(&mut self, num: u32) -> &mut Self {
+    self.num = num;
+    self
+  }
+
+  /// Sets the denominator in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_den(&mut self, den: core::num::NonZeroU32) -> &mut Self {
+    self.den = den;
+    self
+  }
+}
+
+impl core::fmt::Display for Rational {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "{}/{}", self.num, self.den)
+  }
+}
+
+/// The frame rate of a video stream as an exact [`Rational`]
+/// (frames per second) plus a variable-frame-rate marker.
+///
+/// `rate` is the nominal frames-per-second ratio (e.g. `30000/1001`
+/// for NTSC, `25/1` for PAL). `is_vfr` records that the stream is
+/// variable-frame-rate, in which case `rate` is the average / nominal
+/// rate only and per-frame timing must be taken from the timestamps.
+///
+/// This is deliberately **not** [`mediatime::Timebase`]: a frame rate
+/// is *not* a presentation-timestamp timebase. They are reciprocal-ish
+/// but distinct concepts (a 30000/1001 fps stream is commonly carried
+/// on a 1/90000 or 1/1000 PTS timebase) — `mediatime` documents that
+/// distinction and intentionally models only the PTS timebase, so the
+/// frame-rate concept lives here as its own type.
+///
+/// The [`Default`] is `{ rate: Rational::default() (1/1),
+/// is_vfr: false }`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FrameRate {
+  rate: Rational,
+  is_vfr: bool,
+}
+
+impl FrameRate {
+  /// Constructs a `FrameRate` from an exact frames-per-second
+  /// [`Rational`] and a variable-frame-rate flag.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(rate: Rational, is_vfr: bool) -> Self {
+    Self { rate, is_vfr }
+  }
+
+  /// Returns the nominal frames-per-second ratio.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rate(&self) -> Rational {
+    self.rate
+  }
+
+  /// `true` when the stream is variable-frame-rate (the [`Self::rate`]
+  /// is then an average / nominal value only).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_vfr(&self) -> bool {
+    self.is_vfr
+  }
+
+  /// Sets the rate (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_rate(mut self, rate: Rational) -> Self {
+    self.rate = rate;
+    self
+  }
+
+  /// Sets the VFR flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_is_vfr(mut self, is_vfr: bool) -> Self {
+    self.is_vfr = is_vfr;
+    self
+  }
+
+  /// Sets the rate in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_rate(&mut self, rate: Rational) -> &mut Self {
+    self.rate = rate;
+    self
+  }
+
+  /// Sets the VFR flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_is_vfr(&mut self, is_vfr: bool) -> &mut Self {
+    self.is_vfr = is_vfr;
+    self
+  }
+}
+
+/// Interlacing / field order of a video stream.
+///
+/// Mirrors FFmpeg `AVFieldOrder`
+/// (`AVCodecContext::field_order` / `AVFrame` derived state) with the
+/// exact numeric code points: `AV_FIELD_UNKNOWN = 0`,
+/// `AV_FIELD_PROGRESSIVE = 1`, `AV_FIELD_TT = 2`,
+/// `AV_FIELD_BB = 3`, `AV_FIELD_TB = 4`, `AV_FIELD_BT = 5`. Any
+/// other / future / corrupt wire value is preserved verbatim as
+/// [`Self::Unknown`] rather than collapsed (mirrors the lossless
+/// `Unknown(u32)` convention of [`Rotation`] / the colour enums).
+///
+/// FFmpeg's own `AV_FIELD_UNKNOWN` sentinel is code `0`, so the
+/// [`Default`] is `Unknown(0)` — the same default-is-`Unknown(0)`
+/// precedent as [`PixelFormat`](crate::pixel_format::PixelFormat).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+#[display("{}", self.as_str())]
+#[non_exhaustive]
+pub enum FieldOrder {
+  /// Unknown / unrecognised field-order wire value. The wrapped
+  /// `u32` is the original value passed to [`Self::from_u32`] —
+  /// preserved so the round-trip is lossless. Also the [`Default`]
+  /// (`Unknown(0)`), since FFmpeg's `AV_FIELD_UNKNOWN` is code `0`.
+  Unknown(u32),
+  /// Progressive (not interlaced) — `AV_FIELD_PROGRESSIVE`.
+  Progressive,
+  /// Top coded first, top displayed first — `AV_FIELD_TT`.
+  Tt,
+  /// Bottom coded first, bottom displayed first — `AV_FIELD_BB`.
+  Bb,
+  /// Top coded first, bottom displayed first — `AV_FIELD_TB`.
+  Tb,
+  /// Bottom coded first, top displayed first — `AV_FIELD_BT`.
+  Bt,
+}
+
+impl Default for FieldOrder {
+  /// `Unknown(0)` — FFmpeg's `AV_FIELD_UNKNOWN` is code `0`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::Unknown(0)
+  }
+}
+
+impl FieldOrder {
+  /// Lowercase slug for this field order (`"progressive"` / `"tt"` /
+  /// `"bb"` / `"tb"` / `"bt"`); [`Self::Unknown`] renders as
+  /// `"unknown"`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_str(&self) -> &'static str {
+    match self {
+      Self::Unknown(_) => "unknown",
+      Self::Progressive => "progressive",
+      Self::Tt => "tt",
+      Self::Bb => "bb",
+      Self::Tb => "tb",
+      Self::Bt => "bt",
+    }
+  }
+
+  /// Stable `u32` wire id = the FFmpeg `AVFieldOrder` code
+  /// (`Unknown`→its carried value, `Progressive`=1, `Tt`=2, `Bb`=3,
+  /// `Tb`=4, `Bt`=5). [`Self::Unknown`] carries its original value
+  /// through unchanged so `from_u32(to_u32(x)) == x` for every
+  /// unrecognised `x`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn to_u32(&self) -> u32 {
+    match self {
+      Self::Unknown(v) => *v,
+      Self::Progressive => 1,
+      Self::Tt => 2,
+      Self::Bb => 3,
+      Self::Tb => 4,
+      Self::Bt => 5,
+    }
+  }
+
+  /// Decodes from the FFmpeg `AVFieldOrder` code produced by
+  /// [`Self::to_u32`]. The canonical `AV_FIELD_UNKNOWN` code `0`
+  /// (and any other unrecognised id) maps to [`Self::Unknown`]
+  /// carrying the original value, so the round-trip is lossless.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_u32(v: u32) -> Self {
+    match v {
+      1 => Self::Progressive,
+      2 => Self::Tt,
+      3 => Self::Bb,
+      4 => Self::Tb,
+      5 => Self::Bt,
+      _ => Self::Unknown(v),
+    }
+  }
+}
+
+/// Stereoscopic-3D packing mode of a video stream.
+///
+/// Mirrors FFmpeg `AVStereo3DType` (the `AV_FRAME_DATA_STEREO3D`
+/// side-data `type`) with the exact numeric code points:
+/// `AV_STEREO3D_2D = 0` (named [`Self::Mono`]),
+/// `AV_STEREO3D_SIDEBYSIDE = 1`, `AV_STEREO3D_TOPBOTTOM = 2`,
+/// `AV_STEREO3D_FRAMESEQUENCE = 3`, `AV_STEREO3D_CHECKERBOARD = 4`,
+/// `AV_STEREO3D_SIDEBYSIDE_QUINCUNX = 5`, `AV_STEREO3D_LINES = 6`,
+/// `AV_STEREO3D_COLUMNS = 7`. Any other / future / corrupt wire
+/// value is preserved verbatim as [`Self::Unknown`] (lossless
+/// `Unknown(u32)` convention shared with [`Rotation`] / the colour
+/// enums).
+///
+/// The [`Default`] is [`Self::Mono`] — a *real* code (value `0`,
+/// FFmpeg `AV_STEREO3D_2D`, plain monoscopic video), so the default
+/// is a named variant rather than `Unknown(0)` (the colour-enum
+/// named-default precedent, e.g. `DcpTargetGamut::DciP3`), distinct
+/// from [`FieldOrder`] whose `0` *is* FFmpeg's UNKNOWN sentinel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
+#[display("{}", self.as_str())]
+#[non_exhaustive]
+pub enum StereoMode {
+  /// Unknown / unrecognised wire value. The wrapped `u32` is the
+  /// original value passed to [`Self::from_u32`] — preserved so the
+  /// round-trip is lossless.
+  Unknown(u32),
+  /// Plain monoscopic (non-stereo) video — `AV_STEREO3D_2D` (code
+  /// `0`). The [`Default`].
+  Mono,
+  /// Side-by-side — `AV_STEREO3D_SIDEBYSIDE`.
+  SideBySide,
+  /// Top-bottom — `AV_STEREO3D_TOPBOTTOM`.
+  TopBottom,
+  /// Frame-sequential — `AV_STEREO3D_FRAMESEQUENCE`.
+  FrameSequence,
+  /// Checkerboard — `AV_STEREO3D_CHECKERBOARD`.
+  Checkerboard,
+  /// Side-by-side quincunx — `AV_STEREO3D_SIDEBYSIDE_QUINCUNX`.
+  SideBySideQuincunx,
+  /// Interleaved by rows — `AV_STEREO3D_LINES`.
+  Lines,
+  /// Interleaved by columns — `AV_STEREO3D_COLUMNS`.
+  Columns,
+}
+
+impl Default for StereoMode {
+  /// [`Self::Mono`] — FFmpeg `AV_STEREO3D_2D` (code `0`), plain
+  /// monoscopic video. A named variant (not `Unknown(0)`), the
+  /// colour-enum named-default precedent.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::Mono
+  }
+}
+
+impl StereoMode {
+  /// Lowercase slug for this stereo mode; [`Self::Unknown`] renders
+  /// as `"unknown"`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn as_str(&self) -> &'static str {
+    match self {
+      Self::Unknown(_) => "unknown",
+      Self::Mono => "mono",
+      Self::SideBySide => "side-by-side",
+      Self::TopBottom => "top-bottom",
+      Self::FrameSequence => "frame-sequence",
+      Self::Checkerboard => "checkerboard",
+      Self::SideBySideQuincunx => "side-by-side-quincunx",
+      Self::Lines => "lines",
+      Self::Columns => "columns",
+    }
+  }
+
+  /// Stable `u32` wire id = the FFmpeg `AVStereo3DType` code
+  /// (`Mono`=0, `SideBySide`=1, `TopBottom`=2, `FrameSequence`=3,
+  /// `Checkerboard`=4, `SideBySideQuincunx`=5, `Lines`=6,
+  /// `Columns`=7). [`Self::Unknown`] carries its original value
+  /// through unchanged so `from_u32(to_u32(x)) == x` for every
+  /// unrecognised `x`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn to_u32(&self) -> u32 {
+    match self {
+      Self::Unknown(v) => *v,
+      Self::Mono => 0,
+      Self::SideBySide => 1,
+      Self::TopBottom => 2,
+      Self::FrameSequence => 3,
+      Self::Checkerboard => 4,
+      Self::SideBySideQuincunx => 5,
+      Self::Lines => 6,
+      Self::Columns => 7,
+    }
+  }
+
+  /// Decodes from the FFmpeg `AVStereo3DType` code produced by
+  /// [`Self::to_u32`]. The canonical codes map to their named
+  /// variants (so a decoded value always round-trips); any other id
+  /// maps to [`Self::Unknown`] carrying the original value, so the
+  /// round-trip is lossless.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn from_u32(v: u32) -> Self {
+    match v {
+      0 => Self::Mono,
+      1 => Self::SideBySide,
+      2 => Self::TopBottom,
+      3 => Self::FrameSequence,
+      4 => Self::Checkerboard,
+      5 => Self::SideBySideQuincunx,
+      6 => Self::Lines,
+      7 => Self::Columns,
+      _ => Self::Unknown(v),
+    }
   }
 }
 
@@ -1314,6 +1711,154 @@ mod tests_primitives {
     let vf = VideoFrame::new(Dimensions::new(4, 4), PixelFormat::Yuv420p, planes, 3);
     let tf = TimestampedFrame::new(vf);
     assert_eq!(tf.frame().dimensions(), Dimensions::new(4, 4));
+  }
+
+  // ---------- Rational --------------------------------------------------
+
+  #[test]
+  fn rational_default_is_one_over_one() {
+    let r = Rational::default();
+    assert_eq!(r.num(), 1);
+    assert_eq!(r.den().get(), 1);
+    assert!(!r.is_zero());
+  }
+
+  #[test]
+  fn rational_construction_builders_and_is_zero() {
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    let r = Rational::new(30000, nz(1001));
+    assert_eq!(r.num(), 30000);
+    assert_eq!(r.den().get(), 1001);
+    assert!(!r.is_zero());
+    let z = Rational::new(0, nz(1));
+    assert!(z.is_zero());
+    let r2 = Rational::default().with_num(24).with_den(nz(1));
+    assert_eq!((r2.num(), r2.den().get()), (24, 1));
+    let mut r3 = Rational::default();
+    r3.set_num(16).set_den(nz(9));
+    assert_eq!((r3.num(), r3.den().get()), (16, 9));
+  }
+
+  #[cfg(feature = "std")]
+  #[test]
+  fn rational_display() {
+    let nz = core::num::NonZeroU32::new(1001).unwrap();
+    assert_eq!(std::format!("{}", Rational::new(30000, nz)), "30000/1001");
+  }
+
+  // ---------- SampleAspectRatio ↔ Rational interop ----------------------
+
+  #[test]
+  fn sample_aspect_ratio_rational_interop() {
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    let sar = SampleAspectRatio::new(40, nz(33));
+    let via_method: Rational = sar.as_rational();
+    let via_from: Rational = Rational::from(sar);
+    let via_into: Rational = sar.into();
+    assert_eq!(via_method, Rational::new(40, nz(33)));
+    assert_eq!(via_method, via_from);
+    assert_eq!(via_from, via_into);
+    // Default 1:1 SAR maps to the 1/1 Rational default.
+    assert_eq!(
+      SampleAspectRatio::default().as_rational(),
+      Rational::default()
+    );
+  }
+
+  // ---------- FrameRate -------------------------------------------------
+
+  #[test]
+  fn frame_rate_default_is_one_over_one_cfr() {
+    let fr = FrameRate::default();
+    assert_eq!(fr.rate(), Rational::default());
+    assert!(!fr.is_vfr());
+  }
+
+  #[test]
+  fn frame_rate_construction_and_builders() {
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    let ntsc = Rational::new(30000, nz(1001));
+    let fr = FrameRate::new(ntsc, false);
+    assert_eq!(fr.rate(), ntsc);
+    assert!(!fr.is_vfr());
+    let vfr = FrameRate::default().with_rate(ntsc).with_is_vfr(true);
+    assert_eq!(vfr.rate(), ntsc);
+    assert!(vfr.is_vfr());
+    let mut fr3 = FrameRate::default();
+    fr3.set_rate(Rational::new(25, nz(1))).set_is_vfr(true);
+    assert_eq!(fr3.rate(), Rational::new(25, nz(1)));
+    assert!(fr3.is_vfr());
+  }
+
+  // ---------- FieldOrder ------------------------------------------------
+
+  #[test]
+  fn field_order_default_is_unknown_zero_and_as_str() {
+    assert_eq!(FieldOrder::default(), FieldOrder::Unknown(0));
+    assert_eq!(FieldOrder::Unknown(0).as_str(), "unknown");
+    assert_eq!(FieldOrder::Progressive.as_str(), "progressive");
+    assert_eq!(FieldOrder::Tt.as_str(), "tt");
+    assert_eq!(FieldOrder::Bb.as_str(), "bb");
+    assert_eq!(FieldOrder::Tb.as_str(), "tb");
+    assert_eq!(FieldOrder::Bt.as_str(), "bt");
+    assert!(FieldOrder::Progressive.is_progressive());
+  }
+
+  #[test]
+  fn field_order_u32_round_trip_and_unknown() {
+    for f in [
+      FieldOrder::Progressive,
+      FieldOrder::Tt,
+      FieldOrder::Bb,
+      FieldOrder::Tb,
+      FieldOrder::Bt,
+      FieldOrder::Unknown(0),
+      FieldOrder::Unknown(99),
+      FieldOrder::Unknown(4242),
+    ] {
+      assert_eq!(FieldOrder::from_u32(f.to_u32()), f);
+    }
+    assert_eq!(FieldOrder::from_u32(1), FieldOrder::Progressive);
+    assert_eq!(FieldOrder::from_u32(5), FieldOrder::Bt);
+    // FFmpeg's own UNKNOWN sentinel (0) decodes to Unknown(0).
+    assert_eq!(FieldOrder::from_u32(0), FieldOrder::Unknown(0));
+    assert_eq!(FieldOrder::from_u32(99), FieldOrder::Unknown(99));
+    assert_eq!(FieldOrder::from_u32(99).to_u32(), 99);
+  }
+
+  // ---------- StereoMode ------------------------------------------------
+
+  #[test]
+  fn stereo_mode_default_is_mono_and_as_str() {
+    assert_eq!(StereoMode::default(), StereoMode::Mono);
+    assert_eq!(StereoMode::Mono.as_str(), "mono");
+    assert_eq!(StereoMode::SideBySide.as_str(), "side-by-side");
+    assert_eq!(StereoMode::Columns.as_str(), "columns");
+    assert_eq!(StereoMode::Unknown(0).as_str(), "unknown");
+    assert!(StereoMode::Mono.is_mono());
+  }
+
+  #[test]
+  fn stereo_mode_u32_round_trip_and_unknown() {
+    for s in [
+      StereoMode::Mono,
+      StereoMode::SideBySide,
+      StereoMode::TopBottom,
+      StereoMode::FrameSequence,
+      StereoMode::Checkerboard,
+      StereoMode::SideBySideQuincunx,
+      StereoMode::Lines,
+      StereoMode::Columns,
+      StereoMode::Unknown(99),
+      StereoMode::Unknown(4242),
+    ] {
+      assert_eq!(StereoMode::from_u32(s.to_u32()), s);
+    }
+    assert_eq!(StereoMode::from_u32(0), StereoMode::Mono);
+    assert_eq!(StereoMode::from_u32(7), StereoMode::Columns);
+    // Unrecognised → preserved losslessly.
+    assert_eq!(StereoMode::from_u32(99), StereoMode::Unknown(99));
+    assert_eq!(StereoMode::from_u32(99).to_u32(), 99);
   }
 }
 

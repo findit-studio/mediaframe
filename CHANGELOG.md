@@ -4,6 +4,26 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] May 19, 2026
+
+### Added
+
+- **`frame`** — `Rational` (generic exact `num/den` ratio,
+  `NonZeroU32` denominator, `1/1` default), `FrameRate` (exact fps
+  `Rational` + `is_vfr` marker; deliberately not
+  `mediatime::Timebase`), `FieldOrder` (FFmpeg `AVFieldOrder`,
+  lossless `Unknown(u32)`, `Unknown(0)` default), `StereoMode`
+  (FFmpeg `AVStereo3DType`, lossless `Unknown(u32)`, `Mono` default).
+- **`color`** — `DolbyVisionConfig` (FFmpeg
+  `AVDOVIDecoderConfigurationRecord`; distinct from the HDR10 static
+  `HdrStaticMetadata`).
+- **`buffa`** — hand-written `Message`/`DefaultInstance` wire support
+  for `Rational`, `FrameRate`, `FieldOrder`, `StereoMode`,
+  `DolbyVisionConfig`.
+- **`frame`** — `SampleAspectRatio` → `Rational` interop
+  (`SampleAspectRatio::as_rational` + `From<SampleAspectRatio> for
+  Rational`); `SampleAspectRatio`'s existing public API is unchanged.
+
 ## [0.3.0] May 19, 2026
 
 ### Added

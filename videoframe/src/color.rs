@@ -1239,6 +1239,159 @@ impl HdrStaticMetadata {
   }
 }
 
+/// Dolby Vision decoder configuration record.
+///
+/// Read from FFmpeg `AVDOVIDecoderConfigurationRecord`
+/// (`AV_PKT_DATA_DOVI_CONF` packet side data /
+/// `AV_FRAME_DATA_DOVI_METADATA`'s configuration). This is the
+/// stream-level DoVi *configuration* (which profile / level, whether
+/// an RPU and an enhancement layer are present, and the base-layer
+/// signal compatibility id) — it is **distinct from** the HDR10
+/// static metadata in [`HdrStaticMetadata`] (SMPTE ST 2086 /
+/// CTA-861.3) and from the per-frame [`ColorInfo`] enums. The DoVi
+/// RPU payload itself (dynamic metadata) is out of scope here; only
+/// the configuration record is modelled.
+///
+/// All fields default to `0` (`#[derive(Default)]`), matching an
+/// absent / unset configuration.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DolbyVisionConfig {
+  profile: u8,
+  level: u8,
+  rpu_present: bool,
+  el_present: bool,
+  bl_signal_compat_id: u8,
+}
+
+impl DolbyVisionConfig {
+  /// Constructs a `DolbyVisionConfig` from the FFmpeg
+  /// `AVDOVIDecoderConfigurationRecord` fields: Dolby Vision profile
+  /// and level, RPU / enhancement-layer presence flags, and the
+  /// base-layer signal compatibility id.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(
+    profile: u8,
+    level: u8,
+    rpu_present: bool,
+    el_present: bool,
+    bl_signal_compat_id: u8,
+  ) -> Self {
+    Self {
+      profile,
+      level,
+      rpu_present,
+      el_present,
+      bl_signal_compat_id,
+    }
+  }
+
+  /// Returns the Dolby Vision profile.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn profile(&self) -> u8 {
+    self.profile
+  }
+
+  /// Returns the Dolby Vision level.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn level(&self) -> u8 {
+    self.level
+  }
+
+  /// `true` when an RPU (Reference Processing Unit) is present.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rpu_present(&self) -> bool {
+    self.rpu_present
+  }
+
+  /// `true` when an enhancement layer is present.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn el_present(&self) -> bool {
+    self.el_present
+  }
+
+  /// Returns the base-layer signal compatibility id.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bl_signal_compat_id(&self) -> u8 {
+    self.bl_signal_compat_id
+  }
+
+  /// Sets the profile (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_profile(mut self, v: u8) -> Self {
+    self.profile = v;
+    self
+  }
+
+  /// Sets the level (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_level(mut self, v: u8) -> Self {
+    self.level = v;
+    self
+  }
+
+  /// Sets the RPU-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_rpu_present(mut self, v: bool) -> Self {
+    self.rpu_present = v;
+    self
+  }
+
+  /// Sets the enhancement-layer-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_el_present(mut self, v: bool) -> Self {
+    self.el_present = v;
+    self
+  }
+
+  /// Sets the base-layer signal compatibility id (consuming
+  /// builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_bl_signal_compat_id(mut self, v: u8) -> Self {
+    self.bl_signal_compat_id = v;
+    self
+  }
+
+  /// Sets the profile in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_profile(&mut self, v: u8) -> &mut Self {
+    self.profile = v;
+    self
+  }
+
+  /// Sets the level in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_level(&mut self, v: u8) -> &mut Self {
+    self.level = v;
+    self
+  }
+
+  /// Sets the RPU-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_rpu_present(&mut self, v: bool) -> &mut Self {
+    self.rpu_present = v;
+    self
+  }
+
+  /// Sets the enhancement-layer-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_el_present(&mut self, v: bool) -> &mut Self {
+    self.el_present = v;
+    self
+  }
+
+  /// Sets the base-layer signal compatibility id in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_bl_signal_compat_id(&mut self, v: u8) -> &mut Self {
+    self.bl_signal_compat_id = v;
+    self
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -1620,5 +1773,47 @@ mod tests {
       .with_mastering(None);
     assert_eq!(h2.content_light(), Some(cll));
     assert!(h2.mastering().is_none());
+  }
+
+  #[test]
+  fn dolby_vision_config_default_and_accessors() {
+    let d = DolbyVisionConfig::default();
+    assert_eq!(d.profile(), 0);
+    assert_eq!(d.level(), 0);
+    assert!(!d.rpu_present());
+    assert!(!d.el_present());
+    assert_eq!(d.bl_signal_compat_id(), 0);
+
+    let c = DolbyVisionConfig::new(8, 9, true, false, 1);
+    assert_eq!(c.profile(), 8);
+    assert_eq!(c.level(), 9);
+    assert!(c.rpu_present());
+    assert!(!c.el_present());
+    assert_eq!(c.bl_signal_compat_id(), 1);
+
+    let c2 = DolbyVisionConfig::default()
+      .with_profile(5)
+      .with_level(6)
+      .with_rpu_present(true)
+      .with_el_present(true)
+      .with_bl_signal_compat_id(2);
+    assert_eq!(
+      (
+        c2.profile(),
+        c2.level(),
+        c2.rpu_present(),
+        c2.el_present(),
+        c2.bl_signal_compat_id()
+      ),
+      (5, 6, true, true, 2)
+    );
+
+    let mut c3 = DolbyVisionConfig::default();
+    c3.set_profile(7)
+      .set_level(4)
+      .set_rpu_present(true)
+      .set_el_present(false)
+      .set_bl_signal_compat_id(4);
+    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, false, 4));
   }
 }

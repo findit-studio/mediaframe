@@ -16,8 +16,14 @@ rust-version = "1.95.0"
 [features]
 default = ["std"]
 alloc   = []
-std     = ["thiserror/default"]
+std     = ["thiserror/default", "smol_str/std"]
 buffa   = ["dep:buffa", "mediatime/buffa"]
+# Stream-descriptor codec/format/layout vocabulary
+# (`VideoCodec`/`AudioCodec`/`SubtitleCodec` so far — the post-`0.1.0`
+# broadened-charter batch tracked in mediaschema's
+# `schema/mediaframe-candidates.md`). Needs alloc for the `Other(SmolStr)`
+# arms; either `std` or `alloc` satisfies this.
+codec   = []
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [
@@ -48,6 +54,10 @@ mediatime   = { version = "0.1", default-features = false }
 thiserror   = { version = "2", default-features = false }
 half        = { version = "2", default-features = false, optional = true }
 buffa       = { version = "0.6", default-features = false, optional = true }
+# Used by the `codec` module's `Other(SmolStr)` escape arms — no_std-compatible
+# with default-features off (relies on `alloc`). The `std` feature flips the
+# upstream `smol_str/std` on (see [features] above).
+smol_str    = { version = "0.3", default-features = false }
 
 [profile.bench]
 opt-level         = 3

@@ -4,7 +4,7 @@ version      = "0.0.0"
 edition      = "2024"
 publish      = false
 license      = "MIT OR Apache-2.0"
-description  = "Dev-only automation for the videoframe crate (cargo xtask)."
+description  = "Dev-only automation for the mediaframe crate (cargo xtask)."
 rust-version = "1.95.0"
 
 [dependencies]

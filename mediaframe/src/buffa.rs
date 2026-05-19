@@ -1,7 +1,7 @@
-//! `buffa::Message` implementations for the videoframe wire-relevant
+//! `buffa::Message` implementations for the mediaframe wire-relevant
 //! types, behind the `buffa` feature. Used via `extern_path` from
 //! buffa-generated crates so a `.proto`-defined message can embed a
-//! videoframe type without redefining it.
+//! mediaframe type without redefining it.
 //!
 //! These are hand-written inherent-trait impls — there is **no**
 //! codegen and **no** `.proto` in this crate (mirrors the
@@ -521,7 +521,7 @@ impl Message for SampleAspectRatio {
         // invariant (scalar values never raise decode errors; only
         // structural errors do). Codex adversarial-review F6:
         // resolved as a coordinated mediatime/buffa policy, NOT a
-        // videoframe-only divergence.
+        // mediaframe-only divergence.
         let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
         self.set_den(den);
       }
@@ -1276,7 +1276,7 @@ impl Message for HdrStaticMetadata {
 #[cfg(test)]
 mod tests {
   use super::*;
-  // `videoframe` is `#![no_std]`; `Vec` is not in the core prelude. The
+  // `mediaframe` is `#![no_std]`; `Vec` is not in the core prelude. The
   // non-test impls above reach `alloc` through the always-present `buffa`
   // crate (`buffa::alloc::*`); the test module does the same so it builds
   // under `--no-default-features --features buffa`.
@@ -1421,7 +1421,7 @@ mod tests {
 
   #[test]
   fn color_matrix_bt601_domain_variant_round_trips() {
-    // `ColorMatrix::Bt601` is a videoframe-domain id
+    // `ColorMatrix::Bt601` is a mediaframe-domain id
     // (`DOMAIN_EXT_BASE` = 0x8000_0000), non-default, so it must be
     // explicitly encoded to NON-zero bytes and round-trip losslessly
     // via the `Message` impl (uint32 carrying 0x8000_0000).

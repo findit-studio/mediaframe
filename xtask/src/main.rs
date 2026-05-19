@@ -1,4 +1,4 @@
-//! videoframe xtask — dev-only automation.
+//! mediaframe xtask — dev-only automation.
 //!
 //! Subcommands:
 //! - `cargo xtask sync` — fetches FFmpeg's `libavutil/pixfmt.h` at the
@@ -16,18 +16,18 @@
 //!   Requires `curl` on `PATH`. Re-running on an unchanged FFMPEG_TAG
 //!   reproduces byte-identical files (the `Fetched:` date is the only
 //!   volatile line) so the working tree stays clean.
-//! - `cargo xtask check` — verifies videoframe against both vendored
+//! - `cargo xtask check` — verifies mediaframe against both vendored
 //!   files:
 //!   - `PixelFormat`: reads the `as_str()` match in
 //!     `src/pixel_format.rs` and diffs slugs —
-//!     **missing-from-videoframe** (FFmpeg has it, we don't) fails CI;
-//!     **videoframe extras** (cinema-RAW etc.) are informational.
+//!     **missing-from-mediaframe** (FFmpeg has it, we don't) fails CI;
+//!     **mediaframe extras** (cinema-RAW etc.) are informational.
 //!   - Colour enums: reads the `to_u32()` matches in `src/color.rs`
 //!     and asserts every distinct FFmpeg colour code has a named
-//!     videoframe variant mapping to that value (and the covering
+//!     mediaframe variant mapping to that value (and the covering
 //!     variant's id is `< DOMAIN_EXT_BASE` — the FFmpeg ingest path
-//!     never yields a videoframe-domain variant). A missing code
-//!     fails CI. videoframe-domain variants (id `>= DOMAIN_EXT_BASE`,
+//!     never yields a mediaframe-domain variant). A missing code
+//!     fails CI. mediaframe-domain variants (id `>= DOMAIN_EXT_BASE`,
 //!     e.g. `ColorMatrix::Bt601`, which H.273 / FFmpeg does not
 //!     enumerate) are exempt from FFmpeg coverage and additionally
 //!     asserted disjoint from the vendored FFmpeg colour codes.
@@ -47,7 +47,7 @@ use std::{
 /// want to sync against a newer FFmpeg.
 const FFMPEG_TAG: &str = "n8.1";
 
-/// Path (relative to the videoframe workspace root) of the vendored
+/// Path (relative to the mediaframe workspace root) of the vendored
 /// slug list.
 const VENDOR_PATH: &str = "xtask/vendor/ffmpeg-pixfmts.txt";
 
@@ -57,14 +57,14 @@ const COLOR_VENDOR_PATH: &str = "xtask/vendor/ffmpeg-color.txt";
 
 /// Path (relative to the workspace root) of the PixelFormat source
 /// file whose `as_str()` table is the source of truth for our slugs.
-const PIXEL_FORMAT_RS: &str = "videoframe/src/pixel_format.rs";
+const PIXEL_FORMAT_RS: &str = "mediaframe/src/pixel_format.rs";
 
 /// Path (relative to the workspace root) of the colour-enum source
 /// file whose `to_u32()` matches are the source of truth.
-const COLOR_RS: &str = "videoframe/src/color.rs";
+const COLOR_RS: &str = "mediaframe/src/color.rs";
 
 /// The five FFmpeg colour C enums to parse, paired with the
-/// `AVCOL_*` / `AVCHROMA_*` prefix to strip and the videoframe
+/// `AVCOL_*` / `AVCHROMA_*` prefix to strip and the mediaframe
 /// enum name whose `to_u32()` match maps it.
 const COLOR_ENUMS: &[(&str, &str, &str)] = &[
   ("AVColorPrimaries", "AVCOL_PRI_", "ColorPrimaries"),
@@ -99,10 +99,10 @@ fn main() -> ExitCode {
 
 fn print_help() {
   eprintln!(
-    "videoframe xtask\n\n\
+    "mediaframe xtask\n\n\
          Subcommands:\n  \
          check    Diff PixelFormat slugs ({VENDOR_PATH}) AND colour-enum\n           \
-                  codes ({COLOR_VENDOR_PATH}) against videoframe\n  \
+                  codes ({COLOR_VENDOR_PATH}) against mediaframe\n  \
          sync     Fetch FFmpeg pixfmt.h from {FFMPEG_TAG} and regenerate both\n           \
                   vendored files deterministically\n  \
          help     Show this help\n"
@@ -153,36 +153,36 @@ fn check_pixfmt(root: &Path) -> bool {
   };
 
   let ffmpeg = parse_vendored(&vendor);
-  let videoframe = parse_as_str_slugs(&pf_rs);
+  let mediaframe = parse_as_str_slugs(&pf_rs);
 
-  let missing_from_videoframe: BTreeSet<_> = ffmpeg.difference(&videoframe).cloned().collect();
-  let extras_in_videoframe: BTreeSet<_> = videoframe.difference(&ffmpeg).cloned().collect();
+  let missing_from_mediaframe: BTreeSet<_> = ffmpeg.difference(&mediaframe).cloned().collect();
+  let extras_in_mediaframe: BTreeSet<_> = mediaframe.difference(&ffmpeg).cloned().collect();
 
   println!("FFmpeg pinned: {FFMPEG_TAG}");
   println!("FFmpeg slugs  : {}", ffmpeg.len());
-  println!("videoframe    : {} known slugs", videoframe.len());
+  println!("mediaframe    : {} known slugs", mediaframe.len());
   println!();
 
-  if !extras_in_videoframe.is_empty() {
+  if !extras_in_mediaframe.is_empty() {
     println!(
-      "  videoframe extras (slugs not in FFmpeg {FFMPEG_TAG} — cinema-RAW etc.): {}",
-      extras_in_videoframe.len()
+      "  mediaframe extras (slugs not in FFmpeg {FFMPEG_TAG} — cinema-RAW etc.): {}",
+      extras_in_mediaframe.len()
     );
-    for s in &extras_in_videoframe {
+    for s in &extras_in_mediaframe {
       println!("    {s}");
     }
     println!();
   }
 
-  if missing_from_videoframe.is_empty() {
-    println!("OK: every FFmpeg {FFMPEG_TAG} pixel format is covered by videoframe.");
+  if missing_from_mediaframe.is_empty() {
+    println!("OK: every FFmpeg {FFMPEG_TAG} pixel format is covered by mediaframe.");
     true
   } else {
     eprintln!(
-      "FAIL: {} FFmpeg pixel format(s) missing from videoframe::PixelFormat:",
-      missing_from_videoframe.len()
+      "FAIL: {} FFmpeg pixel format(s) missing from mediaframe::PixelFormat:",
+      missing_from_mediaframe.len()
     );
-    for s in &missing_from_videoframe {
+    for s in &missing_from_mediaframe {
       eprintln!("    {s}");
     }
     eprintln!(
@@ -194,10 +194,10 @@ fn check_pixfmt(root: &Path) -> bool {
 }
 
 /// Colour-enum coverage: every distinct FFmpeg colour code in
-/// `xtask/vendor/ffmpeg-color.txt` must have a named videoframe
+/// `xtask/vendor/ffmpeg-color.txt` must have a named mediaframe
 /// variant whose `to_u32()` returns that value (and a non-empty
 /// `as_str()`), parsed from `src/color.rs`. The reverse direction
-/// (videoframe `Unknown(n)`) is intentionally NOT asserted.
+/// (mediaframe `Unknown(n)`) is intentionally NOT asserted.
 fn check_color(root: &Path) -> bool {
   let vendor = match fs::read_to_string(root.join(COLOR_VENDOR_PATH)) {
     Ok(s) => s,
@@ -215,7 +215,7 @@ fn check_color(root: &Path) -> bool {
     }
   };
 
-  // videoframe-domain colour-id base (ids `>=` this have no H.273
+  // mediaframe-domain colour-id base (ids `>=` this have no H.273
   // code and are never produced by the FFmpeg ingest path).
   let domain_base = match parse_domain_ext_base(&color_rs) {
     Some(b) => b,
@@ -230,8 +230,8 @@ fn check_color(root: &Path) -> bool {
 
   // FFmpeg side: ENUM -> { distinct code -> first FFmpeg name }.
   let ffmpeg = parse_color_vendored(&vendor);
-  // videoframe side: ENUM -> { variant-ident -> (value, has_slug) }.
-  let videoframe = parse_color_named_codes(&color_rs, domain_base);
+  // mediaframe side: ENUM -> { variant-ident -> (value, has_slug) }.
+  let mediaframe = parse_color_named_codes(&color_rs, domain_base);
 
   let mut ok = true;
   let mut total_codes = 0usize;
@@ -248,24 +248,24 @@ fn check_color(root: &Path) -> bool {
       }
     };
     let empty = BTreeMap::new();
-    let vf_named = videoframe.get(*vf_enum).unwrap_or(&empty);
+    let vf_named = mediaframe.get(*vf_enum).unwrap_or(&empty);
     for (code, ff_name) in ff_codes {
       // FFmpeg `RESERVED*` codes (e.g. AVCOL_*_RESERVED0 = 0,
       // AVCOL_*_RESERVED = 3) are intentionally NOT named in
-      // videoframe — they fall to `Unknown(n)` losslessly. Skip
+      // mediaframe — they fall to `Unknown(n)` losslessly. Skip
       // them; they are kept in the vendored file only for header
       // fidelity. (`RGB`/`UNSPECIFIED`/etc. are NOT reserved.)
       if ff_name.starts_with("RESERVED") {
         continue;
       }
       total_codes += 1;
-      // No FFmpeg/H.273 code may itself land in the videoframe
+      // No FFmpeg/H.273 code may itself land in the mediaframe
       // domain-extension band — that band is reserved for concepts
       // FFmpeg does NOT enumerate.
       if *code >= domain_base {
         eprintln!(
           "FAIL: FFmpeg color code {vf_enum} = {code} (FFmpeg \
-                   {ff_name}) collides with the videoframe domain band \
+                   {ff_name}) collides with the mediaframe domain band \
                    (>= DOMAIN_EXT_BASE = {domain_base})."
         );
         ok = false;
@@ -306,16 +306,16 @@ fn check_color(root: &Path) -> bool {
     }
   }
 
-  // Domain invariant (b): `ColorMatrix::Bt601` is a videoframe-domain
+  // Domain invariant (b): `ColorMatrix::Bt601` is a mediaframe-domain
   // concept — its id must be `>= DOMAIN_EXT_BASE` AND absent from the
   // vendored FFmpeg colour table (no domain/FFmpeg collision).
   let empty = BTreeMap::new();
-  let cm_named = videoframe.get("ColorMatrix").unwrap_or(&empty);
+  let cm_named = mediaframe.get("ColorMatrix").unwrap_or(&empty);
   match cm_named.get("Bt601") {
     None => {
       eprintln!(
         "FAIL: ColorMatrix::Bt601 not found in {COLOR_RS} to_u32() — \
-                 it is a required videoframe-domain variant."
+                 it is a required mediaframe-domain variant."
       );
       ok = false;
     }
@@ -324,7 +324,7 @@ fn check_color(root: &Path) -> bool {
         eprintln!(
           "FAIL: ColorMatrix::Bt601.to_u32() = {} must be >= \
                    DOMAIN_EXT_BASE ({domain_base}) — it is a \
-                   videoframe-domain concept, not an FFmpeg code.",
+                   mediaframe-domain concept, not an FFmpeg code.",
           nc.value
         );
         ok = false;
@@ -344,7 +344,7 @@ fn check_color(root: &Path) -> bool {
   if ok {
     println!(
       "OK: every FFmpeg {FFMPEG_TAG} color code ({total_codes} across \
-             {} enums) is covered by videoframe; videoframe-domain \
+             {} enums) is covered by mediaframe; mediaframe-domain \
              variants (id >= DOMAIN_EXT_BASE = {domain_base}, e.g. \
              ColorMatrix::Bt601) are exempt from FFmpeg coverage and \
              verified disjoint.",
@@ -437,7 +437,7 @@ struct NamedCode {
 }
 
 /// Parse the per-enum `as_str()` + `to_u32()` match blocks in
-/// `src/color.rs`. Returns `videoframe-enum -> { variant-ident ->
+/// `src/color.rs`. Returns `mediaframe-enum -> { variant-ident ->
 /// NamedCode }`. Implementation is line-oriented (matching the
 /// existing `parse_as_str_slugs` style): an `impl <Enum> {` opens a
 /// scope that the next `impl `/`pub enum `/`pub struct ` closes;
@@ -445,7 +445,7 @@ struct NamedCode {
 /// `fn to_u32(` line are values and `Self::<ident> => "..."` arms
 /// after the `fn as_str(` line are slugs.
 /// Parse the `pub const DOMAIN_EXT_BASE: u32 = <lit>;` line from
-/// `src/color.rs` (the videoframe-domain colour-id base; ids `>=`
+/// `src/color.rs` (the mediaframe-domain colour-id base; ids `>=`
 /// this are domain concepts H.273 does not enumerate, never produced
 /// by the FFmpeg ingest path). Accepts a decimal or `0x`-hex literal
 /// with optional `_` digit separators. Returns `None` if absent /
@@ -688,9 +688,9 @@ fn sync() -> ExitCode {
 }
 
 /// Hardware-frame markers — FFmpeg pixel formats whose buffers live
-/// in GPU memory. videoframe intentionally excludes these per the
+/// in GPU memory. mediaframe intentionally excludes these per the
 /// `pixel_format` module docs: a frame carrying GPU-resident buffers
-/// must be transferred to a CPU format before reaching a videoframe
+/// must be transferred to a CPU format before reaching a mediaframe
 /// consumer.
 const HW_FORMAT_SLUGS: &[&str] = &[
   "amf_surface",
@@ -757,8 +757,8 @@ fn extract_avpixfmt_names(header: &str) -> BTreeSet<String> {
 /// value is new (collapsing aliases like `AVCOL_PRI_JEDEC_P22 =
 /// AVCOL_PRI_EBU3213`). `*_NB` sentinels terminate the enum (this
 /// also drops the post-`NB` custom `*_EXT_BASE` extensions, which
-/// are not part of the H.273 code points videoframe models).
-/// Returns `(videoframe-enum-name, ffmpeg-name, value)` rows in
+/// are not part of the H.273 code points mediaframe models).
+/// Returns `(mediaframe-enum-name, ffmpeg-name, value)` rows in
 /// declaration order, one per distinct value.
 fn extract_color_enums(header: &str) -> Vec<(String, String, u32)> {
   let mut out: Vec<(String, String, u32)> = Vec::new();

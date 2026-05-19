@@ -1,15 +1,15 @@
 
 
 [package]
-name        = "videoframe"
-version     = "0.3.1"
+name        = "mediaframe"
+version     = "0.1.0"
 edition     = "2024"
 license     = "MIT OR Apache-2.0"
-repository  = "https://github.com/Findit-AI/videoframe"
-homepage    = "https://github.com/Findit-AI/videoframe"
-documentation = "https://docs.rs/videoframe"
-description = "A common vocabulary of pixel-format and color-metadata types for video processing pipelines."
-keywords    = ["video", "pixel-format", "color", "frame"]
+repository  = "https://github.com/Findit-AI/mediaframe"
+homepage    = "https://github.com/Findit-AI/mediaframe"
+documentation = "https://docs.rs/mediaframe"
+description = "A common media-stream descriptor vocabulary (pixel-format, colour, and frame metadata for video — audio/subtitle to follow) for media processing pipelines."
+keywords    = ["media", "video", "pixel-format", "color"]
 categories  = ["multimedia", "multimedia::video", "no-std", "no-std::no-alloc"]
 rust-version = "1.95.0"
 

@@ -4,7 +4,7 @@
 //! Unlike the Bayer formats, `Pal8` walkers do not require colconv-specific
 //! processing parameters (white balance, CCM, demosaic), so the full
 //! quartet (marker + [`Pal8Row`] + [`Pal8Sink`] + [`pal8_to`] walker) lives
-//! here in videoframe.
+//! here in mediaframe.
 
 use crate::{PixelSink, frame::Pal8Frame};
 

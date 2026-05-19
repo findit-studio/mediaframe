@@ -4,6 +4,32 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] May 19, 2026
+
+Initial `mediaframe` release — this crate is a **rename** of the
+`videoframe` crate. It was previously published as `videoframe`
+(version line `0.1.x`–`0.3.x`); those `videoframe` crates.io versions
+are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
+identity).
+
+### Changes
+
+- **Crate rename** — `videoframe` → `mediaframe`, version reset to
+  `0.1.0`. The contents are carried over **verbatim**: the
+  pixel-format / colour / frame vocabulary plus `Rational`,
+  `FrameRate`, `FieldOrder`, `StereoMode`, `DolbyVisionConfig`, and
+  `SampleAspectRatio` represented via `Rational`. No types, logic, or
+  API changed other than the crate name (and the `buffa` proto
+  package identifier `videoframe.v1` → `mediaframe.v1`).
+- **Charter broadened** — the crate is now a *media-stream descriptor
+  vocabulary* for video **+ audio + subtitle**, not video-only. Only
+  the existing video vocabulary ships in `0.1.0`; audio/subtitle
+  descriptor types will be added incrementally in later releases.
+
+---
+
+— the following entries are from the crate's `videoframe` history —
+
 ## [0.3.1] May 19, 2026
 
 ### Added

@@ -1275,7 +1275,7 @@ impl<P, B> VideoFrame<P, B> {
 /// pure pixel data — `VideoFrame<P, B>` for runtime-tagged decoder
 /// output, or a colconv-typed `Yuv420pFrame<'a, BE>` borrow type for
 /// zero-copy conversion pipelines. Composition rather than inheritance
-/// keeps the videoframe data layer independent of any timekeeping
+/// keeps the mediaframe data layer independent of any timekeeping
 /// convention.
 ///
 /// Timestamps use [`mediatime::Timestamp`], a rational-time type from

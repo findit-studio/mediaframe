@@ -6,7 +6,7 @@
 #![allow(unused_macros)]
 
 //! `marker!` — generates a zero-sized source-format marker type with
-//! the canonical shape used throughout `videoframe::source`.
+//! the canonical shape used throughout `mediaframe::source`.
 //!
 //! The macro emits four items:
 //! 1. A `pub struct $name(());` (or `$name<const BE: bool = false>(());`

@@ -17,7 +17,7 @@ rust-version = "1.95.0"
 default = ["std"]
 alloc   = []
 std     = ["thiserror/default"]
-buffa   = ["dep:buffa"]
+buffa   = ["dep:buffa", "mediatime/buffa"]
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [

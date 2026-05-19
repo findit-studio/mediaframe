@@ -114,8 +114,8 @@ use ::buffa::{
 
 use crate::{
   color::{
-    ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange,
-    ColorTransfer, ContentLightLevel, DcpTargetGamut, HdrStaticMetadata, MasteringDisplay,
+    ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange, ColorTransfer,
+    ContentLightLevel, DcpTargetGamut, HdrStaticMetadata, MasteringDisplay,
   },
   frame::{Dimensions, Rect, Rotation, SampleAspectRatio},
   pixel_format::PixelFormat,
@@ -203,7 +203,11 @@ macro_rules! impl_enum_message {
   };
 }
 
-impl_enum_message!(ColorMatrix, |s: &ColorMatrix| s.to_u32(), ColorMatrix::from_u32);
+impl_enum_message!(
+  ColorMatrix,
+  |s: &ColorMatrix| s.to_u32(),
+  ColorMatrix::from_u32
+);
 impl_enum_message!(
   ColorPrimaries,
   |s: &ColorPrimaries| s.to_u32(),
@@ -214,7 +218,11 @@ impl_enum_message!(
   |s: &ColorTransfer| s.to_u32(),
   ColorTransfer::from_u32
 );
-impl_enum_message!(ColorRange, |s: &ColorRange| s.to_u32(), ColorRange::from_u32);
+impl_enum_message!(
+  ColorRange,
+  |s: &ColorRange| s.to_u32(),
+  ColorRange::from_u32
+);
 impl_enum_message!(
   ChromaLocation,
   |s: &ChromaLocation| s.to_u32(),
@@ -230,7 +238,11 @@ impl_enum_message!(Rotation, |s: &Rotation| s.to_u32(), Rotation::from_u32);
 // maps unrecognised ids to `Unknown(n)` so the round-trip is
 // lossless even for the elided-default case (`Unknown(0)` is the
 // `Default`, so it elides and decodes back to `Unknown(0)`).
-impl_enum_message!(PixelFormat, |s: &PixelFormat| s.to_u32(), PixelFormat::from_u32);
+impl_enum_message!(
+  PixelFormat,
+  |s: &PixelFormat| s.to_u32(),
+  PixelFormat::from_u32
+);
 
 // ----------------------------------------------------------------------------
 // Dimensions — { uint32 width = 1; uint32 height = 2; }
@@ -1124,7 +1136,11 @@ mod tests {
 
   #[test]
   fn color_range_round_trip() {
-    for r in [ColorRange::Unspecified, ColorRange::Limited, ColorRange::Full] {
+    for r in [
+      ColorRange::Unspecified,
+      ColorRange::Limited,
+      ColorRange::Full,
+    ] {
       let b = r.encode_to_vec();
       assert_eq!(ColorRange::decode_from_slice(&b).unwrap(), r);
     }
@@ -1436,12 +1452,7 @@ mod tests {
 
     // Zeroed luminances elide but the always-encoded coords keep
     // round-trip exact.
-    let md2 = MasteringDisplay::new(
-      [cc(1, 2), cc(3, 4), cc(5, 6)],
-      cc(7, 8),
-      0,
-      0,
-    );
+    let md2 = MasteringDisplay::new([cc(1, 2), cc(3, 4), cc(5, 6)], cc(7, 8), 0, 0);
     let b3 = md2.encode_to_vec();
     assert_eq!(MasteringDisplay::decode_from_slice(&b3).unwrap(), md2);
   }
@@ -1466,12 +1477,7 @@ mod tests {
       DecodeError::WireTypeMismatch { field_number: 5, expected, actual }
         if expected == VARINT && actual == LEN
     ));
-    let original = MasteringDisplay::new(
-      [cc(9, 9), cc(8, 8), cc(7, 7)],
-      cc(6, 6),
-      123,
-      4,
-    );
+    let original = MasteringDisplay::new([cc(9, 9), cc(8, 8), cc(7, 7)], cc(6, 6), 123, 4);
     let mut ok = original.encode_to_vec();
     Tag::new(12, WireType::Varint).encode(&mut ok);
     encode_varint(99, &mut ok);
@@ -1493,10 +1499,10 @@ mod tests {
       50,
     );
     for h in [
-      HdrStaticMetadata::default(),                       // None / None
-      HdrStaticMetadata::new(Some(md), None),             // mastering only
-      HdrStaticMetadata::new(None, Some(cll)),            // CLL only
-      HdrStaticMetadata::new(Some(md), Some(cll)),        // both
+      HdrStaticMetadata::default(),                // None / None
+      HdrStaticMetadata::new(Some(md), None),      // mastering only
+      HdrStaticMetadata::new(None, Some(cll)),     // CLL only
+      HdrStaticMetadata::new(Some(md), Some(cll)), // both
     ] {
       let b = h.encode_to_vec();
       assert_eq!(HdrStaticMetadata::decode_from_slice(&b).unwrap(), h);
@@ -1513,8 +1519,7 @@ mod tests {
       DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
         if expected == LEN && actual == VARINT
     ));
-    let original =
-      HdrStaticMetadata::new(None, Some(ContentLightLevel::new(2000, 500)));
+    let original = HdrStaticMetadata::new(None, Some(ContentLightLevel::new(2000, 500)));
     let mut ok = original.encode_to_vec();
     Tag::new(7, WireType::Varint).encode(&mut ok);
     encode_varint(3, &mut ok);

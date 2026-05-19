@@ -1201,10 +1201,7 @@ mod tests_primitives {
   #[test]
   fn sample_aspect_ratio_display() {
     let nz = core::num::NonZeroU32::new(11).unwrap();
-    assert_eq!(
-      std::format!("{}", SampleAspectRatio::new(10, nz)),
-      "10:11"
-    );
+    assert_eq!(std::format!("{}", SampleAspectRatio::new(10, nz)), "10:11");
   }
 
   #[test]

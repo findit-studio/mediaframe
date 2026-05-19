@@ -159,6 +159,7 @@ impl<'a, const BE: bool> Xyz12Row<'a, BE> {
 ///   DCI-P3 path.
 /// - **Rec.2020** (D65) — `Y = 0.2627 R + 0.6780 G + 0.0593 B`
 ///   → `(8607, 22217, 1944)`. (Matches `ColorMatrix::Bt2020Ncl`.)
+///
 /// Returns `None` for [`DcpTargetGamut::Unknown`]: an unknown /
 /// future / corrupt gamut id has no defined luma basis and **must
 /// not** be silently colour-converted as if it were DCI-P3 (Codex

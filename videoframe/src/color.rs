@@ -1458,7 +1458,11 @@ mod tests {
     ] {
       assert_eq!(ColorTransfer::from_u32(t.to_u32()), t);
     }
-    for r in [ColorRange::Unspecified, ColorRange::Limited, ColorRange::Full] {
+    for r in [
+      ColorRange::Unspecified,
+      ColorRange::Limited,
+      ColorRange::Full,
+    ] {
       assert_eq!(ColorRange::from_u32(r.to_u32()), r);
     }
     for c in [
@@ -1491,7 +1495,10 @@ mod tests {
     assert_eq!(ColorRange::from_u32(7), ColorRange::Unknown(7));
     assert_eq!(ColorRange::Unknown(7).to_u32(), 7);
     assert_eq!(ChromaLocation::from_u32(42), ChromaLocation::Unknown(42));
-    assert_eq!(DcpTargetGamut::from_u32(9_999), DcpTargetGamut::Unknown(9_999));
+    assert_eq!(
+      DcpTargetGamut::from_u32(9_999),
+      DcpTargetGamut::Unknown(9_999)
+    );
     assert_eq!(DcpTargetGamut::Unknown(9_999).to_u32(), 9_999);
   }
 
@@ -1581,7 +1588,7 @@ mod tests {
     let mut md = MasteringDisplay::default();
     md.set_display_primaries([red, green, blue])
       .set_white_point(wp)
-      .set_max_luminance(4_000_0000)
+      .set_max_luminance(40_000_000)
       .set_min_luminance(5);
     assert_eq!(md.display_primaries()[2], blue);
     assert_eq!(md.min_luminance(), 5);
@@ -1595,7 +1602,11 @@ mod tests {
 
     let cll = ContentLightLevel::new(1000, 400);
     let md = MasteringDisplay::new(
-      [ChromaCoord::new(1, 2), ChromaCoord::new(3, 4), ChromaCoord::new(5, 6)],
+      [
+        ChromaCoord::new(1, 2),
+        ChromaCoord::new(3, 4),
+        ChromaCoord::new(5, 6),
+      ],
       ChromaCoord::new(7, 8),
       9,
       10,

@@ -53,8 +53,6 @@ pub enum VideoCodec {
     ProRes,
     /// DNxHD / DNxHR (`"dnxhd"`).
     DnxHd,
-    /// AVC Intra (`"avc_intra"`).
-    AvcIntra,
     /// JPEG 2000 (`"jpeg2000"`).
     Jpeg2000,
     /// Motion JPEG (`"mjpeg"`).
@@ -81,7 +79,6 @@ impl VideoCodec {
             Self::Mpeg4 => "mpeg4",
             Self::ProRes => "prores",
             Self::DnxHd => "dnxhd",
-            Self::AvcIntra => "avc_intra",
             Self::Jpeg2000 => "jpeg2000",
             Self::Mjpeg => "mjpeg",
             Self::Theora => "theora",
@@ -107,7 +104,6 @@ impl FromStr for VideoCodec {
             "mpeg4" => Self::Mpeg4,
             "prores" => Self::ProRes,
             "dnxhd" | "dnxhr" => Self::DnxHd,
-            "avc_intra" => Self::AvcIntra,
             "jpeg2000" => Self::Jpeg2000,
             "mjpeg" => Self::Mjpeg,
             "theora" => Self::Theora,
@@ -154,9 +150,16 @@ pub enum AudioCodec {
     PcmF32Le,
     /// ALAC (Apple Lossless, `"alac"`).
     Alac,
-    /// WMA Pro / WMA v2 (`"wmapro"`/`"wmav2"` — collapsed; use `Other` if
-    /// the variant matters).
-    Wma,
+    /// Windows Media Audio v1 (`"wmav1"`).
+    Wmav1,
+    /// Windows Media Audio v2 (`"wmav2"`).
+    Wmav2,
+    /// Windows Media Audio 9 Professional (`"wmapro"`).
+    Wmapro,
+    /// Windows Media Audio Lossless (`"wmalossless"`).
+    Wmalossless,
+    /// Windows Media Audio Voice (`"wmavoice"`).
+    Wmavoice,
     /// AMR Narrow Band (`"amr_nb"`).
     AmrNb,
     /// AMR Wide Band (`"amr_wb"`).
@@ -184,7 +187,11 @@ impl AudioCodec {
             Self::PcmS32Le => "pcm_s32le",
             Self::PcmF32Le => "pcm_f32le",
             Self::Alac => "alac",
-            Self::Wma => "wma",
+            Self::Wmav1 => "wmav1",
+            Self::Wmav2 => "wmav2",
+            Self::Wmapro => "wmapro",
+            Self::Wmalossless => "wmalossless",
+            Self::Wmavoice => "wmavoice",
             Self::AmrNb => "amr_nb",
             Self::AmrWb => "amr_wb",
             Self::Other(s) => s.as_str(),
@@ -211,7 +218,11 @@ impl FromStr for AudioCodec {
             "pcm_s32le" => Self::PcmS32Le,
             "pcm_f32le" => Self::PcmF32Le,
             "alac" => Self::Alac,
-            "wma" | "wmav2" | "wmapro" => Self::Wma,
+            "wmav1" => Self::Wmav1,
+            "wmav2" => Self::Wmav2,
+            "wmapro" => Self::Wmapro,
+            "wmalossless" => Self::Wmalossless,
+            "wmavoice" => Self::Wmavoice,
             "amr_nb" => Self::AmrNb,
             "amr_wb" => Self::AmrWb,
             other => Self::Other(SmolStr::new(other)),
@@ -228,31 +239,32 @@ impl FromStr for AudioCodec {
 #[display("{}", self.as_str())]
 #[non_exhaustive]
 pub enum SubtitleCodec {
-    /// SubRip Text (`"srt"`).
+    /// SubRip (`"subrip"`; alias `"srt"`).
     Srt,
     /// Advanced SubStation Alpha (`"ass"`).
     Ass,
     /// SubStation Alpha (`"ssa"`).
     Ssa,
-    /// Web Video Text Tracks (`"webvtt"`).
+    /// Web Video Text Tracks (`"webvtt"`; alias `"vtt"`).
     WebVtt,
     /// MP4 timed text / 3GPP timed text (`"mov_text"`).
     MovText,
-    /// DVB subtitles (bitmap, `"dvbsub"`).
+    /// DVB subtitles (bitmap, `"dvb_subtitle"`; alias `"dvbsub"`).
     DvbSub,
-    /// Presentation Graphic Stream — Blu-ray (bitmap, `"hdmv_pgs"`).
+    /// Presentation Graphic Stream — Blu-ray (bitmap,
+    /// `"hdmv_pgs_subtitle"`; aliases `"hdmv_pgs"`/`"pgs"`).
     Pgs,
-    /// DVD subtitles (bitmap, `"dvd_subtitle"`).
+    /// DVD subtitles (bitmap, `"dvd_subtitle"`; alias `"dvdsub"`).
     DvdSub,
-    /// CEA-608 closed captions (`"eia_608"`).
+    /// EIA-608 closed captions (`"eia_608"`).
     Cea608,
-    /// CEA-708 closed captions (`"eia_708"`).
-    Cea708,
     /// TTML (`"ttml"`).
     Ttml,
     /// MicroDVD (`"microdvd"`).
     MicroDvd,
     /// Anything else — carries the codec's short string verbatim.
+    /// Includes CEA-708, which FFmpeg does not expose as a standalone
+    /// codec (it's carried as side-data within H.264/HEVC).
     Other(SmolStr),
 }
 
@@ -261,16 +273,15 @@ impl SubtitleCodec {
     /// short name where applicable).
     pub fn as_str(&self) -> &str {
         match self {
-            Self::Srt => "srt",
+            Self::Srt => "subrip",
             Self::Ass => "ass",
             Self::Ssa => "ssa",
             Self::WebVtt => "webvtt",
             Self::MovText => "mov_text",
-            Self::DvbSub => "dvbsub",
-            Self::Pgs => "hdmv_pgs",
+            Self::DvbSub => "dvb_subtitle",
+            Self::Pgs => "hdmv_pgs_subtitle",
             Self::DvdSub => "dvd_subtitle",
             Self::Cea608 => "eia_608",
-            Self::Cea708 => "eia_708",
             Self::Ttml => "ttml",
             Self::MicroDvd => "microdvd",
             Self::Other(s) => s.as_str(),
@@ -290,16 +301,15 @@ impl FromStr for SubtitleCodec {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "srt" | "subrip" => Self::Srt,
+            "subrip" | "srt" => Self::Srt,
             "ass" => Self::Ass,
             "ssa" => Self::Ssa,
             "webvtt" | "vtt" => Self::WebVtt,
             "mov_text" | "tx3g" => Self::MovText,
-            "dvbsub" | "dvb_subtitle" => Self::DvbSub,
-            "hdmv_pgs" | "pgs" => Self::Pgs,
+            "dvb_subtitle" | "dvbsub" => Self::DvbSub,
+            "hdmv_pgs_subtitle" | "hdmv_pgs" | "pgs" => Self::Pgs,
             "dvd_subtitle" | "dvdsub" => Self::DvdSub,
             "eia_608" | "cea608" => Self::Cea608,
-            "eia_708" | "cea708" => Self::Cea708,
             "ttml" => Self::Ttml,
             "microdvd" => Self::MicroDvd,
             other => Self::Other(SmolStr::new(other)),
@@ -317,6 +327,8 @@ mod tests {
 
     #[test]
     fn video_codec_known_round_trip() {
+        // The canonical short string matches FFmpeg 8.1's `ffmpeg -codecs`
+        // column-2 name. Verified at PR-review time.
         for s in [
             "h264",
             "hevc",
@@ -327,7 +339,6 @@ mod tests {
             "mpeg4",
             "prores",
             "dnxhd",
-            "avc_intra",
             "jpeg2000",
             "mjpeg",
             "theora",
@@ -364,6 +375,7 @@ mod tests {
 
     #[test]
     fn audio_codec_known_round_trip() {
+        // FFmpeg-canonical short strings (verified vs `ffmpeg -codecs` on 8.1).
         for s in [
             "aac",
             "mp3",
@@ -379,7 +391,11 @@ mod tests {
             "pcm_s32le",
             "pcm_f32le",
             "alac",
-            "wma",
+            "wmav1",
+            "wmav2",
+            "wmapro",
+            "wmalossless",
+            "wmavoice",
             "amr_nb",
             "amr_wb",
         ] {
@@ -390,11 +406,16 @@ mod tests {
     }
 
     #[test]
-    fn audio_codec_wma_variants_collapse() {
-        let a: AudioCodec = "wmav2".parse().unwrap();
-        let b: AudioCodec = "wmapro".parse().unwrap();
-        assert_eq!(a, AudioCodec::Wma);
-        assert_eq!(b, AudioCodec::Wma);
+    fn audio_codec_wma_variants_are_distinct() {
+        // FFmpeg 8.1 has 5 distinct WMA codecs — they MUST NOT collapse.
+        let a: AudioCodec = "wmav1".parse().unwrap();
+        let b: AudioCodec = "wmav2".parse().unwrap();
+        let c: AudioCodec = "wmapro".parse().unwrap();
+        let d: AudioCodec = "wmalossless".parse().unwrap();
+        let e: AudioCodec = "wmavoice".parse().unwrap();
+        for pair in [(&a, &b), (&a, &c), (&b, &c), (&c, &d), (&d, &e)] {
+            assert_ne!(pair.0, pair.1, "WMA variants must be distinct");
+        }
     }
 
     #[test]
@@ -406,17 +427,22 @@ mod tests {
 
     #[test]
     fn subtitle_codec_known_round_trip() {
+        // FFmpeg-canonical short strings (verified vs `ffmpeg -codecs` 8.1):
+        // - `subrip` (NOT `srt`) is the codec name; `srt` is an alias.
+        // - `dvb_subtitle` (NOT `dvbsub`).
+        // - `hdmv_pgs_subtitle` (NOT `hdmv_pgs`).
+        // - `eia_708` is NOT a standalone FFmpeg codec (it's carried as
+        //   side-data within H.264/HEVC) — no `Cea708` variant.
         for s in [
-            "srt",
+            "subrip",
             "ass",
             "ssa",
             "webvtt",
             "mov_text",
-            "dvbsub",
-            "hdmv_pgs",
+            "dvb_subtitle",
+            "hdmv_pgs_subtitle",
             "dvd_subtitle",
             "eia_608",
-            "eia_708",
             "ttml",
             "microdvd",
         ] {
@@ -428,14 +454,40 @@ mod tests {
 
     #[test]
     fn subtitle_codec_aliases() {
-        let v: SubtitleCodec = "vtt".parse().unwrap();
-        assert_eq!(v, SubtitleCodec::WebVtt);
-        let p: SubtitleCodec = "pgs".parse().unwrap();
-        assert_eq!(p, SubtitleCodec::Pgs);
-        let d: SubtitleCodec = "dvdsub".parse().unwrap();
-        assert_eq!(d, SubtitleCodec::DvdSub);
-        let sr: SubtitleCodec = "subrip".parse().unwrap();
-        assert_eq!(sr, SubtitleCodec::Srt);
+        // Every named variant accepts its common alias(es) on parse.
+        assert_eq!(
+            "srt".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::Srt
+        );
+        assert_eq!(
+            "vtt".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::WebVtt
+        );
+        assert_eq!(
+            "pgs".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::Pgs
+        );
+        assert_eq!(
+            "hdmv_pgs".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::Pgs
+        );
+        assert_eq!(
+            "dvbsub".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::DvbSub
+        );
+        assert_eq!(
+            "dvdsub".parse::<SubtitleCodec>().unwrap(),
+            SubtitleCodec::DvdSub
+        );
+    }
+
+    #[test]
+    fn cea708_round_trips_through_other() {
+        // CEA-708 isn't a standalone FFmpeg codec (it's H.264/HEVC side
+        // data), so we model it as `Other` rather than a named variant.
+        let c: SubtitleCodec = "eia_708".parse().unwrap();
+        assert!(c.is_other());
+        assert_eq!(c.as_str(), "eia_708");
     }
 
     #[test]
@@ -450,7 +502,6 @@ mod tests {
         assert!(!SubtitleCodec::WebVtt.is_image_based());
         assert!(!SubtitleCodec::MovText.is_image_based());
         assert!(!SubtitleCodec::Cea608.is_image_based());
-        assert!(!SubtitleCodec::Cea708.is_image_based());
         // Unknown ones are treated as non-bitmap by default — bitmaps are
         // the named variants.
         let weird: SubtitleCodec = "something_new".parse().unwrap();
@@ -459,10 +510,14 @@ mod tests {
 
     #[test]
     fn display_matches_as_str_across_kinds() {
-        // The #[display] attr must agree with as_str().
+        // The #[display] attr must agree with as_str() — canonical strings
+        // verified vs FFmpeg 8.1.
         assert_eq!(VideoCodec::H264.to_string(), "h264");
         assert_eq!(AudioCodec::Opus.to_string(), "opus");
-        assert_eq!(SubtitleCodec::Pgs.to_string(), "hdmv_pgs");
+        assert_eq!(AudioCodec::Wmav2.to_string(), "wmav2");
+        assert_eq!(SubtitleCodec::Srt.to_string(), "subrip");
+        assert_eq!(SubtitleCodec::Pgs.to_string(), "hdmv_pgs_subtitle");
+        assert_eq!(SubtitleCodec::DvbSub.to_string(), "dvb_subtitle");
         assert_eq!(
             VideoCodec::Other(SmolStr::new("custom_codec")).to_string(),
             "custom_codec"

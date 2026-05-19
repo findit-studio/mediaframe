@@ -21,8 +21,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for `Rational`, `FrameRate`, `FieldOrder`, `StereoMode`,
   `DolbyVisionConfig`.
 - **`frame`** — `SampleAspectRatio` → `Rational` interop
-  (`SampleAspectRatio::as_rational` + `From<SampleAspectRatio> for
-  Rational`); `SampleAspectRatio`'s existing public API is unchanged.
+  (`SampleAspectRatio::rational`/`as_rational`,
+  `From<SampleAspectRatio> for Rational`, `From<Rational> for
+  SampleAspectRatio`).
+
+### Breakage
+
+- **`frame::SampleAspectRatio`** — now represented as a newtype over
+  `Rational` (`pub struct SampleAspectRatio(Rational)`) instead of
+  its own `{ num, den }` fields, making `Rational` the single source
+  of truth for "exact ratio with a non-zero denominator". The public
+  *method* API (`new`/`num`/`den`/`is_square`/`with_*`/`set_*`/
+  `Default`/`Display`/derives) and the `buffa` wire format are
+  **byte-for-byte unchanged**; only the internal representation and
+  the `From` surface (added `From<Rational> for SampleAspectRatio`,
+  added `rational()` alongside `as_rational()`) changed.
 
 ## [0.3.0] May 19, 2026
 

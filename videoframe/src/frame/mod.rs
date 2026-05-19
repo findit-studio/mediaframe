@@ -564,20 +564,19 @@ impl Rotation {
 /// `den` is a [`core::num::NonZeroU32`] so a SAR can never have a
 /// zero denominator; the manual [`Default`] is `1:1` (square),
 /// mirroring `mediatime::Timebase`'s non-proto-zero default.
+///
+/// Represented as a newtype over [`Rational`] — the single source of
+/// truth for "exact ratio with a non-zero denominator". The fields
+/// are private; the entire public method API (and the `buffa` wire
+/// format) is unchanged, delegating to the inner `Rational`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SampleAspectRatio {
-  num: u32,
-  den: core::num::NonZeroU32,
-}
+pub struct SampleAspectRatio(Rational);
 
 impl Default for SampleAspectRatio {
   /// `1:1` — square pixels.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
-    Self {
-      num: 1,
-      den: core::num::NonZeroU32::MIN,
-    }
+    Self(Rational::default())
   }
 }
 
@@ -586,41 +585,47 @@ impl SampleAspectRatio {
   /// numerator / (non-zero) denominator.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(num: u32, den: core::num::NonZeroU32) -> Self {
-    Self { num, den }
+    Self(Rational::new(num, den))
   }
 
   /// Returns the numerator (display-width units).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn num(&self) -> u32 {
-    self.num
+    self.0.num()
   }
 
   /// Returns the (non-zero) denominator (display-height units).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn den(&self) -> core::num::NonZeroU32 {
-    self.den
+    self.0.den()
   }
 
   /// `true` when the pixels are square (`num == den`).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn is_square(&self) -> bool {
-    self.num == self.den.get()
+    self.0.num() == self.0.den().get()
   }
 
-  /// Views this SAR as a generic [`Rational`]. The layout is
-  /// identical (`{num: u32, den: NonZeroU32}`) so the mapping is a
-  /// direct field copy — purely additive interop, no public-API
-  /// change to `SampleAspectRatio` itself.
+  /// Returns this SAR as a generic [`Rational`] — the underlying
+  /// representation. Purely additive interop; `SampleAspectRatio`'s
+  /// public method API is unchanged.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rational(&self) -> Rational {
+    self.0
+  }
+
+  /// Alias of [`Self::rational`] — views this SAR as a generic
+  /// [`Rational`].
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_rational(&self) -> Rational {
-    Rational::new(self.num, self.den)
+    self.rational()
   }
 
   /// Sets the numerator (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_num(mut self, num: u32) -> Self {
-    self.num = num;
+    self.0 = self.0.with_num(num);
     self
   }
 
@@ -628,38 +633,46 @@ impl SampleAspectRatio {
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_den(mut self, den: core::num::NonZeroU32) -> Self {
-    self.den = den;
+    self.0 = self.0.with_den(den);
     self
   }
 
   /// Sets the numerator in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_num(&mut self, num: u32) -> &mut Self {
-    self.num = num;
+    self.0.set_num(num);
     self
   }
 
   /// Sets the denominator in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_den(&mut self, den: core::num::NonZeroU32) -> &mut Self {
-    self.den = den;
+    self.0.set_den(den);
     self
   }
 }
 
 impl core::fmt::Display for SampleAspectRatio {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "{}:{}", self.num, self.den)
+    write!(f, "{}:{}", self.0.num(), self.0.den())
   }
 }
 
 impl From<SampleAspectRatio> for Rational {
-  /// Direct field copy — `SampleAspectRatio` and `Rational` share the
-  /// exact `{num: u32, den: NonZeroU32}` layout. Additive interop;
-  /// `SampleAspectRatio`'s own public API is unchanged.
+  /// Unwraps the inner [`Rational`] — `SampleAspectRatio` is a newtype
+  /// over `Rational`. Additive interop; `SampleAspectRatio`'s own
+  /// public method API is unchanged.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn from(sar: SampleAspectRatio) -> Self {
-    Rational::new(sar.num, sar.den)
+    sar.0
+  }
+}
+
+impl From<Rational> for SampleAspectRatio {
+  /// Wraps a generic [`Rational`] as a pixel/sample aspect ratio.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn from(rate: Rational) -> Self {
+    Self(rate)
   }
 }
 
@@ -1763,6 +1776,59 @@ mod tests_primitives {
       SampleAspectRatio::default().as_rational(),
       Rational::default()
     );
+  }
+
+  #[test]
+  fn sample_aspect_ratio_rational_round_trip_both_ways() {
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    // SAR -> Rational -> SAR
+    let sar = SampleAspectRatio::new(40, nz(33));
+    let r: Rational = sar.into();
+    let back: SampleAspectRatio = r.into();
+    assert_eq!(back, sar);
+    assert_eq!(sar.rational(), r);
+    assert_eq!(sar.rational(), sar.as_rational());
+    // Rational -> SAR -> Rational
+    let r2 = Rational::new(16, nz(9));
+    let s2 = SampleAspectRatio::from(r2);
+    assert_eq!((s2.num(), s2.den().get()), (16, 9));
+    assert_eq!(Rational::from(s2), r2);
+  }
+
+  #[test]
+  fn sample_aspect_ratio_default_is_one_to_one() {
+    let d = SampleAspectRatio::default();
+    assert_eq!((d.num(), d.den().get()), (1, 1));
+    assert!(d.is_square());
+    assert_eq!(d, SampleAspectRatio::new(1, core::num::NonZeroU32::MIN));
+  }
+
+  #[test]
+  fn sample_aspect_ratio_eq_and_hash_parity() {
+    use core::hash::{Hash, Hasher};
+    let nz = |n: u32| core::num::NonZeroU32::new(n).unwrap();
+    let a = SampleAspectRatio::new(40, nz(33));
+    let b = SampleAspectRatio::default().with_num(40).with_den(nz(33));
+    assert_eq!(a, b);
+
+    fn h(s: &SampleAspectRatio) -> u64 {
+      // `no_std`-friendly deterministic hasher (FNV-1a).
+      struct Fnv(u64);
+      impl Hasher for Fnv {
+        fn finish(&self) -> u64 {
+          self.0
+        }
+        fn write(&mut self, bytes: &[u8]) {
+          for &x in bytes {
+            self.0 = (self.0 ^ x as u64).wrapping_mul(0x0100_0000_01b3);
+          }
+        }
+      }
+      let mut hasher = Fnv(0xcbf2_9ce4_8422_2325);
+      s.hash(&mut hasher);
+      hasher.finish()
+    }
+    assert_eq!(h(&a), h(&b));
   }
 
   // ---------- FrameRate -------------------------------------------------

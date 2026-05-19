@@ -1610,6 +1610,24 @@ mod tests {
     }
   }
 
+  // Byte-for-byte wire-stability guard. `SampleAspectRatio` is a
+  // `buffa` extern target whose representation changed (newtype over
+  // `Rational` in 0.3.1); the wire encoding MUST stay identical to
+  // 0.3.0: `{ uint32 num = 1; uint32 den = 2; }`, both always encoded.
+  // For `new(40, 33)`: tag1 varint `0x08`, value `40` (`0x28`),
+  // tag2 varint `0x10`, value `33` (`0x21`).
+  #[test]
+  fn sar_wire_is_byte_stable() {
+    let bytes = SampleAspectRatio::new(40, nz(33)).encode_to_vec();
+    let expected: Vec<u8> = [0x08u8, 0x28, 0x10, 0x21].into_iter().collect();
+    assert_eq!(bytes, expected);
+    // …and decodes back unchanged.
+    assert_eq!(
+      SampleAspectRatio::decode_from_slice(&bytes).unwrap(),
+      SampleAspectRatio::new(40, nz(33))
+    );
+  }
+
   #[test]
   fn sar_field2_wrong_wire_type_errors() {
     let mut buf: Vec<u8> = Vec::new();

@@ -63,6 +63,22 @@ const PIXEL_FORMAT_RS: &str = "mediaframe/src/pixel_format.rs";
 /// file whose `to_u32()` matches are the source of truth.
 const COLOR_RS: &str = "mediaframe/src/color.rs";
 
+/// Path (relative to the workspace root) of the vendored codec-name
+/// table (`<MEDIA_TYPE> <FFMPEG_NAME>` per line, sorted).
+const CODEC_VENDOR_PATH: &str = "xtask/vendor/ffmpeg-codecs.txt";
+
+/// Path (relative to the workspace root) of the codec-enum source file
+/// whose `as_str()` matches are the source of truth.
+const CODEC_RS: &str = "mediaframe/src/codec.rs";
+
+/// The mediaframe codec enums and their corresponding FFmpeg media
+/// type (`AVMEDIA_TYPE_*`, lowercased).
+const CODEC_ENUMS: &[(&str, &str)] = &[
+  ("video", "VideoCodec"),
+  ("audio", "AudioCodec"),
+  ("subtitle", "SubtitleCodec"),
+];
+
 /// The five FFmpeg colour C enums to parse, paired with the
 /// `AVCOL_*` / `AVCHROMA_*` prefix to strip and the mediaframe
 /// enum name whose `to_u32()` match maps it.
@@ -83,8 +99,8 @@ fn main() -> ExitCode {
     .nth(1)
     .unwrap_or_else(|| "help".to_string());
   match cmd.as_str() {
-    "check" | "check-pixel-format" => check(),
-    "sync" | "sync-pixel-format" => sync(),
+    "check" | "check-pixel-format" | "check-codec" => check(),
+    "sync" | "sync-pixel-format" | "sync-codec" => sync(),
     "help" | "--help" | "-h" => {
       print_help();
       ExitCode::SUCCESS
@@ -101,10 +117,12 @@ fn print_help() {
   eprintln!(
     "mediaframe xtask\n\n\
          Subcommands:\n  \
-         check    Diff PixelFormat slugs ({VENDOR_PATH}) AND colour-enum\n           \
-                  codes ({COLOR_VENDOR_PATH}) against mediaframe\n  \
-         sync     Fetch FFmpeg pixfmt.h from {FFMPEG_TAG} and regenerate both\n           \
-                  vendored files deterministically\n  \
+         check    Verify mediaframe against vendored FFmpeg tables:\n           \
+                    - PixelFormat slugs ({VENDOR_PATH})\n           \
+                    - Colour-enum codes ({COLOR_VENDOR_PATH})\n           \
+                    - Codec short names ({CODEC_VENDOR_PATH})\n  \
+         sync     Fetch FFmpeg {FFMPEG_TAG} (pixfmt.h + codec_desc.c) and\n           \
+                  regenerate the vendored files deterministically\n  \
          help     Show this help\n"
   );
 }
@@ -127,7 +145,9 @@ fn check() -> ExitCode {
   let pf_ok = check_pixfmt(&root);
   println!();
   let color_ok = check_color(&root);
-  if pf_ok && color_ok {
+  println!();
+  let codec_ok = check_codec(&root);
+  if pf_ok && color_ok && codec_ok {
     ExitCode::SUCCESS
   } else {
     ExitCode::FAILURE
@@ -352,6 +372,173 @@ fn check_color(root: &Path) -> bool {
     );
   }
   ok
+}
+
+/// Codec coverage: every named variant on each `mediaframe::codec::*`
+/// enum (`VideoCodec`/`AudioCodec`/`SubtitleCodec`) must appear in the
+/// vendored FFmpeg codec table under the matching media type. The
+/// `Other(SmolStr)` arm is intentionally not checked — it's the escape
+/// hatch for unknown codecs. The reverse direction (FFmpeg codecs not
+/// in mediaframe) is informational only; the schema spec only requires
+/// codec-family coverage of common formats.
+fn check_codec(root: &Path) -> bool {
+  let vendor = match fs::read_to_string(root.join(CODEC_VENDOR_PATH)) {
+    Ok(s) => s,
+    Err(e) => {
+      eprintln!("error: cannot read {CODEC_VENDOR_PATH}: {e}");
+      eprintln!("hint:  run `cargo xtask sync` first to populate the vendored list");
+      return false;
+    }
+  };
+  let codec_rs = match fs::read_to_string(root.join(CODEC_RS)) {
+    Ok(s) => s,
+    Err(e) => {
+      eprintln!("error: cannot read {CODEC_RS}: {e}");
+      return false;
+    }
+  };
+
+  // FFmpeg side: media_type -> { codec name }.
+  let ffmpeg = parse_codec_vendored(&vendor);
+  // mediaframe side: enum-name -> { named-variant -> canonical short string }.
+  let mediaframe = parse_codec_named_strings(&codec_rs);
+
+  let mut ok = true;
+  let mut total_named = 0usize;
+  for (media_type, enum_name) in CODEC_ENUMS {
+    let ff_names = match ffmpeg.get(*media_type) {
+      Some(m) => m,
+      None => {
+        eprintln!(
+          "FAIL: no vendored FFmpeg entries for media type `{media_type}` — \
+                   regenerate {CODEC_VENDOR_PATH} via `cargo xtask sync`."
+        );
+        ok = false;
+        continue;
+      }
+    };
+    let empty = BTreeMap::new();
+    let mf_named = mediaframe.get(*enum_name).unwrap_or(&empty);
+
+    let mut missing_from_ffmpeg: BTreeMap<&String, &String> = BTreeMap::new();
+    for (variant, canonical) in mf_named {
+      if !ff_names.contains(canonical) {
+        missing_from_ffmpeg.insert(variant, canonical);
+      }
+    }
+
+    println!(
+      "  {enum_name}: {} named variant(s); FFmpeg {} `{media_type}` codec(s)",
+      mf_named.len(),
+      ff_names.len()
+    );
+    total_named += mf_named.len();
+
+    if !missing_from_ffmpeg.is_empty() {
+      eprintln!(
+        "FAIL: {} mediaframe `{enum_name}` named variant(s) NOT found in FFmpeg \
+             {FFMPEG_TAG} `{media_type}` codecs:",
+        missing_from_ffmpeg.len()
+      );
+      for (variant, canonical) in &missing_from_ffmpeg {
+        eprintln!("    {enum_name}::{variant} → \"{canonical}\"");
+      }
+      eprintln!(
+        "Action: either (a) the variant's canonical string disagrees with FFmpeg's \
+                  short name (fix `as_str()`); or (b) the codec doesn't exist as a \
+                  separate FFmpeg codec ID (drop the named variant — `Other(SmolStr)` \
+                  still round-trips its string)."
+      );
+      ok = false;
+    }
+  }
+
+  println!("FFmpeg pinned: {FFMPEG_TAG}");
+  println!(
+    "mediaframe   : {total_named} named codec variant(s) across {} enum(s)",
+    CODEC_ENUMS.len()
+  );
+  if ok {
+    println!(
+      "OK: every named codec variant in mediaframe is covered by FFmpeg {FFMPEG_TAG}."
+    );
+  }
+  ok
+}
+
+/// Parse `xtask/vendor/ffmpeg-codecs.txt`. Format: one
+/// `<media_type> <name>` per line; `#` comments and blank lines ignored.
+fn parse_codec_vendored(text: &str) -> BTreeMap<String, BTreeSet<String>> {
+  let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+  for line in text.lines() {
+    let line = line.trim();
+    if line.is_empty() || line.starts_with('#') {
+      continue;
+    }
+    let mut it = line.split_whitespace();
+    let (Some(ty), Some(name)) = (it.next(), it.next()) else {
+      continue;
+    };
+    out
+      .entry(ty.to_string())
+      .or_default()
+      .insert(name.to_string());
+  }
+  out
+}
+
+/// Parse the three `mediaframe::codec::<Enum>::as_str()` match blocks and
+/// emit `enum-name → { variant-ident → canonical-short-string }`. The
+/// `Self::Other(s) => s.as_str()` arm is skipped.
+fn parse_codec_named_strings(rs: &str) -> BTreeMap<String, BTreeMap<String, String>> {
+  let mut out: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+  for (_, enum_name) in CODEC_ENUMS {
+    // Locate `impl <EnumName> {` then the `pub fn as_str(&self) -> &str`
+    // body that follows. We accept any whitespace between the `impl` and
+    // the as_str body; the match arms are scanned line-by-line.
+    let impl_marker = format!("impl {enum_name} {{");
+    let Some(impl_at) = rs.find(&impl_marker) else {
+      continue;
+    };
+    let after = &rs[impl_at..];
+    let Some(asstr_at) = after.find("pub fn as_str") else {
+      continue;
+    };
+    let body = &after[asstr_at..];
+    let Some(open) = body.find('{') else { continue };
+    let arms_region = &body[open + 1..];
+
+    let mut variants: BTreeMap<String, String> = BTreeMap::new();
+    for line in arms_region.lines() {
+      let line = line.trim();
+      if line.starts_with('}') {
+        // End of the `as_str` body (the outermost closing brace).
+        break;
+      }
+      // Match arm:  `Self::H264 => "h264",`
+      let Some(rest) = line.strip_prefix("Self::") else {
+        continue;
+      };
+      let Some(arrow) = rest.find("=>") else { continue };
+      let variant = rest[..arrow].trim().trim_end_matches('(');
+      // Skip the catch-all `Other(s)` arm.
+      if rest[..arrow].contains('(') {
+        continue;
+      }
+      let after_arrow = &rest[arrow + 2..];
+      let Some(start) = after_arrow.find('"') else {
+        continue;
+      };
+      let inner = &after_arrow[start + 1..];
+      let Some(end) = inner.find('"') else { continue };
+      let canonical = &inner[..end];
+      variants.insert(variant.to_string(), canonical.to_string());
+    }
+    if !variants.is_empty() {
+      out.insert(enum_name.to_string(), variants);
+    }
+  }
+  out
 }
 
 /// Parse `xtask/vendor/ffmpeg-pixfmts.txt`. Format: one slug per line,
@@ -684,6 +871,80 @@ fn sync() -> ExitCode {
     color_out.display(),
     cbody.len()
   );
+
+  // ---- codec descriptors (libavcodec/codec_desc.c) ----
+  let codec_url = format!(
+    "https://raw.githubusercontent.com/FFmpeg/FFmpeg/{FFMPEG_TAG}/libavcodec/codec_desc.c"
+  );
+  println!("Fetching {codec_url}");
+  let codec_output = match Command::new("curl")
+    .args(["-sSL", "--fail", &codec_url])
+    .output()
+  {
+    Ok(o) => o,
+    Err(e) => {
+      eprintln!("error: failed to run `curl` for codec_desc.c: {e}");
+      return ExitCode::FAILURE;
+    }
+  };
+  if !codec_output.status.success() {
+    eprintln!("error: curl exited with status {} for codec_desc.c", codec_output.status);
+    eprintln!("stderr: {}", String::from_utf8_lossy(&codec_output.stderr));
+    return ExitCode::FAILURE;
+  }
+  let codec_src = match String::from_utf8(codec_output.stdout) {
+    Ok(s) => s,
+    Err(_) => {
+      eprintln!("error: codec_desc.c returned non-UTF8 content");
+      return ExitCode::FAILURE;
+    }
+  };
+  let mut descriptors = extract_codec_descriptors(&codec_src);
+  if descriptors.is_empty() {
+    eprintln!(
+      "error: parsed 0 codec descriptors from codec_desc.c — parse bug or upstream restructure?"
+    );
+    return ExitCode::FAILURE;
+  }
+  // Sort by (media_type, name) for deterministic output.
+  descriptors.sort();
+
+  let codec_out = workspace_root().join(CODEC_VENDOR_PATH);
+  let mut kbody = String::new();
+  kbody.push_str("# FFmpeg codec short names — vendored for `cargo xtask check`.\n");
+  kbody.push_str(&format!(
+    "# Source: FFmpeg {FFMPEG_TAG} libavcodec/codec_desc.c\n"
+  ));
+  kbody.push_str("# Fetched: ");
+  kbody.push_str(&iso_date_today());
+  kbody.push_str("\n#\n");
+  kbody.push_str(
+    "# Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.\n",
+  );
+  kbody.push_str(
+    "# Format: `<media_type> <name>` — one descriptor per line, sorted.\n",
+  );
+  kbody.push_str(
+    "# `<media_type>` is the lowercased AVMEDIA_TYPE_* suffix\n\
+     # (video / audio / subtitle / data / attachment).\n\n",
+  );
+  for (ty, name) in &descriptors {
+    kbody.push_str(ty);
+    kbody.push(' ');
+    kbody.push_str(name);
+    kbody.push('\n');
+  }
+  if let Err(e) = fs::write(&codec_out, &kbody) {
+    eprintln!("error: cannot write {}: {e}", codec_out.display());
+    return ExitCode::FAILURE;
+  }
+  println!(
+    "Wrote {} codec descriptors to {} ({} bytes)",
+    descriptors.len(),
+    codec_out.display(),
+    kbody.len()
+  );
+
   ExitCode::SUCCESS
 }
 
@@ -848,4 +1109,81 @@ fn iso_date_today() -> String {
     .and_then(|o| String::from_utf8(o.stdout).ok())
     .map(|s| s.trim().to_string())
     .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Parse FFmpeg's `libavcodec/codec_desc.c` for the
+/// `codec_descriptors[]` table and return `(media_type, short_name)`
+/// pairs for every entry.
+///
+/// Strategy: locate the `codec_descriptors[]` array, then iterate
+/// line-by-line tracking the current `.type = AVMEDIA_TYPE_<X>,` and
+/// `.name = "<short>",`. On the descriptor's closing brace (`},` or
+/// `}` on its own line at the array depth) emit the pair if both
+/// fields were seen. `NULL_IF_CONFIG_SMALL(...)` and other macro-wrapped
+/// fields are ignored — `.name` is always a bare string literal in
+/// codec_desc.c.
+fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
+  let mut out: Vec<(String, String)> = Vec::new();
+  let Some(arr_at) = source.find("codec_descriptors[]") else {
+    return out;
+  };
+  // Skip past the array's opening `{`.
+  let after_arr = &source[arr_at..];
+  let Some(open_at) = after_arr.find('{') else {
+    return out;
+  };
+  let body = &after_arr[open_at + 1..];
+
+  let mut current_type: Option<String> = None;
+  let mut current_name: Option<String> = None;
+  let mut depth_in_descriptor: i32 = 0;
+
+  for raw in body.lines() {
+    let line = raw.trim();
+
+    // End of the array — the array's closing brace.
+    if depth_in_descriptor == 0 && (line == "};" || line.starts_with("};")) {
+      break;
+    }
+
+    // Track sub-block depth inside a descriptor (rare nested braces).
+    let opens = line.matches('{').count() as i32;
+    let closes = line.matches('}').count() as i32;
+
+    // Entering a top-level descriptor block (a `{ ` on its own line
+    // or the start of an entry, with nothing previously open).
+    if depth_in_descriptor == 0 && opens > 0 {
+      current_type = None;
+      current_name = None;
+    }
+    depth_in_descriptor += opens - closes;
+
+    // Field extraction.
+    if let Some(rest) = line.strip_prefix(".type") {
+      if let Some(eq) = rest.find('=') {
+        let val = rest[eq + 1..].trim().trim_end_matches(',').trim();
+        if let Some(t) = val.strip_prefix("AVMEDIA_TYPE_") {
+          current_type = Some(t.to_lowercase());
+        }
+      }
+    } else if let Some(rest) = line.strip_prefix(".name") {
+      if let Some(eq) = rest.find('=') {
+        let after_eq = &rest[eq + 1..];
+        if let Some(start) = after_eq.find('"') {
+          let inner = &after_eq[start + 1..];
+          if let Some(end) = inner.find('"') {
+            current_name = Some(inner[..end].to_string());
+          }
+        }
+      }
+    }
+
+    // Closed back to array depth — descriptor finished.
+    if depth_in_descriptor == 0 && closes > 0 {
+      if let (Some(t), Some(n)) = (current_type.take(), current_name.take()) {
+        out.push((t, n));
+      }
+    }
+  }
+  out
 }

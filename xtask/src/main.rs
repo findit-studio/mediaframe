@@ -430,9 +430,12 @@ fn check_codec(root: &Path) -> bool {
     for (line_no, line, tok) in &bad {
       eprintln!("    line {line_no}: `{tok}` in `{line}`");
     }
+    // Derive the allowed-set message from `KNOWN_CODEC_PROPS` so the
+    // diagnostic can't drift from the source of truth (e.g. forgetting
+    // to mention `ENHANCEMENT` after adding it to the whitelist).
+    let allowed = KNOWN_CODEC_PROPS.join(" / ");
     eprintln!(
-      "Action: tokens must come from FFmpeg n8.1 `codec.h` \
-              (INTRA_ONLY / LOSSY / LOSSLESS / REORDER / BITMAP_SUB / TEXT_SUB / FIELDS). \
+      "Action: tokens must come from FFmpeg {FFMPEG_TAG} `codec_desc.h` ({allowed}). \
               If FFmpeg adds a new prop, extend `KNOWN_CODEC_PROPS` and the generator."
     );
     return false;

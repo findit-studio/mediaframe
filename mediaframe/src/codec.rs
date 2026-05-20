@@ -2185,14 +2185,44 @@ impl SubtitleCodec {
       Self::Other(s) => s.as_str(),
     }
   }
-  /// True iff this is a **bitmap** (image-based) subtitle codec,
-  /// requiring an OCR pipeline stage to extract searchable text.
-  /// Matches FFmpeg's `AV_CODEC_PROP_BITMAP_SUB` flag.
-  pub fn is_image_based(&self) -> bool {
-    matches!(
-      self,
-      Self::DvbSubtitle | Self::DvdSubtitle | Self::HdmvPgsSubtitle | Self::Xsub
-    )
+  /// Is this a **bitmap** (image-based) subtitle codec, requiring an
+  /// OCR pipeline stage to extract searchable text?
+  ///
+  /// - `Some(true)`: matches FFmpeg's `AV_CODEC_PROP_BITMAP_SUB` flag.
+  /// - `Some(false)`: a known FFmpeg subtitle codec without
+  ///   `AV_CODEC_PROP_BITMAP_SUB` (text codecs and teletext/VBI-style
+  ///   codecs that carry no `.props` at all in FFmpeg n8.1).
+  /// - `None`: [`Self::Other`] — the codec name is not in the vendored
+  ///   FFmpeg table, so we cannot consult `.props`.
+  /// (4 bitmap / 23 non-bitmap variant(s) per FFmpeg n8.1).
+  pub fn is_image_based(&self) -> Option<bool> {
+    match self {
+      Self::DvbSubtitle | Self::DvdSubtitle | Self::HdmvPgsSubtitle | Self::Xsub => Some(true),
+      Self::AribCaption
+      | Self::Ass
+      | Self::DvbTeletext
+      | Self::Eia608
+      | Self::HdmvTextSubtitle
+      | Self::IvtvVbi
+      | Self::Jacosub
+      | Self::Microdvd
+      | Self::MovText
+      | Self::Mpl2
+      | Self::Pjs
+      | Self::Realtext
+      | Self::Sami
+      | Self::Srt
+      | Self::Ssa
+      | Self::Stl
+      | Self::Subrip
+      | Self::Subviewer
+      | Self::Subviewer1
+      | Self::Text
+      | Self::Ttml
+      | Self::Vplayer
+      | Self::Webvtt => Some(false),
+      Self::Other(_) => None,
+    }
   }
 }
 impl FromStr for SubtitleCodec {
@@ -2301,14 +2331,28 @@ mod tests {
   fn subtitle_image_based_set_matches_ffmpeg() {
     for n in ["dvb_subtitle", "hdmv_pgs_subtitle", "dvd_subtitle", "xsub"] {
       let c: SubtitleCodec = n.parse().unwrap();
-      assert!(c.is_image_based(), "`{n}` should be image-based");
+      assert_eq!(
+        c.is_image_based(),
+        Some(true),
+        "`{n}` should be image-based"
+      );
     }
     for n in [
       "subrip", "ass", "ssa", "webvtt", "mov_text", "ttml", "microdvd",
     ] {
       let c: SubtitleCodec = n.parse().unwrap();
-      assert!(!c.is_image_based(), "`{n}` should NOT be image-based");
+      assert_eq!(
+        c.is_image_based(),
+        Some(false),
+        "`{n}` should NOT be image-based"
+      );
     }
+  }
+  #[test]
+  fn subtitle_image_based_is_unknown_for_other() {
+    let c: SubtitleCodec = "not_a_real_subtitle_codec_zzz".parse().unwrap();
+    assert!(c.is_other());
+    assert_eq!(c.is_image_based(), None);
   }
   #[test]
   fn display_matches_as_str() {

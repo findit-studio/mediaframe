@@ -18,12 +18,11 @@ default = ["std"]
 alloc   = []
 std     = ["thiserror/default", "smol_str/std"]
 buffa   = ["dep:buffa", "mediatime/buffa"]
-# Stream-descriptor codec/format/layout vocabulary
-# (`VideoCodec`/`AudioCodec`/`SubtitleCodec` so far — the post-`0.1.0`
-# broadened-charter batch tracked in mediaschema's
-# `schema/mediaframe-candidates.md`). Needs alloc for the `Other(SmolStr)`
-# arms; either `std` or `alloc` satisfies this.
-codec   = []
+# (Stream-descriptor codec vocabulary `VideoCodec`/`AudioCodec`/`SubtitleCodec`
+# is available whenever `std` *or* `alloc` is on — the `Other(SmolStr)` escape
+# arms need alloc. There is intentionally no `codec` feature gate: gating on
+# alloc keeps the matrix small and the no_std build remains opt-in via
+# `default-features = false`.)
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [

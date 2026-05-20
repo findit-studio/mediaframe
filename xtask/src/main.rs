@@ -423,12 +423,25 @@ fn check_codec(root: &Path) -> bool {
     let empty = BTreeMap::new();
     let mf_named = mediaframe.get(*enum_name).unwrap_or(&empty);
 
+    // Direction 1: every mediaframe named variant's canonical string must
+    // exist on the FFmpeg side (catches typos in `as_str()`).
     let mut missing_from_ffmpeg: BTreeMap<&String, &String> = BTreeMap::new();
     for (variant, canonical) in mf_named {
       if !ff_names.contains(canonical) {
         missing_from_ffmpeg.insert(variant, canonical);
       }
     }
+
+    // Direction 2: every FFmpeg short name must have a matching mediaframe
+    // named variant (catches a `cargo xtask sync` bump that added codecs
+    // without re-running `cargo xtask gen-codec`). Without this, new
+    // codecs would silently parse to `Other(SmolStr)` and `is_*` predicates
+    // would miss them — the generated-all-codecs invariant.
+    let mf_canonicals: BTreeSet<&String> = mf_named.values().collect();
+    let missing_from_mediaframe: BTreeSet<&String> = ff_names
+      .iter()
+      .filter(|n| !mf_canonicals.contains(n))
+      .collect();
 
     println!(
       "  {enum_name}: {} named variant(s); FFmpeg {} `{media_type}` codec(s)",
@@ -454,6 +467,45 @@ fn check_codec(root: &Path) -> bool {
       );
       ok = false;
     }
+
+    if !missing_from_mediaframe.is_empty() {
+      eprintln!(
+        "FAIL: {} FFmpeg {FFMPEG_TAG} `{media_type}` codec(s) NOT covered by mediaframe \
+             `{enum_name}` (would silently fall through to `Other(SmolStr)`):",
+        missing_from_mediaframe.len()
+      );
+      for canonical in &missing_from_mediaframe {
+        eprintln!("    \"{canonical}\"");
+      }
+      eprintln!(
+        "Action: run `cargo xtask gen-codec` to regenerate {CODEC_RS} from the \
+                  current vendored table (the all-codecs-named invariant relies on \
+                  this regen step staying in sync with `xtask/vendor/ffmpeg-codecs.txt`)."
+      );
+      ok = false;
+    }
+  }
+
+  // Stage 2: generation freshness. Build the codec module the same way
+  // `gen-codec` would and diff against the on-disk file — catches edits to
+  // the vendored table that haven't been propagated through `gen-codec`,
+  // even when the variant-coverage check happens to pass (e.g. variant
+  // ordering changes, `BITMAP_SUBTITLES` updates).
+  match build_codec_rs(&root) {
+    Ok(expected) => {
+      let actual = fs::read_to_string(root.join(CODEC_RS)).unwrap_or_default();
+      if expected != actual {
+        eprintln!(
+          "FAIL: {CODEC_RS} is stale vs the vendored FFmpeg table — \
+                 run `cargo xtask gen-codec` to refresh it."
+        );
+        ok = false;
+      }
+    }
+    Err(e) => {
+      eprintln!("FAIL: could not build expected {CODEC_RS}: {e}");
+      ok = false;
+    }
   }
 
   println!("FFmpeg pinned: {FFMPEG_TAG}");
@@ -462,7 +514,10 @@ fn check_codec(root: &Path) -> bool {
     CODEC_ENUMS.len()
   );
   if ok {
-    println!("OK: every named codec variant in mediaframe is covered by FFmpeg {FFMPEG_TAG}.");
+    println!(
+      "OK: mediaframe codec enums and FFmpeg {FFMPEG_TAG} are in two-way sync \
+       (and {CODEC_RS} is up-to-date)."
+    );
   }
   ok
 }
@@ -924,15 +979,27 @@ fn sync() -> ExitCode {
   kbody.push_str(&iso_date_today());
   kbody.push_str("\n#\n");
   kbody.push_str("# Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.\n");
-  kbody.push_str("# Format: `<media_type> <name>` — one descriptor per line, sorted.\n");
+  kbody.push_str("# Format: `<media_type> <name> [<props>]` — one descriptor per line, sorted.\n");
   kbody.push_str(
     "# `<media_type>` is the lowercased AVMEDIA_TYPE_* suffix\n\
-     # (video / audio / subtitle / data / attachment).\n\n",
+     # (video / audio / subtitle / data / attachment).\n",
   );
-  for (ty, name) in &descriptors {
+  kbody.push_str(
+    "# `<props>` is a comma-separated list of `AV_CODEC_PROP_*` tokens\n\
+     # (prefix stripped, e.g. `BITMAP_SUB`, `TEXT_SUB`, `LOSSY`). Optional —\n\
+     # codecs with no `.props` initializer omit the column entirely. The\n\
+     # generator (`cargo xtask gen-codec`) uses this set to derive predicate\n\
+     # methods like `SubtitleCodec::is_image_based()` (= `BITMAP_SUB`).\n\n",
+  );
+  for (ty, name, props) in &descriptors {
     kbody.push_str(ty);
     kbody.push(' ');
     kbody.push_str(name);
+    if !props.is_empty() {
+      kbody.push(' ');
+      let joined: Vec<&str> = props.iter().map(String::as_str).collect();
+      kbody.push_str(&joined.join(","));
+    }
     kbody.push('\n');
   }
   if let Err(e) = fs::write(&codec_out, &kbody) {
@@ -1123,8 +1190,18 @@ fn iso_date_today() -> String {
 /// fields were seen. `NULL_IF_CONFIG_SMALL(...)` and other macro-wrapped
 /// fields are ignored — `.name` is always a bare string literal in
 /// codec_desc.c.
-fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
-  let mut out: Vec<(String, String)> = Vec::new();
+/// One parsed descriptor: `(media_type, short_name, props)`.
+///
+/// `props` carries every `AV_CODEC_PROP_*` token referenced inside the
+/// descriptor (with the `AV_CODEC_PROP_` prefix stripped). The only place
+/// these tokens appear in `codec_desc.c` is in the `.props` initializer
+/// expression, so collecting them per-block recovers the canonical
+/// FFmpeg-side property set without parsing the multi-line `|` expression
+/// shape.
+type CodecDescriptor = (String, String, BTreeSet<String>);
+
+fn extract_codec_descriptors(source: &str) -> Vec<CodecDescriptor> {
+  let mut out: Vec<CodecDescriptor> = Vec::new();
   let Some(arr_at) = source.find("codec_descriptors[]") else {
     return out;
   };
@@ -1137,6 +1214,7 @@ fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
 
   let mut current_type: Option<String> = None;
   let mut current_name: Option<String> = None;
+  let mut current_props: BTreeSet<String> = BTreeSet::new();
   let mut depth_in_descriptor: i32 = 0;
 
   for raw in body.lines() {
@@ -1156,6 +1234,7 @@ fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
     if depth_in_descriptor == 0 && opens > 0 {
       current_type = None;
       current_name = None;
+      current_props.clear();
     }
     depth_in_descriptor += opens - closes;
 
@@ -1179,11 +1258,29 @@ fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
       }
     }
 
+    // Collect any AV_CODEC_PROP_<NAME> tokens on this line — they only
+    // appear inside `.props` initializers, so per-block accumulation
+    // captures the property set even when `.props = A | B,` is split
+    // across multiple lines with the `|` continuations.
+    let mut cursor = line;
+    while let Some(idx) = cursor.find("AV_CODEC_PROP_") {
+      let after = &cursor[idx + "AV_CODEC_PROP_".len()..];
+      let end = after
+        .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .unwrap_or(after.len());
+      let tok = &after[..end];
+      if !tok.is_empty() && tok != "NB" {
+        current_props.insert(tok.to_string());
+      }
+      cursor = &after[end..];
+    }
+
     // Closed back to array depth — descriptor finished.
     if depth_in_descriptor == 0 && closes > 0 {
       if let (Some(t), Some(n)) = (current_type.take(), current_name.take()) {
-        out.push((t, n));
+        out.push((t, n, std::mem::take(&mut current_props)));
       }
+      current_props.clear();
     }
   }
   out
@@ -1200,22 +1297,59 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::Ident;
 
-/// Subtitles whose `.props` carries `AV_CODEC_PROP_BITMAP_SUB` in FFmpeg
-/// n8.1 — the OCR-stage trigger from `subtitle_track.md` r3.
-const BITMAP_SUBTITLES: &[&str] = &["dvb_subtitle", "dvd_subtitle", "hdmv_pgs_subtitle", "xsub"];
-
 fn gen_codec() -> ExitCode {
   let root = workspace_root();
-  let vendor = match fs::read_to_string(root.join(CODEC_VENDOR_PATH)) {
-    Ok(s) => s,
+  let (counts, content) = match build_codec_rs_with_counts(&root) {
+    Ok(v) => v,
     Err(e) => {
-      eprintln!("error: cannot read {CODEC_VENDOR_PATH}: {e}");
-      eprintln!("hint:  run `cargo xtask sync` first to populate the vendored list");
+      eprintln!("{e}");
       return ExitCode::FAILURE;
     }
   };
+  let out_path = root.join(CODEC_RS);
+  if let Err(e) = fs::write(&out_path, &content) {
+    eprintln!("error: cannot write {}: {e}", out_path.display());
+    return ExitCode::FAILURE;
+  }
+  let (v, a, s) = counts;
+  println!(
+    "Wrote {} codec variants ({} video + {} audio + {} subtitle) to {} ({} bytes)",
+    v + a + s,
+    v,
+    a,
+    s,
+    out_path.display(),
+    content.len()
+  );
+  ExitCode::SUCCESS
+}
 
-  let mut by_type: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+/// Build the **expected** content of `mediaframe/src/codec.rs` from
+/// `xtask/vendor/ffmpeg-codecs.txt`. Used both by `gen-codec` (writes the
+/// result to disk) and by `check_codec`'s freshness check (compares the
+/// result to the on-disk file).
+///
+/// Pipeline: vendor file → `BTreeSet` per media type → `quote!` `TokenStream`
+/// → `syn::parse2` → `prettyplease::unparse` → `rustfmt --emit=stdout`. The
+/// final `rustfmt` step is required for CI parity — `prettyplease` is
+/// rustfmt-adjacent but block-wraps long match arms and renders multi-line
+/// docs as `/** */`, neither of which survives `cargo fmt --check`.
+fn build_codec_rs(root: &Path) -> Result<String, String> {
+  build_codec_rs_with_counts(root).map(|(_, s)| s)
+}
+
+fn build_codec_rs_with_counts(root: &Path) -> Result<((usize, usize, usize), String), String> {
+  let vendor = fs::read_to_string(root.join(CODEC_VENDOR_PATH)).map_err(|e| {
+    format!(
+      "error: cannot read {CODEC_VENDOR_PATH}: {e}\n\
+         hint:  run `cargo xtask sync` first to populate the vendored list"
+    )
+  })?;
+
+  // Parse the vendored table into `media_type -> name -> {prop tokens}`.
+  // The third column is comma-separated, prefix-stripped `AV_CODEC_PROP_*`
+  // tokens; codecs with no `.props` initializer have no third column.
+  let mut by_type: BTreeMap<String, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
   for line in vendor.lines() {
     let line = line.trim();
     if line.is_empty() || line.starts_with('#') {
@@ -1225,66 +1359,70 @@ fn gen_codec() -> ExitCode {
     let (Some(ty), Some(name)) = (it.next(), it.next()) else {
       continue;
     };
+    let props: BTreeSet<String> = it
+      .next()
+      .map(|s| {
+        s.split(',')
+          .filter(|t| !t.is_empty())
+          .map(str::to_string)
+          .collect()
+      })
+      .unwrap_or_default();
     by_type
       .entry(ty.to_string())
       .or_default()
-      .insert(name.to_string());
+      .insert(name.to_string(), props);
   }
   let video = by_type.remove("video").unwrap_or_default();
   let audio = by_type.remove("audio").unwrap_or_default();
   let subtitle = by_type.remove("subtitle").unwrap_or_default();
 
   let module = build_codec_module(&video, &audio, &subtitle);
-
-  // Parse → pretty-print so the generated file is rustfmt-clean without
-  // calling out to external rustfmt.
-  let parsed: syn::File = match syn::parse2(module) {
-    Ok(f) => f,
-    Err(e) => {
-      eprintln!("internal error: generated token stream is not parseable: {e}");
-      return ExitCode::FAILURE;
-    }
-  };
+  let parsed: syn::File = syn::parse2(module)
+    .map_err(|e| format!("internal error: generated token stream is not parseable: {e}"))?;
   let pretty = prettyplease::unparse(&parsed);
+  let formatted = run_rustfmt(&pretty)?;
+  Ok(((video.len(), audio.len(), subtitle.len()), formatted))
+}
 
-  let out_path = root.join(CODEC_RS);
-  if let Err(e) = fs::write(&out_path, &pretty) {
-    eprintln!("error: cannot write {}: {e}", out_path.display());
-    return ExitCode::FAILURE;
-  }
+/// Pipe `source` through `rustfmt --edition=2024 --emit=stdout` and return
+/// the formatted result. Going via stdin/stdout (not a file) lets the
+/// generator stay side-effect-free for `check_codec`'s freshness diff.
+fn run_rustfmt(source: &str) -> Result<String, String> {
+  use std::{io::Write, process::Stdio};
 
-  // `prettyplease` is rustfmt-adjacent but not byte-identical: it block-wraps
-  // long `Ok(match s { ... })` arms and renders multi-paragraph doc strings as
-  // `/** */`. CI runs `cargo fmt --check`, so finish with the real rustfmt
-  // (every contributor already has it from the rustup toolchain).
-  let fmt = Command::new("rustfmt")
+  let mut child = Command::new("rustfmt")
     .arg("--edition=2024")
-    .arg(&out_path)
-    .status();
-  match fmt {
-    Ok(s) if s.success() => {}
-    Ok(s) => {
-      eprintln!("error: rustfmt exited with status {s}");
-      return ExitCode::FAILURE;
-    }
-    Err(e) => {
-      eprintln!("error: failed to invoke rustfmt: {e}");
-      eprintln!("hint:  install via `rustup component add rustfmt`");
-      return ExitCode::FAILURE;
-    }
-  }
+    .arg("--emit=stdout")
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .map_err(|e| {
+      format!(
+        "error: failed to invoke rustfmt: {e}\n\
+                 hint:  install via `rustup component add rustfmt`"
+      )
+    })?;
 
-  let final_len = fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
-  println!(
-    "Wrote {} codec variants ({} video + {} audio + {} subtitle) to {} ({} bytes)",
-    video.len() + audio.len() + subtitle.len(),
-    video.len(),
-    audio.len(),
-    subtitle.len(),
-    out_path.display(),
-    final_len
-  );
-  ExitCode::SUCCESS
+  child
+    .stdin
+    .as_mut()
+    .expect("piped stdin")
+    .write_all(source.as_bytes())
+    .map_err(|e| format!("error: write to rustfmt stdin failed: {e}"))?;
+
+  let out = child
+    .wait_with_output()
+    .map_err(|e| format!("error: wait on rustfmt failed: {e}"))?;
+  if !out.status.success() {
+    return Err(format!(
+      "rustfmt exited with status {}: {}",
+      out.status,
+      String::from_utf8_lossy(&out.stderr)
+    ));
+  }
+  String::from_utf8(out.stdout).map_err(|e| format!("rustfmt stdout was not UTF-8: {e}"))
 }
 
 /// Convert an FFmpeg codec short name into a valid Rust identifier.
@@ -1318,10 +1456,14 @@ fn codec_ident(name: &str) -> String {
   out
 }
 
+/// One media type's codecs, keyed by FFmpeg short name → set of
+/// `AV_CODEC_PROP_*` tokens (prefix stripped) carried in `.props`.
+type CodecsWithProps = BTreeMap<String, BTreeSet<String>>;
+
 fn build_codec_module(
-  video: &BTreeSet<String>,
-  audio: &BTreeSet<String>,
-  subtitle: &BTreeSet<String>,
+  video: &CodecsWithProps,
+  audio: &CodecsWithProps,
+  subtitle: &CodecsWithProps,
 ) -> TokenStream {
   let video_enum = build_codec_enum("VideoCodec", "video", video, false);
   let audio_enum = build_codec_enum("AudioCodec", "audio", audio, false);
@@ -1374,13 +1516,13 @@ fn build_codec_module(
 fn build_codec_enum(
   type_name: &str,
   media_type: &str,
-  names: &BTreeSet<String>,
+  codecs: &CodecsWithProps,
   is_subtitle: bool,
 ) -> TokenStream {
   let enum_ident = format_ident!("{}", type_name);
 
-  let variants: Vec<(Ident, String)> = names
-    .iter()
+  let variants: Vec<(Ident, String)> = codecs
+    .keys()
     .map(|n| (Ident::new(&codec_ident(n), Span::call_site()), n.clone()))
     .collect();
 
@@ -1409,21 +1551,49 @@ fn build_codec_enum(
     media_type
   );
 
+  // Subtitle `is_image_based()` is sourced from the vendored `.props` set
+  // (FFmpeg n8.1's `AV_CODEC_PROP_BITMAP_SUB` flag), not a hand-maintained
+  // constant. Returns `Option<bool>`: `Some(true)` for bitmap subtitles,
+  // `Some(false)` for known-text subtitles, `None` for `Other(_)` because
+  // an unknown codec name has no FFmpeg `.props` record we can consult.
   let extra_impl = if is_subtitle {
-    let bitmap_arms = BITMAP_SUBTITLES
-      .iter()
-      .filter(|n| names.contains(**n))
-      .map(|n| {
-        let ident = Ident::new(&codec_ident(n), Span::call_site());
-        quote! { Self::#ident }
-      });
-    let bitmap_arms: Vec<_> = bitmap_arms.collect();
+    let mut bitmap_idents: Vec<Ident> = Vec::new();
+    let mut non_bitmap_idents: Vec<Ident> = Vec::new();
+    for (ident, name) in &variants {
+      let props = codecs.get(name).cloned().unwrap_or_default();
+      if props.contains("BITMAP_SUB") {
+        bitmap_idents.push(ident.clone());
+      } else {
+        // Includes `TEXT_SUB` codecs *and* the no-`.props` codecs
+        // (arib_caption, dvb_teletext, ivtv_vbi …) — FFmpeg classifies
+        // none of them as bitmap, so OCR is not the right pipeline.
+        non_bitmap_idents.push(ident.clone());
+      }
+    }
+    let bitmap_arms = bitmap_idents.iter().map(|i| quote! { Self::#i });
+    let non_bitmap_arms = non_bitmap_idents.iter().map(|i| quote! { Self::#i });
+    let bitmap_count = bitmap_idents.len();
+    let non_bitmap_count = non_bitmap_idents.len();
+    let header_doc = format!(
+      " ({bitmap_count} bitmap / {non_bitmap_count} non-bitmap variant(s) per FFmpeg n8.1)."
+    );
     quote! {
-      /// True iff this is a **bitmap** (image-based) subtitle codec,
-      /// requiring an OCR pipeline stage to extract searchable text.
-      /// Matches FFmpeg's `AV_CODEC_PROP_BITMAP_SUB` flag.
-      pub fn is_image_based(&self) -> bool {
-        matches!(self, #(#bitmap_arms)|*)
+      /// Is this a **bitmap** (image-based) subtitle codec, requiring an
+      /// OCR pipeline stage to extract searchable text?
+      ///
+      /// - `Some(true)`: matches FFmpeg's `AV_CODEC_PROP_BITMAP_SUB` flag.
+      /// - `Some(false)`: a known FFmpeg subtitle codec without
+      ///   `AV_CODEC_PROP_BITMAP_SUB` (text codecs and teletext/VBI-style
+      ///   codecs that carry no `.props` at all in FFmpeg n8.1).
+      /// - `None`: [`Self::Other`] — the codec name is not in the vendored
+      ///   FFmpeg table, so we cannot consult `.props`.
+      #[doc = #header_doc]
+      pub fn is_image_based(&self) -> Option<bool> {
+        match self {
+          #(#bitmap_arms)|* => Some(true),
+          #(#non_bitmap_arms)|* => Some(false),
+          Self::Other(_) => None,
+        }
       }
     }
   } else {
@@ -1541,12 +1711,22 @@ fn build_codec_tests() -> TokenStream {
       fn subtitle_image_based_set_matches_ffmpeg() {
         for n in ["dvb_subtitle", "hdmv_pgs_subtitle", "dvd_subtitle", "xsub"] {
           let c: SubtitleCodec = n.parse().unwrap();
-          assert!(c.is_image_based(), "`{n}` should be image-based");
+          assert_eq!(c.is_image_based(), Some(true), "`{n}` should be image-based");
         }
         for n in ["subrip", "ass", "ssa", "webvtt", "mov_text", "ttml", "microdvd"] {
           let c: SubtitleCodec = n.parse().unwrap();
-          assert!(!c.is_image_based(), "`{n}` should NOT be image-based");
+          assert_eq!(c.is_image_based(), Some(false), "`{n}` should NOT be image-based");
         }
+      }
+
+      #[test]
+      fn subtitle_image_based_is_unknown_for_other() {
+        // `Other(_)` round-trips the string but isn't in the vendored
+        // FFmpeg `.props` table — caller can't classify it as text or
+        // bitmap without a fresh `cargo xtask sync` + `gen-codec`.
+        let c: SubtitleCodec = "not_a_real_subtitle_codec_zzz".parse().unwrap();
+        assert!(c.is_other());
+        assert_eq!(c.is_image_based(), None);
       }
 
       #[test]

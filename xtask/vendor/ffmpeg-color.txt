@@ -1,6 +1,6 @@
 # FFmpeg colour-enum code points — vendored for `cargo xtask check`.
 # Source: FFmpeg n8.1 libavutil/pixfmt.h
-# Fetched: 2026-05-19
+# Fetched: 2026-05-20
 #
 # Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.
 # One `<ENUM> <FFMPEG_NAME> <VALUE>` per line; AVColor*/AVChroma* enums,

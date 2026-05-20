@@ -101,6 +101,7 @@ fn main() -> ExitCode {
   match cmd.as_str() {
     "check" | "check-pixel-format" | "check-codec" => check(),
     "sync" | "sync-pixel-format" | "sync-codec" => sync(),
+    "gen-codec" => gen_codec(),
     "help" | "--help" | "-h" => {
       print_help();
       ExitCode::SUCCESS
@@ -121,9 +122,11 @@ fn print_help() {
                     - PixelFormat slugs ({VENDOR_PATH})\n           \
                     - Colour-enum codes ({COLOR_VENDOR_PATH})\n           \
                     - Codec short names ({CODEC_VENDOR_PATH})\n  \
-         sync     Fetch FFmpeg {FFMPEG_TAG} (pixfmt.h + codec_desc.c) and\n           \
-                  regenerate the vendored files deterministically\n  \
-         help     Show this help\n"
+         sync       Fetch FFmpeg {FFMPEG_TAG} (pixfmt.h + codec_desc.c) and\n             \
+                    regenerate the vendored files deterministically\n  \
+         gen-codec  Regenerate mediaframe/src/codec.rs from the vendored\n             \
+                    table ({CODEC_VENDOR_PATH}) via quote + prettyplease\n  \
+         help       Show this help\n"
   );
 }
 
@@ -1186,4 +1189,385 @@ fn extract_codec_descriptors(source: &str) -> Vec<(String, String)> {
     }
   }
   out
+}
+
+// ---------- gen-codec ------------------------------------------------------
+//
+// Regenerate `mediaframe/src/codec.rs` from `xtask/vendor/ffmpeg-codecs.txt`
+// using the same `quote!` / `proc-macro2` / `prettyplease` toolchain proc-
+// macros use. Single source of truth (the vendored table) → single
+// generated module; `cargo xtask check` is the CI gate against drift.
+
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote};
+use syn::Ident;
+
+/// Subtitles whose `.props` carries `AV_CODEC_PROP_BITMAP_SUB` in FFmpeg
+/// n8.1 — the OCR-stage trigger from `subtitle_track.md` r3.
+const BITMAP_SUBTITLES: &[&str] = &[
+  "dvb_subtitle",
+  "dvd_subtitle",
+  "hdmv_pgs_subtitle",
+  "xsub",
+];
+
+fn gen_codec() -> ExitCode {
+  let root = workspace_root();
+  let vendor = match fs::read_to_string(root.join(CODEC_VENDOR_PATH)) {
+    Ok(s) => s,
+    Err(e) => {
+      eprintln!("error: cannot read {CODEC_VENDOR_PATH}: {e}");
+      eprintln!("hint:  run `cargo xtask sync` first to populate the vendored list");
+      return ExitCode::FAILURE;
+    }
+  };
+
+  let mut by_type: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+  for line in vendor.lines() {
+    let line = line.trim();
+    if line.is_empty() || line.starts_with('#') {
+      continue;
+    }
+    let mut it = line.split_whitespace();
+    let (Some(ty), Some(name)) = (it.next(), it.next()) else {
+      continue;
+    };
+    by_type
+      .entry(ty.to_string())
+      .or_default()
+      .insert(name.to_string());
+  }
+  let video = by_type.remove("video").unwrap_or_default();
+  let audio = by_type.remove("audio").unwrap_or_default();
+  let subtitle = by_type.remove("subtitle").unwrap_or_default();
+
+  let module = build_codec_module(&video, &audio, &subtitle);
+
+  // Parse → pretty-print so the generated file is rustfmt-clean without
+  // calling out to external rustfmt.
+  let parsed: syn::File = match syn::parse2(module) {
+    Ok(f) => f,
+    Err(e) => {
+      eprintln!("internal error: generated token stream is not parseable: {e}");
+      return ExitCode::FAILURE;
+    }
+  };
+  let pretty = prettyplease::unparse(&parsed);
+
+  let out_path = root.join(CODEC_RS);
+  if let Err(e) = fs::write(&out_path, &pretty) {
+    eprintln!("error: cannot write {}: {e}", out_path.display());
+    return ExitCode::FAILURE;
+  }
+
+  // `prettyplease` is rustfmt-adjacent but not byte-identical: it block-wraps
+  // long `Ok(match s { ... })` arms and renders multi-paragraph doc strings as
+  // `/** */`. CI runs `cargo fmt --check`, so finish with the real rustfmt
+  // (every contributor already has it from the rustup toolchain).
+  let fmt = Command::new("rustfmt")
+    .arg("--edition=2024")
+    .arg(&out_path)
+    .status();
+  match fmt {
+    Ok(s) if s.success() => {}
+    Ok(s) => {
+      eprintln!("error: rustfmt exited with status {s}");
+      return ExitCode::FAILURE;
+    }
+    Err(e) => {
+      eprintln!("error: failed to invoke rustfmt: {e}");
+      eprintln!("hint:  install via `rustup component add rustfmt`");
+      return ExitCode::FAILURE;
+    }
+  }
+
+  let final_len = fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
+  println!(
+    "Wrote {} codec variants ({} video + {} audio + {} subtitle) to {} ({} bytes)",
+    video.len() + audio.len() + subtitle.len(),
+    video.len(),
+    audio.len(),
+    subtitle.len(),
+    out_path.display(),
+    final_len
+  );
+  ExitCode::SUCCESS
+}
+
+/// Convert an FFmpeg codec short name into a valid Rust identifier.
+///
+/// Rules:
+/// - Split on `_` or `.` (the only separators FFmpeg uses).
+/// - Each non-empty segment: uppercase the first char, lowercase the rest.
+/// - If the result starts with a digit (`4xm`, `8svx_exp`, `012v`),
+///   prepend `_`.
+///
+/// Examples:
+/// `h264`→`H264`, `pcm_s16le`→`PcmS16le`, `dvb_subtitle`→`DvbSubtitle`,
+/// `acelp.kelvin`→`AcelpKelvin`, `4xm`→`_4xm`, `012v`→`_012v`.
+fn codec_ident(name: &str) -> String {
+  let mut out = String::with_capacity(name.len());
+  for seg in name.split(|c: char| c == '_' || c == '.') {
+    if seg.is_empty() {
+      continue;
+    }
+    let mut chars = seg.chars();
+    if let Some(first) = chars.next() {
+      out.extend(first.to_uppercase());
+    }
+    for c in chars {
+      out.extend(c.to_lowercase());
+    }
+  }
+  if out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+    out.insert(0, '_');
+  }
+  out
+}
+
+fn build_codec_module(
+  video: &BTreeSet<String>,
+  audio: &BTreeSet<String>,
+  subtitle: &BTreeSet<String>,
+) -> TokenStream {
+  let video_enum = build_codec_enum("VideoCodec", "video", video, false);
+  let audio_enum = build_codec_enum("AudioCodec", "audio", audio, false);
+  let subtitle_enum = build_codec_enum("SubtitleCodec", "subtitle", subtitle, true);
+
+  // Module-level docs (inner-doc attributes — `prettyplease` renders them
+  // as `//!` lines on output).
+  let module_doc: Vec<TokenStream> = [
+    " Stream-descriptor **codec** vocabulary for video, audio, and subtitle",
+    " tracks.",
+    "",
+    " **Generated** from `xtask/vendor/ffmpeg-codecs.txt` (FFmpeg n8.1",
+    " `libavcodec/codec_desc.c`) by `cargo xtask gen-codec`. Every codec",
+    " FFmpeg knows under media types `video` / `audio` / `subtitle` has",
+    " a named variant here; the `Other(SmolStr)` arm remains a lossless",
+    " escape for codecs added in a future FFmpeg release before this file",
+    " is regenerated.",
+    "",
+    " Regenerate in two steps:",
+    " 1. `cargo xtask sync`       — refreshes the vendored table.",
+    " 2. `cargo xtask gen-codec`  — regenerates this file from it.",
+    "",
+    " `cargo xtask check` verifies every named variant's canonical string",
+    " exists in the vendored table — CI gate against drift.",
+  ]
+  .iter()
+  .map(|line| quote! { #![doc = #line] })
+  .collect();
+
+  let tests = build_codec_tests();
+
+  quote! {
+    #(#module_doc)*
+
+    use core::str::FromStr;
+
+    use derive_more::{Display, IsVariant};
+    use smol_str::SmolStr;
+
+    #video_enum
+
+    #audio_enum
+
+    #subtitle_enum
+
+    #tests
+  }
+}
+
+fn build_codec_enum(
+  type_name: &str,
+  media_type: &str,
+  names: &BTreeSet<String>,
+  is_subtitle: bool,
+) -> TokenStream {
+  let enum_ident = format_ident!("{}", type_name);
+
+  let variants: Vec<(Ident, String)> = names
+    .iter()
+    .map(|n| (Ident::new(&codec_ident(n), Span::call_site()), n.clone()))
+    .collect();
+
+  let variant_decls = variants.iter().map(|(ident, name)| {
+    let doc = format!(" FFmpeg `\"{name}\"`.");
+    quote! {
+      #[doc = #doc]
+      #ident,
+    }
+  });
+
+  let as_str_arms = variants.iter().map(|(ident, name)| {
+    quote! { Self::#ident => #name, }
+  });
+
+  let from_str_arms = variants.iter().map(|(ident, name)| {
+    quote! { #name => Self::#ident, }
+  });
+
+  let enum_doc = format!(
+    " {} codec family — every codec FFmpeg n8.1 knows under media type `{}`.\n\n \
+     `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` \
+     arm is the lossless escape for codecs added upstream before this file is \
+     regenerated.",
+    type_name
+      .strip_suffix("Codec")
+      .unwrap_or(type_name),
+    media_type
+  );
+
+  let extra_impl = if is_subtitle {
+    let bitmap_arms = BITMAP_SUBTITLES
+      .iter()
+      .filter(|n| names.contains(**n))
+      .map(|n| {
+        let ident = Ident::new(&codec_ident(n), Span::call_site());
+        quote! { Self::#ident }
+      });
+    let bitmap_arms: Vec<_> = bitmap_arms.collect();
+    quote! {
+      /// True iff this is a **bitmap** (image-based) subtitle codec,
+      /// requiring an OCR pipeline stage to extract searchable text.
+      /// Matches FFmpeg's `AV_CODEC_PROP_BITMAP_SUB` flag.
+      pub fn is_image_based(&self) -> bool {
+        matches!(self, #(#bitmap_arms)|*)
+      }
+    }
+  } else {
+    quote! {}
+  };
+
+  quote! {
+    #[doc = #enum_doc]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
+    #[display("{}", self.as_str())]
+    #[non_exhaustive]
+    #[allow(non_camel_case_types, non_snake_case)]
+    pub enum #enum_ident {
+      #(#variant_decls)*
+      /// A codec not enumerated above — carries the FFmpeg short name
+      /// verbatim.
+      Other(SmolStr),
+    }
+
+    impl #enum_ident {
+      /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
+      pub fn as_str(&self) -> &str {
+        match self {
+          #(#as_str_arms)*
+          Self::Other(s) => s.as_str(),
+        }
+      }
+
+      #extra_impl
+    }
+
+    impl FromStr for #enum_ident {
+      type Err = core::convert::Infallible;
+
+      /// Recognise an FFmpeg codec short name; unknown values land in
+      /// [`Self::Other`] (infallible, lossless).
+      fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+          #(#from_str_arms)*
+          other => Self::Other(SmolStr::new(other)),
+        })
+      }
+    }
+  }
+}
+
+fn build_codec_tests() -> TokenStream {
+  // The vendored file is read at compile time so a single source of truth
+  // governs both `cargo xtask check` and the in-crate test suite.
+  quote! {
+    #[cfg(test)]
+    mod tests {
+      use super::*;
+
+      const VENDOR: &str = include_str!("../../xtask/vendor/ffmpeg-codecs.txt");
+
+      fn vendored_of(media: &'static str) -> impl Iterator<Item = &'static str> {
+        VENDOR.lines().filter_map(move |l| {
+          let l = l.trim();
+          if l.is_empty() || l.starts_with('#') {
+            return None;
+          }
+          let mut it = l.split_whitespace();
+          match (it.next(), it.next()) {
+            (Some(m), Some(n)) if m == media => Some(n),
+            _ => None,
+          }
+        })
+      }
+
+      #[test]
+      fn every_video_codec_round_trips_to_named_variant() {
+        let mut n = 0usize;
+        for name in vendored_of("video") {
+          let c: VideoCodec = name.parse().unwrap();
+          assert!(!c.is_other(), "video `{name}` should parse to a named variant");
+          assert_eq!(c.as_str(), name, "round-trip mismatch for `{name}`");
+          n += 1;
+        }
+        assert!(n > 0, "vendored video list is empty?");
+      }
+
+      #[test]
+      fn every_audio_codec_round_trips_to_named_variant() {
+        let mut n = 0usize;
+        for name in vendored_of("audio") {
+          let c: AudioCodec = name.parse().unwrap();
+          assert!(!c.is_other(), "audio `{name}` should parse to a named variant");
+          assert_eq!(c.as_str(), name);
+          n += 1;
+        }
+        assert!(n > 0);
+      }
+
+      #[test]
+      fn every_subtitle_codec_round_trips_to_named_variant() {
+        let mut n = 0usize;
+        for name in vendored_of("subtitle") {
+          let c: SubtitleCodec = name.parse().unwrap();
+          assert!(!c.is_other(), "subtitle `{name}` should parse to a named variant");
+          assert_eq!(c.as_str(), name);
+          n += 1;
+        }
+        assert!(n > 0);
+      }
+
+      #[test]
+      fn unknown_codec_preserves_string_through_other() {
+        let v: VideoCodec = "definitely_not_a_real_codec_xyz".parse().unwrap();
+        assert!(v.is_other());
+        assert_eq!(v.as_str(), "definitely_not_a_real_codec_xyz");
+      }
+
+      #[test]
+      fn subtitle_image_based_set_matches_ffmpeg() {
+        for n in ["dvb_subtitle", "hdmv_pgs_subtitle", "dvd_subtitle", "xsub"] {
+          let c: SubtitleCodec = n.parse().unwrap();
+          assert!(c.is_image_based(), "`{n}` should be image-based");
+        }
+        for n in ["subrip", "ass", "ssa", "webvtt", "mov_text", "ttml", "microdvd"] {
+          let c: SubtitleCodec = n.parse().unwrap();
+          assert!(!c.is_image_based(), "`{n}` should NOT be image-based");
+        }
+      }
+
+      #[test]
+      fn display_matches_as_str() {
+        assert_eq!(VideoCodec::H264.to_string(), "h264");
+        assert_eq!(AudioCodec::Opus.to_string(), "opus");
+        assert_eq!(SubtitleCodec::Webvtt.to_string(), "webvtt");
+        assert_eq!(
+          VideoCodec::Other(SmolStr::new("custom_codec")).to_string(),
+          "custom_codec"
+        );
+      }
+    }
+  }
 }

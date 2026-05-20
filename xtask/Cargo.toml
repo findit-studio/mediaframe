@@ -8,6 +8,13 @@ description  = "Dev-only automation for the mediaframe crate (cargo xtask)."
 rust-version = "1.95.0"
 
 [dependencies]
+# `gen-codec` builds the mediaframe::codec module as a TokenStream from the
+# vendored FFmpeg codec table; `prettyplease` pretty-prints the result so the
+# generated file is rustfmt-clean without invoking external rustfmt.
+proc-macro2  = "1"
+quote        = "1"
+syn          = { version = "2", features = ["full", "parsing"] }
+prettyplease = "0.2"
 
 [[bin]]
 name = "xtask"

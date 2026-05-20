@@ -147,8 +147,8 @@ See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT) for details.
 
 Copyright (c) 2026 FinDIT Studio authors.
 
-[Github-url]: https://github.com/al8n/mediaframe/
-[CI-url]: https://github.com/al8n/mediaframe/actions/workflows/ci.yml
+[Github-url]: https://github.com/findit-ai/mediaframe/
+[CI-url]: https://github.com/findit-ai/mediaframe/actions/workflows/ci.yml
 [doc-url]: https://docs.rs/mediaframe
 [crates-url]: https://crates.io/crates/mediaframe
-[codecov-url]: https://app.codecov.io/gh/al8n/mediaframe/
+[codecov-url]: https://app.codecov.io/gh/findit-ai/mediaframe/

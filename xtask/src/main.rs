@@ -532,7 +532,7 @@ fn check_codec(root: &Path) -> bool {
   // the vendored table that haven't been propagated through `gen-codec`,
   // even when the variant-coverage check happens to pass (e.g. variant
   // ordering changes, `BITMAP_SUBTITLES` updates).
-  match build_codec_rs(&root) {
+  match build_codec_rs(root) {
     Ok(expected) => {
       // Reuse the already-loaded source (`codec_rs`) instead of
       // re-reading the file. The first read at the top of `check_codec`
@@ -1364,14 +1364,14 @@ fn extract_codec_descriptors(source: &str) -> Vec<CodecDescriptor> {
           current_type = Some(t.to_lowercase());
         }
       }
-    } else if let Some(rest) = line.strip_prefix(".name") {
-      if let Some(eq) = rest.find('=') {
-        let after_eq = &rest[eq + 1..];
-        if let Some(start) = after_eq.find('"') {
-          let inner = &after_eq[start + 1..];
-          if let Some(end) = inner.find('"') {
-            current_name = Some(inner[..end].to_string());
-          }
+    } else if let Some(rest) = line.strip_prefix(".name")
+      && let Some(eq) = rest.find('=')
+    {
+      let after_eq = &rest[eq + 1..];
+      if let Some(start) = after_eq.find('"') {
+        let inner = &after_eq[start + 1..];
+        if let Some(end) = inner.find('"') {
+          current_name = Some(inner[..end].to_string());
         }
       }
     }
@@ -1521,12 +1521,12 @@ fn read_mediaframe_edition(root: &Path) -> Result<String, String> {
   // one field would be overkill.
   for raw in manifest.lines() {
     let line = raw.trim_start();
-    if let Some(rest) = line.strip_prefix("edition") {
-      if let Some(after_eq) = rest.split_once('=').map(|(_, v)| v.trim()) {
-        let trimmed = after_eq.trim_matches('"');
-        if trimmed.chars().all(|c| c.is_ascii_digit()) && !trimmed.is_empty() {
-          return Ok(trimmed.to_string());
-        }
+    if let Some(rest) = line.strip_prefix("edition")
+      && let Some(after_eq) = rest.split_once('=').map(|(_, v)| v.trim())
+    {
+      let trimmed = after_eq.trim_matches('"');
+      if trimmed.chars().all(|c| c.is_ascii_digit()) && !trimmed.is_empty() {
+        return Ok(trimmed.to_string());
       }
     }
   }
@@ -1597,7 +1597,7 @@ fn run_rustfmt(source: &str, edition: &str) -> Result<String, String> {
 /// `8svx_exp`→`N8svxExp`.
 fn codec_ident(name: &str) -> String {
   let mut out = String::with_capacity(name.len());
-  for seg in name.split(|c: char| c == '_' || c == '.') {
+  for seg in name.split(['_', '.']) {
     if seg.is_empty() {
       continue;
     }

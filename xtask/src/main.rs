@@ -418,12 +418,13 @@ fn check_codec(root: &Path) -> bool {
     }
   };
 
-  // Stage 0: prop-token whitelist. The third vendored column carries
-  // `AV_CODEC_PROP_*` tokens (prefix stripped); reject any token outside
-  // FFmpeg n8.1's `codec.h` enumeration so an edit like
-  // `subtitle ass TEXT_SUB,BOGUS_PROP` fails CI instead of silently
-  // sneaking past — the generator only consumes BITMAP_SUB today, so
-  // without this gate non-BITMAP token corruption is invisible to the
+  // Stage 0: vendored-line shape. The third column carries
+  // `AV_CODEC_PROP_*` tokens (prefix stripped) defined in FFmpeg's
+  // `libavcodec/codec_desc.h`; reject anything outside [`KNOWN_CODEC_PROPS`]
+  // and reject any trailing fourth+ column outright. Without this gate a
+  // bogus token (e.g. `TEXT_SUB,BOGUS_PROP`) or a corrupted line with
+  // extra columns slips silently past — `gen-codec` consumes BITMAP_SUB
+  // only today, so non-BITMAP corruption would not show up in the
   // freshness diff.
   if let Err(bad) = validate_vendored_props(&vendor) {
     eprintln!("FAIL: {CODEC_VENDOR_PATH} carries unknown AV_CODEC_PROP_* tokens:");
@@ -533,8 +534,13 @@ fn check_codec(root: &Path) -> bool {
   // ordering changes, `BITMAP_SUBTITLES` updates).
   match build_codec_rs(&root) {
     Ok(expected) => {
-      let actual = fs::read_to_string(root.join(CODEC_RS)).unwrap_or_default();
-      if expected != actual {
+      // Reuse the already-loaded source (`codec_rs`) instead of
+      // re-reading the file. The first read at the top of `check_codec`
+      // returned `false` on I/O error, so by this point the content is
+      // known-good — a second `read_to_string + unwrap_or_default()`
+      // would both add redundant I/O and silently mask a real read
+      // failure as "stale".
+      if expected != codec_rs {
         eprintln!(
           "FAIL: {CODEC_RS} is stale vs the vendored FFmpeg table — \
                  run `cargo xtask gen-codec` to refresh it."
@@ -576,10 +582,13 @@ const KNOWN_CODEC_PROPS: &[&str] = &[
   "TEXT_SUB",    // (1 << 17) — searchable text subtitles
 ];
 
-/// Walk `xtask/vendor/ffmpeg-codecs.txt` and report any third-column
-/// token that isn't in [`KNOWN_CODEC_PROPS`]. Returns the offending
-/// `(line_no, line, token)` triples so the caller can report all
-/// mismatches in one shot. Empty `Ok(())` = the prop column is clean.
+/// Walk `xtask/vendor/ffmpeg-codecs.txt` and report any shape
+/// violation: a third-column token outside [`KNOWN_CODEC_PROPS`], **or**
+/// any unexpected fourth+ column (the vendor file is source-of-truth —
+/// silent acceptance of trailing junk would let real corruption slip
+/// past). Returns `(line_no, line, what)` triples so the caller can
+/// report every mismatch in one shot. Empty `Ok(())` = the table is
+/// clean.
 fn validate_vendored_props(text: &str) -> Result<(), Vec<(usize, String, String)>> {
   let known: BTreeSet<&str> = KNOWN_CODEC_PROPS.iter().copied().collect();
   let mut bad: Vec<(usize, String, String)> = Vec::new();
@@ -598,6 +607,18 @@ fn validate_vendored_props(text: &str) -> Result<(), Vec<(usize, String, String)
       if !known.contains(tok) {
         bad.push((i + 1, line.to_string(), tok.to_string()));
       }
+    }
+    // Strict shape: no fourth column allowed. A vendored line is
+    // exactly `<media_type> <name>` (no props) or
+    // `<media_type> <name> <comma-joined-props>` — anything beyond is
+    // corruption (extra whitespace-separated tokens, accidental
+    // unjoined props, copy-paste glitches, …).
+    if let Some(extra) = it.next() {
+      bad.push((
+        i + 1,
+        line.to_string(),
+        format!("unexpected trailing column `{extra}`"),
+      ));
     }
   }
   if bad.is_empty() { Ok(()) } else { Err(bad) }

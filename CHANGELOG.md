@@ -12,6 +12,31 @@ Initial `mediaframe` release — this crate is a **rename** of the
 are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
 identity).
 
+### Added
+
+- **`subtitle`** — `SubtitleFormat` (file / demuxer-tag axis,
+  `#[non_exhaustive]` + `Other(SmolStr)`; named variants for the
+  common text- and image-based formats — `Srt` / `WebVtt` / `Ass` /
+  `Ssa` / `Sub` (MicroDVD) / `Mpl2` / `Lrc` / `Smi` / `Stl` / `Sbv` /
+  `Ttml` / `MovText` / `DvdSub` / `PgsSub` / `HdmvPgs` / `DvbSub` /
+  `XSub`; `as_str` / total `FromStr` round-trip; `is_image_based`
+  helper for mediaschema's `REQUIRES_OCR` derivation) and
+  `SubtitleTrackOrigin` (closed unit-only enum — `Embedded` /
+  `Sidecar` / `External`; stable `to_u32` / `from_u32` ids
+  `0` / `1` / `2`; `Default == Embedded`). The module is gated on
+  the `alloc` feature for the `Other(SmolStr)` escape.
+- **`disposition`** — `TrackDisposition` bitflags (FFmpeg
+  `AV_DISPOSITION_*` from `libavformat/avformat.h` n8.1, `u32`
+  backing). Shared across video / audio / subtitle tracks; ports the
+  placeholder that used to live in `mediaschema::domain::bitflags`.
+  `to_u32` / `from_u32` aliases for `bits` / `from_bits_retain` so
+  unknown bits round-trip losslessly.
+- **`buffa`** — hand-written `Message` / `DefaultInstance` wire
+  impls for `SubtitleFormat` (`{ string value = 1 }`, FFmpeg slug
+  always-encoded), `SubtitleTrackOrigin` (`{ uint32 value = 1 }`,
+  stable id), and `TrackDisposition` (`{ uint32 bits = 1 }`, raw
+  bits via `from_bits_retain` — unknown bits preserved).
+
 ### Changes
 
 - **Crate rename** — `videoframe` → `mediaframe`, version reset to

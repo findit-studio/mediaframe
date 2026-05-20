@@ -120,6 +120,38 @@
 //! Every `merge_field` rejects a wrong wire type with
 //! `DecodeError::WireTypeMismatch` and skips unknown fields with
 //! `skip_field_depth`; `clear()` resets to `Default` / `new`.
+//!
+//! ## Subtitle + disposition
+//!
+//! Three stream-vocab types from the `subtitle` + `disposition`
+//! modules. All three are standalone one-field messages:
+//!
+//! ```text
+//! SubtitleFormat      { string value = 1; }   // FFmpeg-style slug from `as_str()`
+//! SubtitleTrackOrigin { uint32 value = 1; }   // value = to_u32()
+//! TrackDisposition    { uint32 bits  = 1; }   // bits = to_u32() (= raw bitflags bits)
+//! ```
+//!
+//! - **`SubtitleFormat`** — a closed-ish enum with an `Other(SmolStr)`
+//!   escape arm has no stable numeric id, so it encodes the
+//!   FFmpeg-style slug (`"srt"` / `"webvtt"` / `"hdmv_pgs_subtitle"` /
+//!   …) as a `string`. The decoder funnels through `FromStr` (total —
+//!   unknown slugs land in `Other`). Default-elision: the default is
+//!   not proto-zero (`Srt` is the inhabited representative — though
+//!   the encoder treats *every* value as non-default and always
+//!   encodes, to side-step the issue entirely). In practice we
+//!   always-encode the slug so an empty string can never be conflated
+//!   with `Srt`; on decode an empty string maps to `Other("")`,
+//!   matching `FromStr`.
+//! - **`SubtitleTrackOrigin`** — closed unit enum with stable ids
+//!   `Embedded=0` / `Sidecar=1` / `External=2`. Default-elision is
+//!   sound: the default `Embedded` maps to `0` (proto-zero), so an
+//!   absent field decodes back to `Embedded`.
+//! - **`TrackDisposition`** — bitflags. Encoded as the raw `u32`
+//!   bits at field #1, decoded via [`TrackDisposition::from_u32`]
+//!   (`from_bits_retain` semantics — unknown bits round-trip
+//!   losslessly). Default-elision is sound: the default is the
+//!   empty flag set whose `bits()` is `0` (proto-zero).
 
 use core::num::NonZeroU32;
 
@@ -135,6 +167,7 @@ use crate::{
     ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange, ColorTransfer,
     ContentLightLevel, DcpTargetGamut, DolbyVisionConfig, HdrStaticMetadata, MasteringDisplay,
   },
+  disposition::TrackDisposition,
   frame::{
     Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode,
   },
@@ -1272,6 +1305,200 @@ impl Message for HdrStaticMetadata {
 
   fn clear(&mut self) {
     *self = HdrStaticMetadata::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TrackDisposition — { uint32 bits = 1; }
+// Default is the empty flag set (`bits() == 0`), so proto3 zero-elision is
+// sound: an absent field decodes back to `TrackDisposition::empty()`. The
+// `from_u32` (= `from_bits_retain`) decoder preserves every bit, so unknown
+// bits introduced in a future FFmpeg release round-trip losslessly.
+// ----------------------------------------------------------------------------
+
+impl DefaultInstance for TrackDisposition {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<TrackDisposition> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(TrackDisposition::default()))
+  }
+}
+
+impl Message for TrackDisposition {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    // proto3 zero-elision: sound — default is the empty flag set
+    // (`bits() == 0`).
+    if self.to_u32() != 0 {
+      1 + uint32_encoded_len(self.to_u32()) as u32
+    } else {
+      0
+    }
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    if self.to_u32() != 0 {
+      Tag::new(1, WireType::Varint).encode(buf);
+      encode_uint32(self.to_u32(), buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let v = decode_uint32(buf)?;
+        *self = TrackDisposition::from_u32(v);
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = TrackDisposition::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// SubtitleTrackOrigin + SubtitleFormat live in `crate::subtitle`, which is
+// `cfg`-gated on the `alloc` feature (the `Other(SmolStr)` escape on
+// `SubtitleFormat`). Mirror that gate on the wire impls so a
+// `--no-default-features --features buffa` build (no `alloc`) still compiles.
+// ----------------------------------------------------------------------------
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+mod subtitle_impls {
+  use super::*;
+  use ::buffa::types::{decode_string, encode_string, string_encoded_len};
+  use core::str::FromStr;
+
+  use crate::subtitle::{SubtitleFormat, SubtitleTrackOrigin};
+
+  // ----------------------------------------------------------------------------
+  // SubtitleTrackOrigin — { uint32 value = 1; }
+  // Default is `Embedded` (to_u32() == 0), so proto3 zero-elision is sound —
+  // identical pattern to the colour / `PixelFormat` enum codec.
+  // ----------------------------------------------------------------------------
+
+  impl DefaultInstance for SubtitleTrackOrigin {
+    fn default_instance() -> &'static Self {
+      static VALUE: buffa::__private::OnceBox<SubtitleTrackOrigin> =
+        buffa::__private::OnceBox::new();
+      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(SubtitleTrackOrigin::default()))
+    }
+  }
+
+  impl Message for SubtitleTrackOrigin {
+    fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+      // Default-elision (= proto3 zero-elision here since `Embedded`'s
+      // id is `0`). An absent field decodes back to `Embedded`; a
+      // present field always carries the exact id.
+      if *self != SubtitleTrackOrigin::default() {
+        let v: u32 = self.to_u32();
+        1 + uint32_encoded_len(v) as u32
+      } else {
+        0
+      }
+    }
+
+    fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+      if *self != SubtitleTrackOrigin::default() {
+        let v: u32 = self.to_u32();
+        Tag::new(1, WireType::Varint).encode(buf);
+        encode_uint32(v, buf);
+      }
+    }
+
+    fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+      match tag.field_number() {
+        1 => {
+          if tag.wire_type() != WireType::Varint {
+            return Err(DecodeError::WireTypeMismatch {
+              field_number: 1,
+              expected: VARINT,
+              actual: tag.wire_type() as u8,
+            });
+          }
+          let v = decode_uint32(buf)?;
+          *self = SubtitleTrackOrigin::from_u32(v);
+        }
+        _ => skip_field_depth(tag, buf, depth)?,
+      }
+      Ok(())
+    }
+
+    fn clear(&mut self) {
+      *self = SubtitleTrackOrigin::default();
+    }
+  }
+
+  // ----------------------------------------------------------------------------
+  // SubtitleFormat — { string value = 1; }
+  // No stable numeric id; encodes the FFmpeg-style slug from `as_str()`.
+  // Always-encoded (NOT proto3 zero-elision and NOT default-elision): the
+  // empty string is `Other("")` on decode (per the total `FromStr`), which
+  // is a distinct, legal value — eliding the field would conflate it with
+  // an absent field. Writing the slug unconditionally side-steps the
+  // ambiguity; on decode an absent field stays at the encoder's seed
+  // (`Default::default()` = `Srt`).
+  // ----------------------------------------------------------------------------
+
+  impl Default for SubtitleFormat {
+    fn default() -> Self {
+      SubtitleFormat::Srt
+    }
+  }
+
+  impl DefaultInstance for SubtitleFormat {
+    fn default_instance() -> &'static Self {
+      static VALUE: buffa::__private::OnceBox<SubtitleFormat> = buffa::__private::OnceBox::new();
+      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(SubtitleFormat::default()))
+    }
+  }
+
+  impl Message for SubtitleFormat {
+    fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+      // Always-encode the slug — see the module-level wire-format note
+      // for the rationale (empty slug is `Other("")` ≠ absent).
+      let slug = self.as_str();
+      1 + string_encoded_len(slug) as u32
+    }
+
+    fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+      let slug = self.as_str();
+      Tag::new(1, WireType::LengthDelimited).encode(buf);
+      encode_string(slug, buf);
+    }
+
+    fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+      match tag.field_number() {
+        1 => {
+          if tag.wire_type() != WireType::LengthDelimited {
+            return Err(DecodeError::WireTypeMismatch {
+              field_number: 1,
+              expected: LEN,
+              actual: tag.wire_type() as u8,
+            });
+          }
+          let s = decode_string(buf)?;
+          // `FromStr for SubtitleFormat` is `Infallible` (total — every
+          // string decodes either to a named variant or to `Other(_)`).
+          let Ok(parsed) = SubtitleFormat::from_str(&s);
+          *self = parsed;
+        }
+        _ => skip_field_depth(tag, buf, depth)?,
+      }
+      Ok(())
+    }
+
+    fn clear(&mut self) {
+      *self = SubtitleFormat::default();
+    }
   }
 }
 

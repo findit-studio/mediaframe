@@ -401,6 +401,26 @@ fn check_codec(root: &Path) -> bool {
     }
   };
 
+  // Stage 0: prop-token whitelist. The third vendored column carries
+  // `AV_CODEC_PROP_*` tokens (prefix stripped); reject any token outside
+  // FFmpeg n8.1's `codec.h` enumeration so an edit like
+  // `subtitle ass TEXT_SUB,BOGUS_PROP` fails CI instead of silently
+  // sneaking past — the generator only consumes BITMAP_SUB today, so
+  // without this gate non-BITMAP token corruption is invisible to the
+  // freshness diff.
+  if let Err(bad) = validate_vendored_props(&vendor) {
+    eprintln!("FAIL: {CODEC_VENDOR_PATH} carries unknown AV_CODEC_PROP_* tokens:");
+    for (line_no, line, tok) in &bad {
+      eprintln!("    line {line_no}: `{tok}` in `{line}`");
+    }
+    eprintln!(
+      "Action: tokens must come from FFmpeg n8.1 `codec.h` \
+              (INTRA_ONLY / LOSSY / LOSSLESS / REORDER / BITMAP_SUB / TEXT_SUB / FIELDS). \
+              If FFmpeg adds a new prop, extend `KNOWN_CODEC_PROPS` and the generator."
+    );
+    return false;
+  }
+
   // FFmpeg side: media_type -> { codec name }.
   let ffmpeg = parse_codec_vendored(&vendor);
   // mediaframe side: enum-name -> { named-variant -> canonical short string }.
@@ -520,6 +540,47 @@ fn check_codec(root: &Path) -> bool {
     );
   }
   ok
+}
+
+/// Every `AV_CODEC_PROP_*` token FFmpeg n8.1
+/// `libavcodec/codec_desc.h` defines (prefix stripped). Listed in
+/// definition order. Bump this in lockstep with [`FFMPEG_TAG`].
+const KNOWN_CODEC_PROPS: &[&str] = &[
+  "INTRA_ONLY",  // (1 << 0)
+  "LOSSY",       // (1 << 1)
+  "LOSSLESS",    // (1 << 2)
+  "REORDER",     // (1 << 3)
+  "FIELDS",      // (1 << 4) — interlaced fields
+  "ENHANCEMENT", // (1 << 5) — LCEVC and friends
+  "BITMAP_SUB",  // (1 << 16) — OCR trigger for SubtitleCodec
+  "TEXT_SUB",    // (1 << 17) — searchable text subtitles
+];
+
+/// Walk `xtask/vendor/ffmpeg-codecs.txt` and report any third-column
+/// token that isn't in [`KNOWN_CODEC_PROPS`]. Returns the offending
+/// `(line_no, line, token)` triples so the caller can report all
+/// mismatches in one shot. Empty `Ok(())` = the prop column is clean.
+fn validate_vendored_props(text: &str) -> Result<(), Vec<(usize, String, String)>> {
+  let known: BTreeSet<&str> = KNOWN_CODEC_PROPS.iter().copied().collect();
+  let mut bad: Vec<(usize, String, String)> = Vec::new();
+  for (i, raw) in text.lines().enumerate() {
+    let line = raw.trim();
+    if line.is_empty() || line.starts_with('#') {
+      continue;
+    }
+    let mut it = line.split_whitespace();
+    // Skip media_type + name; props (if any) sit in the third column.
+    if it.next().is_none() || it.next().is_none() {
+      continue;
+    }
+    let Some(props) = it.next() else { continue };
+    for tok in props.split(',').filter(|t| !t.is_empty()) {
+      if !known.contains(tok) {
+        bad.push((i + 1, line.to_string(), tok.to_string()));
+      }
+    }
+  }
+  if bad.is_empty() { Ok(()) } else { Err(bad) }
 }
 
 /// Parse `xtask/vendor/ffmpeg-codecs.txt`. Format: one

@@ -1559,6 +1559,18 @@ fn build_codec_module(
   quote! {
     #(#module_doc)*
 
+    // `derive_more::IsVariant` generates predicate methods named after
+    // each variant (`is_h264`, `is__012v`, …). The digit-prefix-with-
+    // underscore convention required for `_012v` / `_4xm` / `_8bps`
+    // (Rust idents may not start with a digit) makes clippy's
+    // `non_snake_case` lint fire on the *derived* method names
+    // (`is__012_v` etc.) — and because the lint targets the generated
+    // impl block (not the enum body), the per-enum
+    // `#[allow(non_camel_case_types, non_snake_case)]` cannot reach it.
+    // Suppressing at module level is the only path; the variants
+    // themselves are also allowed for the same digit-prefix reason.
+    #![allow(non_camel_case_types, non_snake_case)]
+
     use core::str::FromStr;
 
     use derive_more::{Display, IsVariant};
@@ -1635,7 +1647,13 @@ fn build_codec_enum(
     let non_bitmap_arms = non_bitmap_idents.iter().map(|i| quote! { Self::#i });
     let bitmap_count = bitmap_idents.len();
     let non_bitmap_count = non_bitmap_idents.len();
-    let header_doc = format!(
+    // Two separate `#[doc]` attributes (the first an empty line) give
+    // `prettyplease` a paragraph break after the bullet list — without
+    // it, the trailing parenthetical on stable rust 1.95+ trips
+    // `clippy::doc_lazy_continuation` (a list-continuation line with no
+    // indent reads as a malformed sub-item).
+    let counts_blank = String::new();
+    let counts_doc = format!(
       " ({bitmap_count} bitmap / {non_bitmap_count} non-bitmap variant(s) per FFmpeg n8.1)."
     );
     quote! {
@@ -1648,7 +1666,8 @@ fn build_codec_enum(
       ///   codecs that carry no `.props` at all in FFmpeg n8.1).
       /// - `None`: [`Self::Other`] — the codec name is not in the vendored
       ///   FFmpeg table, so we cannot consult `.props`.
-      #[doc = #header_doc]
+      #[doc = #counts_blank]
+      #[doc = #counts_doc]
       pub fn is_image_based(&self) -> Option<bool> {
         match self {
           #(#bitmap_arms)|* => Some(true),
@@ -1666,7 +1685,6 @@ fn build_codec_enum(
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
     #[display("{}", self.as_str())]
     #[non_exhaustive]
-    #[allow(non_camel_case_types, non_snake_case)]
     pub enum #enum_ident {
       #(#variant_decls)*
       /// A codec not enumerated above — carries the FFmpeg short name

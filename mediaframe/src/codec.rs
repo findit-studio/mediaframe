@@ -14,6 +14,7 @@
 //!
 //! `cargo xtask check` verifies every named variant's canonical string
 //! exists in the vendored table — CI gate against drift.
+#![allow(non_camel_case_types, non_snake_case)]
 use core::str::FromStr;
 use derive_more::{Display, IsVariant};
 use smol_str::SmolStr;
@@ -23,7 +24,6 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[allow(non_camel_case_types, non_snake_case)]
 pub enum VideoCodec {
   /// FFmpeg `"012v"`.
   _012v,
@@ -1177,7 +1177,6 @@ impl FromStr for VideoCodec {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[allow(non_camel_case_types, non_snake_case)]
 pub enum AudioCodec {
   /// FFmpeg `"4gv"`.
   _4gv,
@@ -2091,7 +2090,6 @@ impl FromStr for AudioCodec {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-#[allow(non_camel_case_types, non_snake_case)]
 pub enum SubtitleCodec {
   /// FFmpeg `"arib_caption"`.
   AribCaption,
@@ -2194,6 +2192,7 @@ impl SubtitleCodec {
   ///   codecs that carry no `.props` at all in FFmpeg n8.1).
   /// - `None`: [`Self::Other`] — the codec name is not in the vendored
   ///   FFmpeg table, so we cannot consult `.props`.
+  ///
   /// (4 bitmap / 23 non-bitmap variant(s) per FFmpeg n8.1).
   pub fn is_image_based(&self) -> Option<bool> {
     match self {

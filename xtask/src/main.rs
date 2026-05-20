@@ -1560,7 +1560,7 @@ fn build_codec_module(
   .map(|line| quote! { #![doc = #line] })
   .collect();
 
-  let tests = build_codec_tests();
+  let tests = build_codec_tests(video, audio, subtitle);
 
   quote! {
     #(#module_doc)*
@@ -1713,28 +1713,36 @@ fn build_codec_enum(
   }
 }
 
-fn build_codec_tests() -> TokenStream {
-  // The vendored file is read at compile time so a single source of truth
-  // governs both `cargo xtask check` and the in-crate test suite.
+fn build_codec_tests(
+  video: &CodecsWithProps,
+  audio: &CodecsWithProps,
+  subtitle: &CodecsWithProps,
+) -> TokenStream {
+  // Embed the (media_type, short_name) pairs as a const inside the
+  // generated module rather than `include_str!`ing the workspace-only
+  // `xtask/vendor/*.txt`. The vendored file lives in the `xtask` crate
+  // which is excluded from `cargo publish`, so any `include_str!` that
+  // traverses `../..` would break on the packaged source. Embedding
+  // keeps the in-crate test suite hermetic.
+  let pair_arms = video
+    .keys()
+    .map(|n| quote! { ("video", #n) })
+    .chain(audio.keys().map(|n| quote! { ("audio", #n) }))
+    .chain(subtitle.keys().map(|n| quote! { ("subtitle", #n) }));
   quote! {
     #[cfg(test)]
     mod tests {
       use super::*;
 
-      const VENDOR: &str = include_str!("../../xtask/vendor/ffmpeg-codecs.txt");
+      /// Every `(media_type, FFmpeg short name)` pair this module was
+      /// generated from — embedded at codegen so the test suite stays
+      /// self-contained when `mediaframe` is packaged for crates.io.
+      const VENDORED_PAIRS: &[(&str, &str)] = &[#(#pair_arms,)*];
 
       fn vendored_of(media: &'static str) -> impl Iterator<Item = &'static str> {
-        VENDOR.lines().filter_map(move |l| {
-          let l = l.trim();
-          if l.is_empty() || l.starts_with('#') {
-            return None;
-          }
-          let mut it = l.split_whitespace();
-          match (it.next(), it.next()) {
-            (Some(m), Some(n)) if m == media => Some(n),
-            _ => None,
-          }
-        })
+        VENDORED_PAIRS
+          .iter()
+          .filter_map(move |(m, n)| (*m == media).then_some(*n))
       }
 
       #[test]

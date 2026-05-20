@@ -4,19 +4,21 @@ on:
   push:
     branches:
       - main
+    # Don't skip `**.txt` — `xtask/vendor/*.txt` are source-of-truth for
+    # the `xtask-check` job (pixel formats, colour codes, codec names +
+    # props). A vendor-table-only change must still trigger CI so the
+    # freshness diff in `cargo xtask check` runs.
     paths-ignore:
       - 'README'
       - 'COPYRIGHT'
       - 'LICENSE-*'
       - '**.md'
-      - '**.txt'
   pull_request:
     paths-ignore:
       - 'README'
       - 'COPYRIGHT'
       - 'LICENSE-*'
       - '**.md'
-      - '**.txt'
   workflow_dispatch:
   schedule: 
     - cron: "0 1 1 * *"
@@ -37,6 +39,25 @@ jobs:
       run: rustup update stable && rustup default stable && rustup component add rustfmt
     - name: Check formatting
       run: cargo fmt --all -- --check
+
+  # Verify mediaframe stays in sync with the vendored FFmpeg tables
+  # (`xtask/vendor/*.txt` for pixel formats, colour codes, and codec
+  # short-names + `.props`). Runs the same `cargo xtask check` developers
+  # run locally; the codec check now includes a byte-for-byte freshness
+  # diff against `mediaframe/src/codec.rs`, so a stale vendor table or a
+  # missed `cargo xtask gen-codec` regeneration fails CI here.
+  xtask-check:
+    name: xtask-check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Rust
+      # rustfmt is required: `cargo xtask gen-codec` (and the freshness
+      # diff in `cargo xtask check`) pipes its prettyplease output through
+      # rustfmt for CI parity.
+      run: rustup update stable && rustup default stable && rustup component add rustfmt
+    - name: Run xtask check
+      run: cargo xtask check
 
   # Apply clippy lints
   clippy:
@@ -260,6 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - rustfmt
+      - xtask-check
       - clippy
       - build
       - cross

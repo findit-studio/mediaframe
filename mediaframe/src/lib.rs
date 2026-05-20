@@ -20,6 +20,11 @@ extern crate std;
 
 #[cfg(feature = "buffa")]
 mod buffa;
+/// Stream-descriptor codec/format/layout vocabulary for video, audio, and
+/// subtitle tracks. Requires the `alloc` feature (`std` includes it) for
+/// the `Other(SmolStr)` escape arms.
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub mod codec;
 pub mod color;
 pub mod frame;
 pub mod pixel_format;

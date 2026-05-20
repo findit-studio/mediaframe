@@ -64,7 +64,11 @@ const PIXEL_FORMAT_RS: &str = "mediaframe/src/pixel_format.rs";
 const COLOR_RS: &str = "mediaframe/src/color.rs";
 
 /// Path (relative to the workspace root) of the vendored codec-name
-/// table (`<MEDIA_TYPE> <FFMPEG_NAME>` per line, sorted).
+/// table. Format: one `<media_type> <name> [<props>]` per line, sorted;
+/// `<props>` is an optional comma-separated list of `AV_CODEC_PROP_*`
+/// tokens (prefix stripped) and is omitted entirely when FFmpeg's
+/// `codec_desc.c` has no `.props` initializer for the codec. See the
+/// header inside the file itself for the canonical format.
 const CODEC_VENDOR_PATH: &str = "xtask/vendor/ffmpeg-codecs.txt";
 
 /// Path (relative to the workspace root) of the codec-enum source file
@@ -377,13 +381,26 @@ fn check_color(root: &Path) -> bool {
   ok
 }
 
-/// Codec coverage: every named variant on each `mediaframe::codec::*`
-/// enum (`VideoCodec`/`AudioCodec`/`SubtitleCodec`) must appear in the
-/// vendored FFmpeg codec table under the matching media type. The
-/// `Other(SmolStr)` arm is intentionally not checked — it's the escape
-/// hatch for unknown codecs. The reverse direction (FFmpeg codecs not
-/// in mediaframe) is informational only; the schema spec only requires
-/// codec-family coverage of common formats.
+/// Codec coverage — **two-way** sync plus a generation-freshness diff.
+///
+/// 1. **mediaframe → FFmpeg** (every named variant's canonical string
+///    exists in the vendored table) — fails on a typo'd `as_str()`
+///    slug.
+/// 2. **FFmpeg → mediaframe** (every vendored short name has a
+///    matching named variant on the corresponding enum) — fails when
+///    a `cargo xtask sync` added codecs without re-running
+///    `cargo xtask gen-codec` (the all-codecs-named invariant).
+/// 3. **Prop-token whitelist** (every third-column `AV_CODEC_PROP_*`
+///    token sits inside [`KNOWN_CODEC_PROPS`]) — fails on bogus
+///    tokens that would otherwise sneak past the BITMAP_SUB-only
+///    consumer in the generator.
+/// 4. **Generation freshness** (rebuild `codec.rs` content via the
+///    same pipeline `gen-codec` uses and diff against the on-disk
+///    file) — fails on edits that didn't propagate through the
+///    generator (variant order, doc comments, BITMAP_SUB set, …).
+///
+/// The `Other(SmolStr)` arm is intentionally exempt from coverage —
+/// it's the escape hatch for unknown codecs, by design.
 fn check_codec(root: &Path) -> bool {
   let vendor = match fs::read_to_string(root.join(CODEC_VENDOR_PATH)) {
     Ok(s) => s,
@@ -583,8 +600,15 @@ fn validate_vendored_props(text: &str) -> Result<(), Vec<(usize, String, String)
   if bad.is_empty() { Ok(()) } else { Err(bad) }
 }
 
-/// Parse `xtask/vendor/ffmpeg-codecs.txt`. Format: one
-/// `<media_type> <name>` per line; `#` comments and blank lines ignored.
+/// Parse `xtask/vendor/ffmpeg-codecs.txt` into `media_type → {name}`.
+///
+/// Format: one `<media_type> <name> [<props>]` per line — `<props>`
+/// (a comma-separated list of `AV_CODEC_PROP_*` tokens with the
+/// prefix stripped) is optional. This particular parser only needs
+/// the first two columns for the coverage check; any third column is
+/// silently discarded. Blank lines and `#` comments are skipped. See
+/// [`build_codec_rs_with_counts`] for the parser that also consumes
+/// the props column.
 fn parse_codec_vendored(text: &str) -> BTreeMap<String, BTreeSet<String>> {
   let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
   for line in text.lines() {

@@ -135,7 +135,9 @@ use crate::{
     ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange, ColorTransfer,
     ContentLightLevel, DcpTargetGamut, DolbyVisionConfig, HdrStaticMetadata, MasteringDisplay,
   },
-  frame::{Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode},
+  frame::{
+    Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode,
+  },
   pixel_format::PixelFormat,
 };
 
@@ -1978,9 +1980,9 @@ mod tests {
   #[test]
   fn rational_round_trip_default_and_nondefault() {
     for r in [
-      Rational::default(),              // 1/1
-      Rational::new(30000, nz(1001)),   // NTSC fps
-      Rational::new(0, nz(1)),          // num == 0 must survive
+      Rational::default(),            // 1/1
+      Rational::new(30000, nz(1001)), // NTSC fps
+      Rational::new(0, nz(1)),        // num == 0 must survive
     ] {
       let b = r.encode_to_vec();
       assert_eq!(Rational::decode_from_slice(&b).unwrap(), r);

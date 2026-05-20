@@ -1760,6 +1760,14 @@ fn build_codec_tests(
     #[cfg(test)]
     mod tests {
       use super::*;
+      // Bring `ToString` into scope explicitly. Under `feature = "std"`
+      // the trait is in the prelude, but `--no-default-features
+      // --features alloc` only has the core prelude — the codec module
+      // is alloc-gated (see `lib.rs`), so the trait *exists*, it just
+      // needs to be named. `lib.rs` aliases `extern crate alloc as
+      // std` for the alloc-only build, so `::std::string::ToString`
+      // resolves to the right path in either mode.
+      use ::std::string::ToString;
 
       /// Every `(media_type, FFmpeg short name)` pair this module was
       /// generated from — embedded at codegen so the test suite stays

@@ -2263,6 +2263,7 @@ impl FromStr for SubtitleCodec {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use ::std::string::ToString;
   /// Every `(media_type, FFmpeg short name)` pair this module was
   /// generated from — embedded at codegen so the test suite stays
   /// self-contained when `mediaframe` is packaged for crates.io.

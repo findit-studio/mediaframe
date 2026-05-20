@@ -15,11 +15,13 @@ rust-version = "1.95.0"
 
 [features]
 default = ["std"]
-# `alloc` pulls in `smol_str` for the codec module's `Other(SmolStr)` arms.
-# Without `alloc` the codec module is `cfg`-out entirely (see `lib.rs`), so a
-# `--no-default-features` build genuinely has no allocator dependency and the
-# `no-std::no-alloc` category claim holds.
-alloc   = ["dep:smol_str"]
+# `alloc` pulls in `smol_str` for the codec / subtitle modules' `Other(SmolStr)`
+# arms. Without `alloc` those modules are `cfg`-out entirely (see `lib.rs`), so
+# a `--no-default-features` build genuinely has no allocator dependency and the
+# `no-std::no-alloc` category claim holds. `derive_more`'s `unwrap` /
+# `try_unwrap` features are flipped on here too: they are only consumed by
+# mixed enums (e.g. `SubtitleFormat`) that live under the same `alloc` gate.
+alloc   = ["dep:smol_str", "derive_more/unwrap", "derive_more/try_unwrap"]
 std     = ["alloc", "thiserror/default", "smol_str?/std"]
 buffa   = ["dep:buffa", "mediatime/buffa"]
 
@@ -47,6 +49,7 @@ xyz             = ["derive_more/try_unwrap", "derive_more/unwrap"]
 mono            = ["derive_more/try_unwrap", "derive_more/unwrap"]
 
 [dependencies]
+bitflags    = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["display", "is_variant"] }
 mediatime   = { version = "0.1", default-features = false }
 thiserror   = { version = "2", default-features = false }

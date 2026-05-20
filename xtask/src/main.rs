@@ -462,9 +462,7 @@ fn check_codec(root: &Path) -> bool {
     CODEC_ENUMS.len()
   );
   if ok {
-    println!(
-      "OK: every named codec variant in mediaframe is covered by FFmpeg {FFMPEG_TAG}."
-    );
+    println!("OK: every named codec variant in mediaframe is covered by FFmpeg {FFMPEG_TAG}.");
   }
   ok
 }
@@ -522,7 +520,9 @@ fn parse_codec_named_strings(rs: &str) -> BTreeMap<String, BTreeMap<String, Stri
       let Some(rest) = line.strip_prefix("Self::") else {
         continue;
       };
-      let Some(arrow) = rest.find("=>") else { continue };
+      let Some(arrow) = rest.find("=>") else {
+        continue;
+      };
       let variant = rest[..arrow].trim().trim_end_matches('(');
       // Skip the catch-all `Other(s)` arm.
       if rest[..arrow].contains('(') {
@@ -876,9 +876,8 @@ fn sync() -> ExitCode {
   );
 
   // ---- codec descriptors (libavcodec/codec_desc.c) ----
-  let codec_url = format!(
-    "https://raw.githubusercontent.com/FFmpeg/FFmpeg/{FFMPEG_TAG}/libavcodec/codec_desc.c"
-  );
+  let codec_url =
+    format!("https://raw.githubusercontent.com/FFmpeg/FFmpeg/{FFMPEG_TAG}/libavcodec/codec_desc.c");
   println!("Fetching {codec_url}");
   let codec_output = match Command::new("curl")
     .args(["-sSL", "--fail", &codec_url])
@@ -891,7 +890,10 @@ fn sync() -> ExitCode {
     }
   };
   if !codec_output.status.success() {
-    eprintln!("error: curl exited with status {} for codec_desc.c", codec_output.status);
+    eprintln!(
+      "error: curl exited with status {} for codec_desc.c",
+      codec_output.status
+    );
     eprintln!("stderr: {}", String::from_utf8_lossy(&codec_output.stderr));
     return ExitCode::FAILURE;
   }
@@ -921,12 +923,8 @@ fn sync() -> ExitCode {
   kbody.push_str("# Fetched: ");
   kbody.push_str(&iso_date_today());
   kbody.push_str("\n#\n");
-  kbody.push_str(
-    "# Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.\n",
-  );
-  kbody.push_str(
-    "# Format: `<media_type> <name>` — one descriptor per line, sorted.\n",
-  );
+  kbody.push_str("# Regenerate via `cargo xtask sync` after bumping the FFMPEG_TAG constant.\n");
+  kbody.push_str("# Format: `<media_type> <name>` — one descriptor per line, sorted.\n");
   kbody.push_str(
     "# `<media_type>` is the lowercased AVMEDIA_TYPE_* suffix\n\
      # (video / audio / subtitle / data / attachment).\n\n",
@@ -1204,12 +1202,7 @@ use syn::Ident;
 
 /// Subtitles whose `.props` carries `AV_CODEC_PROP_BITMAP_SUB` in FFmpeg
 /// n8.1 — the OCR-stage trigger from `subtitle_track.md` r3.
-const BITMAP_SUBTITLES: &[&str] = &[
-  "dvb_subtitle",
-  "dvd_subtitle",
-  "hdmv_pgs_subtitle",
-  "xsub",
-];
+const BITMAP_SUBTITLES: &[&str] = &["dvb_subtitle", "dvd_subtitle", "hdmv_pgs_subtitle", "xsub"];
 
 fn gen_codec() -> ExitCode {
   let root = workspace_root();
@@ -1412,9 +1405,7 @@ fn build_codec_enum(
      `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` \
      arm is the lossless escape for codecs added upstream before this file is \
      regenerated.",
-    type_name
-      .strip_suffix("Codec")
-      .unwrap_or(type_name),
+    type_name.strip_suffix("Codec").unwrap_or(type_name),
     media_type
   );
 

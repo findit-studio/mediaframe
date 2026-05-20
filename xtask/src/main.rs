@@ -598,8 +598,17 @@ fn validate_vendored_props(text: &str) -> Result<(), Vec<(usize, String, String)
       continue;
     }
     let mut it = line.split_whitespace();
-    // Skip media_type + name; props (if any) sit in the third column.
-    if it.next().is_none() || it.next().is_none() {
+    // The minimum shape is `<media_type> <name>` (props optional). A
+    // line with only one token is a truncated/corrupted entry and must
+    // fail the check — silently skipping it would reduce coverage
+    // without surfacing the corruption.
+    let Some(media) = it.next() else { continue };
+    if it.next().is_none() {
+      bad.push((
+        i + 1,
+        line.to_string(),
+        format!("missing `<name>` column after `<media_type>` = `{media}`"),
+      ));
       continue;
     }
     let Some(props) = it.next() else { continue };
@@ -1490,18 +1499,53 @@ fn build_codec_rs_with_counts(root: &Path) -> Result<((usize, usize, usize), Str
   let parsed: syn::File = syn::parse2(module)
     .map_err(|e| format!("internal error: generated token stream is not parseable: {e}"))?;
   let pretty = prettyplease::unparse(&parsed);
-  let formatted = run_rustfmt(&pretty)?;
+  let edition = read_mediaframe_edition(root)?;
+  let formatted = run_rustfmt(&pretty, &edition)?;
   Ok(((video.len(), audio.len(), subtitle.len()), formatted))
 }
 
-/// Pipe `source` through `rustfmt --edition=2024 --emit=stdout` and return
-/// the formatted result. Going via stdin/stdout (not a file) lets the
-/// generator stay side-effect-free for `check_codec`'s freshness diff.
-fn run_rustfmt(source: &str) -> Result<String, String> {
+/// Read the `edition = "<year>"` field from `mediaframe/Cargo.toml`.
+///
+/// `rustfmt` needs an explicit `--edition` when fed source over stdin
+/// (no manifest to consult); hard-coding it would silently desync from
+/// a future edition bump and could format differently or even fail on
+/// edge-case syntax. Reading the value from the manifest keeps the
+/// generator a single source of truth with the crate it formats.
+fn read_mediaframe_edition(root: &Path) -> Result<String, String> {
+  let manifest_path = root.join("mediaframe/Cargo.toml");
+  let manifest = fs::read_to_string(&manifest_path)
+    .map_err(|e| format!("error: cannot read {}: {e}", manifest_path.display()))?;
+  // Parse the first top-level `edition = "<year>"` line. Comments and
+  // values inside a `[features]` array don't match this prefix shape,
+  // so a manual scan is reliable enough — adding a `toml` dep just for
+  // one field would be overkill.
+  for raw in manifest.lines() {
+    let line = raw.trim_start();
+    if let Some(rest) = line.strip_prefix("edition") {
+      if let Some(after_eq) = rest.split_once('=').map(|(_, v)| v.trim()) {
+        let trimmed = after_eq.trim_matches('"');
+        if trimmed.chars().all(|c| c.is_ascii_digit()) && !trimmed.is_empty() {
+          return Ok(trimmed.to_string());
+        }
+      }
+    }
+  }
+  Err(format!(
+    "error: could not find `edition = \"<year>\"` in {}",
+    manifest_path.display()
+  ))
+}
+
+/// Pipe `source` through `rustfmt --edition=<edition> --emit=stdout`
+/// and return the formatted result. The `edition` comes from
+/// [`read_mediaframe_edition`] so it stays aligned with the crate's
+/// manifest. Going via stdin/stdout (not a file) lets the generator
+/// stay side-effect-free for `check_codec`'s freshness diff.
+fn run_rustfmt(source: &str, edition: &str) -> Result<String, String> {
   use std::{io::Write, process::Stdio};
 
   let mut child = Command::new("rustfmt")
-    .arg("--edition=2024")
+    .arg(format!("--edition={edition}"))
     .arg("--emit=stdout")
     .stdin(Stdio::piped())
     .stdout(Stdio::piped())

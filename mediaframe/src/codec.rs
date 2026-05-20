@@ -14,7 +14,6 @@
 //!
 //! `cargo xtask check` verifies every named variant's canonical string
 //! exists in the vendored table — CI gate against drift.
-#![allow(non_camel_case_types, non_snake_case)]
 use core::str::FromStr;
 use derive_more::{Display, IsVariant};
 use smol_str::SmolStr;
@@ -26,11 +25,11 @@ use smol_str::SmolStr;
 #[non_exhaustive]
 pub enum VideoCodec {
   /// FFmpeg `"012v"`.
-  _012v,
+  N012v,
   /// FFmpeg `"4xm"`.
-  _4xm,
+  N4xm,
   /// FFmpeg `"8bps"`.
-  _8bps,
+  N8bps,
   /// FFmpeg `"a64_multi"`.
   A64Multi,
   /// FFmpeg `"a64_multi5"`.
@@ -595,9 +594,9 @@ impl VideoCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
   pub fn as_str(&self) -> &str {
     match self {
-      Self::_012v => "012v",
-      Self::_4xm => "4xm",
-      Self::_8bps => "8bps",
+      Self::N012v => "012v",
+      Self::N4xm => "4xm",
+      Self::N8bps => "8bps",
       Self::A64Multi => "a64_multi",
       Self::A64Multi5 => "a64_multi5",
       Self::Aasc => "aasc",
@@ -886,9 +885,9 @@ impl FromStr for VideoCodec {
   /// [`Self::Other`] (infallible, lossless).
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     Ok(match s {
-      "012v" => Self::_012v,
-      "4xm" => Self::_4xm,
-      "8bps" => Self::_8bps,
+      "012v" => Self::N012v,
+      "4xm" => Self::N4xm,
+      "8bps" => Self::N8bps,
       "a64_multi" => Self::A64Multi,
       "a64_multi5" => Self::A64Multi5,
       "aasc" => Self::Aasc,
@@ -1179,11 +1178,11 @@ impl FromStr for VideoCodec {
 #[non_exhaustive]
 pub enum AudioCodec {
   /// FFmpeg `"4gv"`.
-  _4gv,
+  N4gv,
   /// FFmpeg `"8svx_exp"`.
-  _8svxExp,
+  N8svxExp,
   /// FFmpeg `"8svx_fib"`.
-  _8svxFib,
+  N8svxFib,
   /// FFmpeg `"aac"`.
   Aac,
   /// FFmpeg `"aac_latm"`.
@@ -1628,9 +1627,9 @@ impl AudioCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
   pub fn as_str(&self) -> &str {
     match self {
-      Self::_4gv => "4gv",
-      Self::_8svxExp => "8svx_exp",
-      Self::_8svxFib => "8svx_fib",
+      Self::N4gv => "4gv",
+      Self::N8svxExp => "8svx_exp",
+      Self::N8svxFib => "8svx_fib",
       Self::Aac => "aac",
       Self::AacLatm => "aac_latm",
       Self::Ac3 => "ac3",
@@ -1859,9 +1858,9 @@ impl FromStr for AudioCodec {
   /// [`Self::Other`] (infallible, lossless).
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     Ok(match s {
-      "4gv" => Self::_4gv,
-      "8svx_exp" => Self::_8svxExp,
-      "8svx_fib" => Self::_8svxFib,
+      "4gv" => Self::N4gv,
+      "8svx_exp" => Self::N8svxExp,
+      "8svx_fib" => Self::N8svxFib,
       "aac" => Self::Aac,
       "aac_latm" => Self::AacLatm,
       "ac3" => Self::Ac3,

@@ -1492,11 +1492,17 @@ fn run_rustfmt(source: &str) -> Result<String, String> {
 /// - Split on `_` or `.` (the only separators FFmpeg uses).
 /// - Each non-empty segment: uppercase the first char, lowercase the rest.
 /// - If the result starts with a digit (`4xm`, `8svx_exp`, `012v`),
-///   prepend `_`.
+///   prepend `N` (for **n**umeric-start — a leading underscore would
+///   carry Rust's "intentionally unused / private" semantics, which is
+///   wrong for a public enum variant callers are meant to use). `N` also
+///   keeps the derived `IsVariant` methods (`is_n012v`, `is_n4xm`, …)
+///   in canonical snake_case, removing the need for a module-level
+///   `#[allow(non_snake_case)]`.
 ///
 /// Examples:
 /// `h264`→`H264`, `pcm_s16le`→`PcmS16le`, `dvb_subtitle`→`DvbSubtitle`,
-/// `acelp.kelvin`→`AcelpKelvin`, `4xm`→`_4xm`, `012v`→`_012v`.
+/// `acelp.kelvin`→`AcelpKelvin`, `4xm`→`N4xm`, `012v`→`N012v`,
+/// `8svx_exp`→`N8svxExp`.
 fn codec_ident(name: &str) -> String {
   let mut out = String::with_capacity(name.len());
   for seg in name.split(|c: char| c == '_' || c == '.') {
@@ -1512,7 +1518,7 @@ fn codec_ident(name: &str) -> String {
     }
   }
   if out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-    out.insert(0, '_');
+    out.insert(0, 'N');
   }
   out
 }
@@ -1558,18 +1564,6 @@ fn build_codec_module(
 
   quote! {
     #(#module_doc)*
-
-    // `derive_more::IsVariant` generates predicate methods named after
-    // each variant (`is_h264`, `is__012v`, …). The digit-prefix-with-
-    // underscore convention required for `_012v` / `_4xm` / `_8bps`
-    // (Rust idents may not start with a digit) makes clippy's
-    // `non_snake_case` lint fire on the *derived* method names
-    // (`is__012_v` etc.) — and because the lint targets the generated
-    // impl block (not the enum body), the per-enum
-    // `#[allow(non_camel_case_types, non_snake_case)]` cannot reach it.
-    // Suppressing at module level is the only path; the variants
-    // themselves are also allowed for the same digit-prefix reason.
-    #![allow(non_camel_case_types, non_snake_case)]
 
     use core::str::FromStr;
 

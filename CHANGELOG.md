@@ -4,6 +4,65 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] May 19, 2026
+
+Initial `mediaframe` release — this crate is a **rename** of the
+`videoframe` crate. It was previously published as `videoframe`
+(version line `0.1.x`–`0.3.x`); those `videoframe` crates.io versions
+are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
+identity).
+
+### Changes
+
+- **Crate rename** — `videoframe` → `mediaframe`, version reset to
+  `0.1.0`. The contents are carried over **verbatim**: the
+  pixel-format / colour / frame vocabulary plus `Rational`,
+  `FrameRate`, `FieldOrder`, `StereoMode`, `DolbyVisionConfig`, and
+  `SampleAspectRatio` represented via `Rational`. No types, logic, or
+  API changed other than the crate name (and the `buffa` proto
+  package identifier `videoframe.v1` → `mediaframe.v1`).
+- **Charter broadened** — the crate is now a *media-stream descriptor
+  vocabulary* for video **+ audio + subtitle**, not video-only. Only
+  the existing video vocabulary ships in `0.1.0`; audio/subtitle
+  descriptor types will be added incrementally in later releases.
+
+---
+
+— the following entries are from the crate's `videoframe` history —
+
+## [0.3.1] May 19, 2026
+
+### Added
+
+- **`frame`** — `Rational` (generic exact `num/den` ratio,
+  `NonZeroU32` denominator, `1/1` default), `FrameRate` (exact fps
+  `Rational` + `is_vfr` marker; deliberately not
+  `mediatime::Timebase`), `FieldOrder` (FFmpeg `AVFieldOrder`,
+  lossless `Unknown(u32)`, `Unknown(0)` default), `StereoMode`
+  (FFmpeg `AVStereo3DType`, lossless `Unknown(u32)`, `Mono` default).
+- **`color`** — `DolbyVisionConfig` (FFmpeg
+  `AVDOVIDecoderConfigurationRecord`; distinct from the HDR10 static
+  `HdrStaticMetadata`).
+- **`buffa`** — hand-written `Message`/`DefaultInstance` wire support
+  for `Rational`, `FrameRate`, `FieldOrder`, `StereoMode`,
+  `DolbyVisionConfig`.
+- **`frame`** — `SampleAspectRatio` → `Rational` interop
+  (`SampleAspectRatio::rational`/`as_rational`,
+  `From<SampleAspectRatio> for Rational`, `From<Rational> for
+  SampleAspectRatio`).
+
+### Breakage
+
+- **`frame::SampleAspectRatio`** — now represented as a newtype over
+  `Rational` (`pub struct SampleAspectRatio(Rational)`) instead of
+  its own `{ num, den }` fields, making `Rational` the single source
+  of truth for "exact ratio with a non-zero denominator". The public
+  *method* API (`new`/`num`/`den`/`is_square`/`with_*`/`set_*`/
+  `Default`/`Display`/derives) and the `buffa` wire format are
+  **byte-for-byte unchanged**; only the internal representation and
+  the `From` surface (added `From<Rational> for SampleAspectRatio`,
+  added `rational()` alongside `as_rational()`) changed.
+
 ## [0.3.0] May 19, 2026
 
 ### Added

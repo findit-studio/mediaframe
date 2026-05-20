@@ -11,7 +11,7 @@
 //! `ColorCorrectionMatrix`) that are colconv processing-layer types.
 //! Only the zero-sized [`Bayer16`] marker lives here so that:
 //!
-//! - `Bayer16<BITS>` can implement `videoframe::SourceFormat`, and
+//! - `Bayer16<BITS>` can implement `mediaframe::SourceFormat`, and
 //! - downstream crates that need to name the source format type do not
 //!   need to depend on `colconv`.
 

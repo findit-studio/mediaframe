@@ -57,7 +57,7 @@ jobs:
       run: cargo install cargo-hack
     - name: Apply clippy lints
       run: cargo hack clippy --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
-      working-directory: videoframe
+      working-directory: mediaframe
 
   # Run tests on some extra platforms
   cross:
@@ -99,7 +99,7 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --target ${{ matrix.target }}
-        working-directory: videoframe
+        working-directory: mediaframe
 
   build:
     name: build
@@ -129,7 +129,7 @@ jobs:
       run: cargo install cargo-hack
     - name: Run build
       run: cargo hack build --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
-      working-directory: videoframe
+      working-directory: mediaframe
 
   test:
     name: test
@@ -159,7 +159,7 @@ jobs:
       run: cargo install cargo-hack
     - name: Run test
       run: cargo hack test --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
-      working-directory: videoframe
+      working-directory: mediaframe
 
   sanitizer:
     name: sanitizer

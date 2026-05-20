@@ -3,17 +3,17 @@
 
 use derive_more::{Display, IsVariant};
 
-/// Base id for **videoframe-domain** colour concepts that have no
+/// Base id for **mediaframe-domain** colour concepts that have no
 /// ITU-T H.273 / FFmpeg `AVCol*` code point.
 ///
-/// videoframe is a *superset domain vocabulary*, not an `AVColorSpace`
+/// mediaframe is a *superset domain vocabulary*, not an `AVColorSpace`
 /// mirror: it serves FFmpeg **and** future RAW SDK backends (R3D /
 /// BRAW / ProRes RAW) whose colour science H.273 does not enumerate.
 ///
 /// - **H.273 / FFmpeg code points** use FFmpeg's own numbers (all
 ///   `< DOMAIN_EXT_BASE`, xtask-verified against the pinned FFmpeg
 ///   n8.1 `libavutil/pixfmt.h`).
-/// - **videoframe-domain concepts** FFmpeg does not enumerate (e.g.
+/// - **mediaframe-domain concepts** FFmpeg does not enumerate (e.g.
 ///   the unified [`ColorMatrix::Bt601`]; future RAW camera colour
 ///   science) get stable ids with **bit 31 set** (`>= DOMAIN_EXT_BASE`).
 ///   FFmpeg itself reserves `AVCOL_*_EXT_BASE = 256` for its own
@@ -44,7 +44,7 @@ pub const DOMAIN_EXT_BASE: u32 = 0x8000_0000;
 /// `AVColorSpace` code points** (ITU-T H.273 MatrixCoefficients);
 /// FFmpeg is the source of truth (the downstream consumer reads these
 /// via a `buffa` `extern_path`). [`Self::Bt601`] is a
-/// **videoframe-domain** id (no H.273 code; see [`DOMAIN_EXT_BASE`]).
+/// **mediaframe-domain** id (no H.273 code; see [`DOMAIN_EXT_BASE`]).
 /// [`Self::Unknown`] carries any unrecognised code through unchanged
 /// so the round-trip is lossless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
@@ -57,7 +57,7 @@ pub enum ColorMatrix {
   Unknown(u32),
   /// GBR (sRGB / ST 428-1); FFmpeg `AVCOL_SPC_RGB` (code `0`).
   Rgb,
-  /// **videoframe-domain** unified ITU-R BT.601 YCbCr matrix
+  /// **mediaframe-domain** unified ITU-R BT.601 YCbCr matrix
   /// (Kr=0.299, Kb=0.114). H.273 has **no single BT.601 code**: it
   /// splits into [`Self::Bt470Bg`] (625-line) and [`Self::Smpte170M`]
   /// (525-line), which carry the *identical* coefficients. The FFmpeg
@@ -139,7 +139,7 @@ impl ColorMatrix {
 
   /// Stable wire id — the **FFmpeg `AVColorSpace` code point**
   /// (ITU-T H.273 MatrixCoefficients) for the H.273 variants, or a
-  /// **videoframe-domain** id `>= DOMAIN_EXT_BASE` for concepts
+  /// **mediaframe-domain** id `>= DOMAIN_EXT_BASE` for concepts
   /// H.273 does not enumerate ([`Self::Bt601`] is the first, at
   /// offset `0`). [`Self::Unknown`] carries its original `u32`
   /// through unchanged so `from_u32(to_u32(x)) == x` for every `x`.
@@ -176,7 +176,7 @@ impl ColorMatrix {
   /// `5`/`6` decode to [`Self::Bt470Bg`]/[`Self::Smpte170M`],
   /// **never** [`Self::Bt601`] (the FFmpeg ingest path never yields a
   /// domain variant). [`DOMAIN_EXT_BASE`] (offset `0`) decodes to the
-  /// videoframe-domain [`Self::Bt601`]. Any other unrecognised code
+  /// mediaframe-domain [`Self::Bt601`]. Any other unrecognised code
   /// (including reserved code `3`, or an unassigned `>=
   /// DOMAIN_EXT_BASE` id) maps to [`Self::Unknown`] carrying the
   /// original value, so the round-trip is lossless.
@@ -200,7 +200,7 @@ impl ColorMatrix {
       15 => Self::IptC2,
       16 => Self::YCgCoRe,
       17 => Self::YCgCoRo,
-      // videoframe-domain ids (append-only): DOMAIN_EXT_BASE + 0 =
+      // mediaframe-domain ids (append-only): DOMAIN_EXT_BASE + 0 =
       // Bt601. Never reached by the FFmpeg ingest path above.
       DOMAIN_EXT_BASE => Self::Bt601,
       _ => Self::Unknown(v),
@@ -819,8 +819,8 @@ impl ColorInfo {
 /// exact 27 f32 matrix constants per gamut, derived from each
 /// standard's chromaticity coordinates.
 ///
-/// This enum has **no FFmpeg analog** (it selects a videoframe XYZ →
-/// RGB matrix); it keeps its own videoframe-local wire numbering
+/// This enum has **no FFmpeg analog** (it selects a mediaframe XYZ →
+/// RGB matrix); it keeps its own mediaframe-local wire numbering
 /// (`DciP3`=0, `Rec709`=1, `Rec2020`=2) rather than an FFmpeg code.
 /// `Default` is [`Self::DciP3`]. [`Self::Unknown`] is
 /// **decoder-only**: [`Self::from_u32`] returns a named variant for a
@@ -870,7 +870,7 @@ impl DcpTargetGamut {
     Self::DciP3
   }
 
-  /// Stable videoframe-local wire id (no FFmpeg analog); `DciP3`
+  /// Stable mediaframe-local wire id (no FFmpeg analog); `DciP3`
   /// (the default) is `0`. [`Self::Unknown`] carries its original
   /// `u32` through unchanged so `from_u32(to_u32(x)) == x` for every
   /// `x`.
@@ -884,7 +884,7 @@ impl DcpTargetGamut {
     }
   }
 
-  /// Decodes from the videoframe-local wire id produced by
+  /// Decodes from the mediaframe-local wire id produced by
   /// [`Self::to_u32`]. Unrecognised ids map to [`Self::Unknown`]
   /// carrying the original value, so the round-trip is lossless.
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -1239,6 +1239,159 @@ impl HdrStaticMetadata {
   }
 }
 
+/// Dolby Vision decoder configuration record.
+///
+/// Read from FFmpeg `AVDOVIDecoderConfigurationRecord`
+/// (`AV_PKT_DATA_DOVI_CONF` packet side data /
+/// `AV_FRAME_DATA_DOVI_METADATA`'s configuration). This is the
+/// stream-level DoVi *configuration* (which profile / level, whether
+/// an RPU and an enhancement layer are present, and the base-layer
+/// signal compatibility id) — it is **distinct from** the HDR10
+/// static metadata in [`HdrStaticMetadata`] (SMPTE ST 2086 /
+/// CTA-861.3) and from the per-frame [`ColorInfo`] enums. The DoVi
+/// RPU payload itself (dynamic metadata) is out of scope here; only
+/// the configuration record is modelled.
+///
+/// All fields default to `0` (`#[derive(Default)]`), matching an
+/// absent / unset configuration.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DolbyVisionConfig {
+  profile: u8,
+  level: u8,
+  rpu_present: bool,
+  el_present: bool,
+  bl_signal_compat_id: u8,
+}
+
+impl DolbyVisionConfig {
+  /// Constructs a `DolbyVisionConfig` from the FFmpeg
+  /// `AVDOVIDecoderConfigurationRecord` fields: Dolby Vision profile
+  /// and level, RPU / enhancement-layer presence flags, and the
+  /// base-layer signal compatibility id.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(
+    profile: u8,
+    level: u8,
+    rpu_present: bool,
+    el_present: bool,
+    bl_signal_compat_id: u8,
+  ) -> Self {
+    Self {
+      profile,
+      level,
+      rpu_present,
+      el_present,
+      bl_signal_compat_id,
+    }
+  }
+
+  /// Returns the Dolby Vision profile.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn profile(&self) -> u8 {
+    self.profile
+  }
+
+  /// Returns the Dolby Vision level.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn level(&self) -> u8 {
+    self.level
+  }
+
+  /// `true` when an RPU (Reference Processing Unit) is present.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rpu_present(&self) -> bool {
+    self.rpu_present
+  }
+
+  /// `true` when an enhancement layer is present.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn el_present(&self) -> bool {
+    self.el_present
+  }
+
+  /// Returns the base-layer signal compatibility id.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bl_signal_compat_id(&self) -> u8 {
+    self.bl_signal_compat_id
+  }
+
+  /// Sets the profile (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_profile(mut self, v: u8) -> Self {
+    self.profile = v;
+    self
+  }
+
+  /// Sets the level (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_level(mut self, v: u8) -> Self {
+    self.level = v;
+    self
+  }
+
+  /// Sets the RPU-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_rpu_present(mut self, v: bool) -> Self {
+    self.rpu_present = v;
+    self
+  }
+
+  /// Sets the enhancement-layer-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_el_present(mut self, v: bool) -> Self {
+    self.el_present = v;
+    self
+  }
+
+  /// Sets the base-layer signal compatibility id (consuming
+  /// builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_bl_signal_compat_id(mut self, v: u8) -> Self {
+    self.bl_signal_compat_id = v;
+    self
+  }
+
+  /// Sets the profile in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_profile(&mut self, v: u8) -> &mut Self {
+    self.profile = v;
+    self
+  }
+
+  /// Sets the level in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_level(&mut self, v: u8) -> &mut Self {
+    self.level = v;
+    self
+  }
+
+  /// Sets the RPU-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_rpu_present(&mut self, v: bool) -> &mut Self {
+    self.rpu_present = v;
+    self
+  }
+
+  /// Sets the enhancement-layer-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_el_present(&mut self, v: bool) -> &mut Self {
+    self.el_present = v;
+    self
+  }
+
+  /// Sets the base-layer signal compatibility id in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_bl_signal_compat_id(&mut self, v: u8) -> &mut Self {
+    self.bl_signal_compat_id = v;
+    self
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -1512,7 +1665,7 @@ mod tests {
       assert_eq!(format!("{}", ColorMatrix::Bt601), "bt601");
     }
 
-    // `Bt601` lives in the videoframe-domain extension band at
+    // `Bt601` lives in the mediaframe-domain extension band at
     // offset 0, NOT an FFmpeg code; it round-trips losslessly.
     assert_eq!(ColorMatrix::Bt601.to_u32(), DOMAIN_EXT_BASE);
     assert_eq!(ColorMatrix::Bt601.to_u32(), 0x8000_0000);
@@ -1620,5 +1773,47 @@ mod tests {
       .with_mastering(None);
     assert_eq!(h2.content_light(), Some(cll));
     assert!(h2.mastering().is_none());
+  }
+
+  #[test]
+  fn dolby_vision_config_default_and_accessors() {
+    let d = DolbyVisionConfig::default();
+    assert_eq!(d.profile(), 0);
+    assert_eq!(d.level(), 0);
+    assert!(!d.rpu_present());
+    assert!(!d.el_present());
+    assert_eq!(d.bl_signal_compat_id(), 0);
+
+    let c = DolbyVisionConfig::new(8, 9, true, false, 1);
+    assert_eq!(c.profile(), 8);
+    assert_eq!(c.level(), 9);
+    assert!(c.rpu_present());
+    assert!(!c.el_present());
+    assert_eq!(c.bl_signal_compat_id(), 1);
+
+    let c2 = DolbyVisionConfig::default()
+      .with_profile(5)
+      .with_level(6)
+      .with_rpu_present(true)
+      .with_el_present(true)
+      .with_bl_signal_compat_id(2);
+    assert_eq!(
+      (
+        c2.profile(),
+        c2.level(),
+        c2.rpu_present(),
+        c2.el_present(),
+        c2.bl_signal_compat_id()
+      ),
+      (5, 6, true, true, 2)
+    );
+
+    let mut c3 = DolbyVisionConfig::default();
+    c3.set_profile(7)
+      .set_level(4)
+      .set_rpu_present(true)
+      .set_el_present(false)
+      .set_bl_signal_compat_id(4);
+    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, false, 4));
   }
 }

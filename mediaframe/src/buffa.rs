@@ -1,7 +1,7 @@
-//! `buffa::Message` implementations for the videoframe wire-relevant
+//! `buffa::Message` implementations for the mediaframe wire-relevant
 //! types, behind the `buffa` feature. Used via `extern_path` from
 //! buffa-generated crates so a `.proto`-defined message can embed a
-//! videoframe type without redefining it.
+//! mediaframe type without redefining it.
 //!
 //! These are hand-written inherent-trait impls — there is **no**
 //! codegen and **no** `.proto` in this crate (mirrors the
@@ -21,6 +21,8 @@
 //! ChromaLocation { uint32 value = 1; }
 //! DcpTargetGamut { uint32 value = 1; }
 //! Rotation       { uint32 value = 1; }
+//! FieldOrder     { uint32 value = 1; }   // value = to_u32() (FFmpeg AVFieldOrder code)
+//! StereoMode     { uint32 value = 1; }   // value = to_u32() (FFmpeg AVStereo3DType code)
 //! PixelFormat    { uint32 value = 1; }   // value = to_u32() (Unknown(n) → n)
 //! ```
 //!
@@ -52,6 +54,12 @@
 //! Dimensions        { uint32 width = 1; uint32 height = 2; }
 //! Rect              { uint32 x = 1; uint32 y = 2; uint32 width = 3; uint32 height = 4; }
 //! SampleAspectRatio { uint32 num = 1; uint32 den = 2; }          // both ALWAYS encoded
+//! Rational          { uint32 num = 1; uint32 den = 2; }          // both ALWAYS encoded
+//! FrameRate         { Rational rate = 1;                         // rate ALWAYS encoded
+//!                     bool     is_vfr = 2; }                     // proto3 zero-elision
+//! DolbyVisionConfig { uint32 profile = 1; uint32 level = 2;      // proto3 zero-elision
+//!                     bool rpu_present = 3; bool el_present = 4; //   (all-zero default)
+//!                     uint32 bl_signal_compat_id = 5; }
 //! ColorInfo         { ColorPrimaries primaries = 1;              // all five ALWAYS
 //!                     ColorTransfer  transfer  = 2;              //   encoded as the
 //!                     ColorMatrix    matrix    = 3;              //   bare uint32 id
@@ -81,6 +89,16 @@
 //!   zero would mis-decode. Both fields are always written; a
 //!   malformed `den == 0` on the wire (never produced by this
 //!   encoder) is clamped to `1` to keep decode total.
+//! - `Rational` — same shape / reasoning as `SampleAspectRatio`
+//!   (`Default` is `1/1`, `num` default `1`, `den` `NonZeroU32`):
+//!   both fields always encoded, malformed `den == 0` clamped to
+//!   `1`.
+//! - `FrameRate` — `rate` is an always-encoded length-delimited
+//!   `Rational` sub-message (its inner `Default` is `1/1` ≠
+//!   proto-zero, so the nested-message-always-encoded
+//!   `mediatime::Timebase` stance applies, like `MasteringDisplay`'s
+//!   coords); `is_vfr` defaults to `false` == proto-zero so it uses
+//!   proto3 zero-elision.
 //! - `ColorInfo` — **all five enum fields are always encoded** as
 //!   the bare FFmpeg-code `uint32` id (not a nested message); tags
 //!   #1–#5 are single-byte. `ColorInfo`'s own seed is
@@ -115,9 +133,11 @@ use ::buffa::{
 use crate::{
   color::{
     ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange, ColorTransfer,
-    ContentLightLevel, DcpTargetGamut, HdrStaticMetadata, MasteringDisplay,
+    ContentLightLevel, DcpTargetGamut, DolbyVisionConfig, HdrStaticMetadata, MasteringDisplay,
   },
-  frame::{Dimensions, Rect, Rotation, SampleAspectRatio},
+  frame::{
+    Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode,
+  },
   pixel_format::PixelFormat,
 };
 
@@ -234,6 +254,29 @@ impl_enum_message!(
   DcpTargetGamut::from_u32
 );
 impl_enum_message!(Rotation, |s: &Rotation| s.to_u32(), Rotation::from_u32);
+// `FieldOrder` default is `Unknown(0)` (FFmpeg `AV_FIELD_UNKNOWN`,
+// code 0): `to_u32` of the default is `0`, so it elides; an absent
+// field decodes via `from_u32(seed)` back to `Unknown(0)` (no
+// canonical id is `0`), so the round-trip is lossless. Named
+// variants and other `Unknown(n)` are non-default and explicitly
+// encoded.
+impl_enum_message!(
+  FieldOrder,
+  |s: &FieldOrder| s.to_u32(),
+  FieldOrder::from_u32
+);
+// `StereoMode` default is `Mono` (FFmpeg `AV_STEREO3D_2D`, a *real*
+// code, value 0). The default elides; an absent field decodes via
+// `from_u32(0)` → `Mono` (the named variant for code 0), so the
+// round-trip is exact. Non-default values (incl. `Unknown(n)`) are
+// explicitly encoded; `Unknown` wrapping a canonical id
+// canonicalises to its named variant on decode (the shared
+// decoder-only `Unknown` convention, like `DcpTargetGamut`).
+impl_enum_message!(
+  StereoMode,
+  |s: &StereoMode| s.to_u32(),
+  StereoMode::from_u32
+);
 // `PixelFormat::to_u32` consumes `self` (it is `Copy`); `from_u32`
 // maps unrecognised ids to `Unknown(n)` so the round-trip is
 // lossless even for the elided-default case (`Unknown(0)` is the
@@ -480,7 +523,7 @@ impl Message for SampleAspectRatio {
         // invariant (scalar values never raise decode errors; only
         // structural errors do). Codex adversarial-review F6:
         // resolved as a coordinated mediatime/buffa policy, NOT a
-        // videoframe-only divergence.
+        // mediaframe-only divergence.
         let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
         self.set_den(den);
       }
@@ -491,6 +534,281 @@ impl Message for SampleAspectRatio {
 
   fn clear(&mut self) {
     *self = SampleAspectRatio::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Rational — { uint32 num = 1; uint32 den = 2; }
+//
+// Same shape and reasoning as `SampleAspectRatio`: `num`/`den` are
+// encoded UNCONDITIONALLY (no proto3 zero-elision). The decoder
+// seeds from `Rational::default()` (1/1), NOT proto-zero; eliding
+// `num == 0` would decode back as `num == 1`. `den` is `NonZeroU32`
+// and can never legitimately be 0; a malformed wire `den == 0` (never
+// produced by this encoder) is clamped to 1 to keep decode total.
+// Both tags are single-byte.
+// ----------------------------------------------------------------------------
+
+impl DefaultInstance for Rational {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<Rational> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Rational::default()))
+  }
+}
+
+impl Message for Rational {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    2 + uint32_encoded_len(self.num()) as u32 + uint32_encoded_len(self.den().get()) as u32
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    Tag::new(1, WireType::Varint).encode(buf);
+    encode_uint32(self.num(), buf);
+    Tag::new(2, WireType::Varint).encode(buf);
+    encode_uint32(self.den().get(), buf);
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let num = decode_uint32(buf)?;
+        self.set_num(num);
+      }
+      2 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 2,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        // `den` is NonZeroU32; a malformed 0 on the wire (never
+        // produced by our own encoder) is clamped to 1 — identical
+        // to `SampleAspectRatio`'s decode, upholding the codec
+        // family's total-scalar-decode invariant.
+        let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
+        self.set_den(den);
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = Rational::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// FrameRate — { Rational rate = 1; bool is_vfr = 2; }
+//
+// `rate` is an always-encoded length-delimited `Rational`
+// sub-message: its inner `Default` is `1/1` ≠ proto-zero, so the
+// nested-message-always-encoded `mediatime::Timebase` stance applies
+// (like `MasteringDisplay`'s coords) — presence is unambiguous and
+// `decode(encode(x)) == x` holds regardless of the inner ratio.
+// `is_vfr` defaults to `false` == proto-zero, so it uses sound proto3
+// zero-elision (only `true` is written).
+// ----------------------------------------------------------------------------
+
+impl DefaultInstance for FrameRate {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<FrameRate> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(FrameRate::default()))
+  }
+}
+
+impl Message for FrameRate {
+  fn compute_size(&self, cache: &mut SizeCache) -> u32 {
+    let mut size = 0u32;
+    // rate (field 1) — always-encoded nested message.
+    {
+      let slot = cache.reserve();
+      let inner = self.rate().compute_size(cache);
+      cache.set(slot, inner);
+      size += 1 + varint_len(inner as u64) as u32 + inner;
+    }
+    // proto3 zero-elision: sound — seed `is_vfr` is `false`.
+    if self.is_vfr() {
+      size += 1 + 1; // tag + single-byte bool varint
+    }
+    size
+  }
+
+  fn write_to(&self, cache: &mut SizeCache, buf: &mut impl BufMut) {
+    Tag::new(1, WireType::LengthDelimited).encode(buf);
+    encode_varint(cache.consume_next() as u64, buf);
+    self.rate().write_to(cache, buf);
+    // proto3 zero-elision: sound — see `compute_size`.
+    if self.is_vfr() {
+      Tag::new(2, WireType::Varint).encode(buf);
+      encode_varint(1, buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::LengthDelimited {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: LEN,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let mut rate = self.rate();
+        buffa::Message::merge_length_delimited(&mut rate, buf, depth)?;
+        self.set_rate(rate);
+      }
+      2 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 2,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_is_vfr(decode_uint32(buf)? != 0);
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = FrameRate::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// DolbyVisionConfig — { uint32 profile = 1; uint32 level = 2;
+//                       bool rpu_present = 3; bool el_present = 4;
+//                       uint32 bl_signal_compat_id = 5; }
+//
+// `Default` is all-zero == proto-zero for every field, so proto3
+// zero-elision is sound throughout. `u8` fields widen to the `uint32`
+// wire scalar; bools are 0/1 varints.
+// ----------------------------------------------------------------------------
+
+impl DefaultInstance for DolbyVisionConfig {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<DolbyVisionConfig> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(DolbyVisionConfig::default()))
+  }
+}
+
+impl Message for DolbyVisionConfig {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    let mut size = 0u32;
+    // proto3 zero-elision: sound — seed is all-zero default.
+    if self.profile() != 0 {
+      size += 1 + uint32_encoded_len(self.profile() as u32) as u32;
+    }
+    if self.level() != 0 {
+      size += 1 + uint32_encoded_len(self.level() as u32) as u32;
+    }
+    if self.rpu_present() {
+      size += 1 + 1;
+    }
+    if self.el_present() {
+      size += 1 + 1;
+    }
+    if self.bl_signal_compat_id() != 0 {
+      size += 1 + uint32_encoded_len(self.bl_signal_compat_id() as u32) as u32;
+    }
+    size
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    // proto3 zero-elision: sound — see `compute_size`.
+    if self.profile() != 0 {
+      Tag::new(1, WireType::Varint).encode(buf);
+      encode_uint32(self.profile() as u32, buf);
+    }
+    if self.level() != 0 {
+      Tag::new(2, WireType::Varint).encode(buf);
+      encode_uint32(self.level() as u32, buf);
+    }
+    if self.rpu_present() {
+      Tag::new(3, WireType::Varint).encode(buf);
+      encode_varint(1, buf);
+    }
+    if self.el_present() {
+      Tag::new(4, WireType::Varint).encode(buf);
+      encode_varint(1, buf);
+    }
+    if self.bl_signal_compat_id() != 0 {
+      Tag::new(5, WireType::Varint).encode(buf);
+      encode_uint32(self.bl_signal_compat_id() as u32, buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_profile(decode_uint32(buf)? as u8);
+      }
+      2 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 2,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_level(decode_uint32(buf)? as u8);
+      }
+      3 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 3,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_rpu_present(decode_uint32(buf)? != 0);
+      }
+      4 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 4,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_el_present(decode_uint32(buf)? != 0);
+      }
+      5 => {
+        if tag.wire_type() != WireType::Varint {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 5,
+            expected: VARINT,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        self.set_bl_signal_compat_id(decode_uint32(buf)? as u8);
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = DolbyVisionConfig::default();
   }
 }
 
@@ -960,7 +1278,7 @@ impl Message for HdrStaticMetadata {
 #[cfg(test)]
 mod tests {
   use super::*;
-  // `videoframe` is `#![no_std]`; `Vec` is not in the core prelude. The
+  // `mediaframe` is `#![no_std]`; `Vec` is not in the core prelude. The
   // non-test impls above reach `alloc` through the always-present `buffa`
   // crate (`buffa::alloc::*`); the test module does the same so it builds
   // under `--no-default-features --features buffa`.
@@ -1105,7 +1423,7 @@ mod tests {
 
   #[test]
   fn color_matrix_bt601_domain_variant_round_trips() {
-    // `ColorMatrix::Bt601` is a videoframe-domain id
+    // `ColorMatrix::Bt601` is a mediaframe-domain id
     // (`DOMAIN_EXT_BASE` = 0x8000_0000), non-default, so it must be
     // explicitly encoded to NON-zero bytes and round-trip losslessly
     // via the `Message` impl (uint32 carrying 0x8000_0000).
@@ -1292,6 +1610,24 @@ mod tests {
       let b = s.encode_to_vec();
       assert_eq!(SampleAspectRatio::decode_from_slice(&b).unwrap(), s);
     }
+  }
+
+  // Byte-for-byte wire-stability guard. `SampleAspectRatio` is a
+  // `buffa` extern target whose representation changed (newtype over
+  // `Rational` in 0.3.1); the wire encoding MUST stay identical to
+  // 0.3.0: `{ uint32 num = 1; uint32 den = 2; }`, both always encoded.
+  // For `new(40, 33)`: tag1 varint `0x08`, value `40` (`0x28`),
+  // tag2 varint `0x10`, value `33` (`0x21`).
+  #[test]
+  fn sar_wire_is_byte_stable() {
+    let bytes = SampleAspectRatio::new(40, nz(33)).encode_to_vec();
+    let expected: Vec<u8> = [0x08u8, 0x28, 0x10, 0x21].into_iter().collect();
+    assert_eq!(bytes, expected);
+    // …and decodes back unchanged.
+    assert_eq!(
+      SampleAspectRatio::decode_from_slice(&bytes).unwrap(),
+      SampleAspectRatio::new(40, nz(33))
+    );
   }
 
   #[test]
@@ -1525,6 +1861,230 @@ mod tests {
     encode_varint(3, &mut ok);
     assert_eq!(
       <HdrStaticMetadata as Message>::decode_from_slice(&ok).unwrap(),
+      original
+    );
+  }
+
+  // ---- FieldOrder ----
+
+  #[test]
+  fn field_order_round_trip() {
+    // `Unknown(0)` is the default (FFmpeg `AV_FIELD_UNKNOWN`, code 0)
+    // so it elides and decodes back to `Unknown(0)`. Named variants
+    // and other `Unknown(n)` are non-default and round-trip via the
+    // shared enum codec — lossless, no silent collapse.
+    for f in [
+      FieldOrder::Unknown(0),
+      FieldOrder::Progressive,
+      FieldOrder::Tt,
+      FieldOrder::Bb,
+      FieldOrder::Tb,
+      FieldOrder::Bt,
+      FieldOrder::Unknown(7),
+      FieldOrder::Unknown(4242),
+    ] {
+      let b = f.encode_to_vec();
+      assert_eq!(FieldOrder::decode_from_slice(&b).unwrap(), f);
+    }
+    // Default elides to zero bytes; empty wire decodes to default.
+    assert!(FieldOrder::default().encode_to_vec().is_empty());
+    assert_eq!(
+      FieldOrder::decode_from_slice(&[]).unwrap(),
+      FieldOrder::default()
+    );
+  }
+
+  #[test]
+  fn field_order_wrong_wire_type_errors() {
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
+    encode_varint(0, &mut buf);
+    let err = <FieldOrder as Message>::decode_from_slice(&buf).unwrap_err();
+    assert!(
+      matches!(err, DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
+        if expected == VARINT && actual == LEN),
+      "got {err:?}"
+    );
+  }
+
+  // ---- StereoMode ----
+
+  #[test]
+  fn stereo_mode_round_trip() {
+    // `Mono` is the default (FFmpeg `AV_STEREO3D_2D`, code 0) so it
+    // elides and decodes back via `from_u32(0)` → `Mono`. Other
+    // named variants and `Unknown(n)` round-trip losslessly.
+    for s in [
+      StereoMode::Mono,
+      StereoMode::SideBySide,
+      StereoMode::TopBottom,
+      StereoMode::FrameSequence,
+      StereoMode::Checkerboard,
+      StereoMode::SideBySideQuincunx,
+      StereoMode::Lines,
+      StereoMode::Columns,
+      StereoMode::Unknown(99),
+      StereoMode::Unknown(4242),
+    ] {
+      let b = s.encode_to_vec();
+      assert_eq!(StereoMode::decode_from_slice(&b).unwrap(), s);
+    }
+    // Default `Mono` elides to zero bytes; empty wire → default.
+    assert!(StereoMode::default().encode_to_vec().is_empty());
+    assert_eq!(
+      StereoMode::decode_from_slice(&[]).unwrap(),
+      StereoMode::default()
+    );
+  }
+
+  #[test]
+  fn stereo_mode_unknown_canonicalization() {
+    // `Unknown` is decoder-only: the decoder never emits
+    // `Unknown(0..=7)` (`from_u32` maps the canonical codes to their
+    // named variants). Manually wrapping a canonical id in `Unknown`
+    // is a misuse; it canonicalises to the named variant on a buffa
+    // round-trip (correct — the id *is* that mode), never silent
+    // data loss. Mirrors `dcp_target_gamut_unknown_canonicalization`.
+    for (misuse, named) in [
+      (StereoMode::Unknown(0), StereoMode::Mono),
+      (StereoMode::Unknown(1), StereoMode::SideBySide),
+      (StereoMode::Unknown(7), StereoMode::Columns),
+    ] {
+      let b = misuse.encode_to_vec();
+      assert_eq!(StereoMode::decode_from_slice(&b).unwrap(), named);
+    }
+    // Non-canonical ids are preserved losslessly as `Unknown`.
+    for v in [8u32, 4242, u32::MAX] {
+      let u = StereoMode::Unknown(v);
+      let b = u.encode_to_vec();
+      assert_eq!(StereoMode::decode_from_slice(&b).unwrap(), u);
+      assert_eq!(StereoMode::from_u32(v), StereoMode::Unknown(v));
+    }
+  }
+
+  #[test]
+  fn stereo_mode_wrong_wire_type_errors() {
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
+    encode_varint(0, &mut buf);
+    let err = <StereoMode as Message>::decode_from_slice(&buf).unwrap_err();
+    assert!(
+      matches!(err, DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
+        if expected == VARINT && actual == LEN),
+      "got {err:?}"
+    );
+  }
+
+  // ---- Rational ----
+
+  #[test]
+  fn rational_round_trip_default_and_nondefault() {
+    for r in [
+      Rational::default(),            // 1/1
+      Rational::new(30000, nz(1001)), // NTSC fps
+      Rational::new(0, nz(1)),        // num == 0 must survive
+    ] {
+      let b = r.encode_to_vec();
+      assert_eq!(Rational::decode_from_slice(&b).unwrap(), r);
+    }
+  }
+
+  #[test]
+  fn rational_field2_wrong_wire_type_errors() {
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::Varint).encode(&mut buf);
+    encode_uint32(4, &mut buf);
+    Tag::new(2, WireType::LengthDelimited).encode(&mut buf);
+    encode_varint(0, &mut buf);
+    assert!(matches!(
+      <Rational as Message>::decode_from_slice(&buf).unwrap_err(),
+      DecodeError::WireTypeMismatch { field_number: 2, expected, actual }
+        if expected == VARINT && actual == LEN
+    ));
+  }
+
+  #[test]
+  fn rational_den_zero_clamped_and_unknown_skip() {
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::Varint).encode(&mut buf);
+    encode_uint32(24, &mut buf);
+    Tag::new(2, WireType::Varint).encode(&mut buf);
+    encode_uint32(0, &mut buf); // malformed den == 0
+    Tag::new(6, WireType::Varint).encode(&mut buf); // unknown → skip
+    encode_varint(42, &mut buf);
+    let r = <Rational as Message>::decode_from_slice(&buf).unwrap();
+    assert_eq!(r.num(), 24);
+    assert_eq!(r.den().get(), 1);
+  }
+
+  // ---- FrameRate ----
+
+  #[test]
+  fn frame_rate_round_trip_default_and_nondefault() {
+    for fr in [
+      FrameRate::default(),                                  // 1/1, CFR
+      FrameRate::new(Rational::new(30000, nz(1001)), false), // NTSC CFR
+      FrameRate::new(Rational::new(60, nz(1)), true),        // VFR avg
+      FrameRate::new(Rational::new(0, nz(1)), true),         // zero rate
+    ] {
+      let b = fr.encode_to_vec();
+      assert_eq!(FrameRate::decode_from_slice(&b).unwrap(), fr);
+    }
+  }
+
+  #[test]
+  fn frame_rate_wrong_wire_type_and_unknown_skip() {
+    // Field 1 (rate) must be length-delimited.
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::Varint).encode(&mut buf);
+    encode_varint(0, &mut buf);
+    assert!(matches!(
+      <FrameRate as Message>::decode_from_slice(&buf).unwrap_err(),
+      DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
+        if expected == LEN && actual == VARINT
+    ));
+    let original = FrameRate::new(Rational::new(25, nz(1)), true);
+    let mut ok = original.encode_to_vec();
+    Tag::new(9, WireType::Varint).encode(&mut ok);
+    encode_varint(7, &mut ok);
+    assert_eq!(
+      <FrameRate as Message>::decode_from_slice(&ok).unwrap(),
+      original
+    );
+  }
+
+  // ---- DolbyVisionConfig ----
+
+  #[test]
+  fn dolby_vision_config_round_trip_default_and_nondefault() {
+    for d in [
+      DolbyVisionConfig::default(),
+      DolbyVisionConfig::new(8, 9, true, false, 1),
+      DolbyVisionConfig::new(5, 6, true, true, 2),
+      DolbyVisionConfig::new(0, 0, false, true, 0), // single non-zero bool
+      DolbyVisionConfig::new(255, 255, true, true, 255),
+    ] {
+      let b = d.encode_to_vec();
+      assert_eq!(DolbyVisionConfig::decode_from_slice(&b).unwrap(), d);
+    }
+  }
+
+  #[test]
+  fn dolby_vision_config_wrong_wire_type_and_unknown_skip() {
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
+    encode_varint(0, &mut buf);
+    assert!(matches!(
+      <DolbyVisionConfig as Message>::decode_from_slice(&buf).unwrap_err(),
+      DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
+        if expected == VARINT && actual == LEN
+    ));
+    let original = DolbyVisionConfig::new(7, 4, true, false, 4);
+    let mut ok = original.encode_to_vec();
+    Tag::new(11, WireType::Varint).encode(&mut ok);
+    encode_varint(9, &mut ok);
+    assert_eq!(
+      <DolbyVisionConfig as Message>::decode_from_slice(&ok).unwrap(),
       original
     );
   }

@@ -609,7 +609,7 @@ pub enum PixelFormat {
   /// 8-bit greyscale (`AV_PIX_FMT_GRAY8`).
   Gray8,
   /// 8-bit greyscale — FFmpeg `AV_PIX_FMT_GRAY8A` alias of [`Self::Ya8`];
-  /// preserved as a separate variant since videoframe's wire format is
+  /// preserved as a separate variant since mediaframe's wire format is
   /// discriminant-independent.
   Gray8a,
   /// 9-bit greyscale, little-endian.
@@ -647,7 +647,7 @@ pub enum PixelFormat {
   /// 16-bit greyscale-with-alpha.
   Ya8,
   /// FFmpeg `AV_PIX_FMT_Y400A` alias of [`Self::Ya8`]; preserved as a separate
-  /// variant since videoframe's wire format is discriminant-independent.
+  /// variant since mediaframe's wire format is discriminant-independent.
   Y400a,
   /// 32-bit greyscale-with-alpha, little-endian.
   Ya16Le,

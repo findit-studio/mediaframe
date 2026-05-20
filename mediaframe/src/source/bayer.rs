@@ -9,7 +9,7 @@
 //! `ColorCorrectionMatrix`) that are colconv processing-layer types.
 //! Only the zero-sized [`Bayer`] marker lives here so that:
 //!
-//! - `Bayer` can implement `videoframe::SourceFormat` (which uses a
+//! - `Bayer` can implement `mediaframe::SourceFormat` (which uses a
 //!   `pub(crate)` seal), and
 //! - downstream crates that need to name the source format type do not
 //!   need to depend on `colconv`.

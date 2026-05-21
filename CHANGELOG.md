@@ -70,11 +70,39 @@ identity).
   placeholder that used to live in `mediaschema::domain::bitflags`.
   `to_u32` / `from_u32` aliases for `bits` / `from_bits_retain` so
   unknown bits round-trip losslessly.
+- **`capture` module** (alloc-gated) — EXIF / capture-metadata
+  vocabulary.
+  - `Device { make, model }` (private `SmolStr` fields; empty string
+    means absent, never `Option<SmolStr>`; builders / setters /
+    `is_empty`).
+  - `GeoLocation { lat: f64, lon: f64, altitude: Option<f32> }` with
+    range-validating `try_new`, ISO-6709 degrees-only
+    parse/format (`from_iso6709` + `to_iso6709`, `FromStr` +
+    `Display`, hand-rolled <200-line parser — no regex / no chrono).
+    `(0, 0)` "Null Island" is accepted (it is a real, legal
+    coordinate); only out-of-range lat/lon and structurally bad
+    strings are rejected via `GeoLocationError::{LatOutOfRange,
+    LonOutOfRange, Iso6709Malformed}`.
+- **`lang::Language`** (alloc-gated) — validated BCP-47 language tag
+  wrapping `icu_locid` `Language`/`Script`/`Region` subtags (`Copy`,
+  heap-free in-rust representation; the `to_bcp47() -> String` /
+  `Display` surface needs the allocator). `try_new(lang, script,
+  region)` + `from_bcp47` / `Default = "und"` (ISO 639-3
+  undetermined) + `is_undetermined` + `FromStr`.
+  `LanguageError::{InvalidLanguage, InvalidScript, InvalidRegion,
+  MalformedBcp47}`.
 - **`buffa`** — hand-written `Message` / `DefaultInstance` wire
-  support for every new type (see the `## Audio + container types`
-  and `## Subtitle + disposition` sub-sections of the `buffa.rs`
-  module doc). The `buffa` feature now implies `alloc` (string-bearing
-  wire codecs pull in `smol_str`).
+  support for every new type (see the `## Audio + container types`,
+  `## Subtitle + disposition`, and `## Capture + language` sub-
+  sections of the `buffa.rs` module doc). `GeoLocation` always-encodes
+  `lat`/`lon` (the `(0, 0)` "Null Island" default is a real
+  coordinate — proto3 zero-elision would be unsound, same defensive
+  stance as `SampleAspectRatio`); `altitude` is presence-encoded
+  (field emitted iff `Some`, including for `Some(0.0)`). The `buffa`
+  feature now implies `alloc` (string-bearing wire codecs pull in
+  `smol_str`).
+- **Deps** — adds `icu_locid = "1.5"` (optional, gated on the
+  `alloc` feature; itself `no_std`-friendly).
 
 ### Changes
 

@@ -27,6 +27,13 @@ extern crate std;
 pub mod audio;
 #[cfg(feature = "buffa")]
 mod buffa;
+/// EXIF / capture-metadata vocabulary — capture device, geographic
+/// location (with ISO-6709 parse/format). Requires the `alloc`
+/// feature (`std` includes it) because the constituent types lean on
+/// `SmolStr` / `std::string::String` for their text surface.
+#[cfg(any(feature = "std", feature = "alloc"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
+pub mod capture;
 /// Stream-descriptor codec/format/layout vocabulary for video, audio, and
 /// subtitle tracks. Requires the `alloc` feature (`std` includes it) for
 /// the `Other(SmolStr)` escape arms.
@@ -42,6 +49,12 @@ pub mod container;
 /// (video / audio / subtitle).
 pub mod disposition;
 pub mod frame;
+/// Validated BCP-47 language tag wrapping `icu_locid` subtags
+/// (`Copy`, heap-free representation; `to_bcp47() -> String` and
+/// `Display` need the allocator).
+#[cfg(any(feature = "std", feature = "alloc"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
+pub mod lang;
 pub mod pixel_format;
 pub mod source;
 /// Subtitle-stream descriptor vocabulary — file / demuxer format

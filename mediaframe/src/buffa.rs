@@ -793,7 +793,7 @@ impl Message for FrameRate {
             actual: tag.wire_type() as u8,
           });
         }
-        self.set_is_vfr(decode_uint32(buf)? != 0);
+        self.update_is_vfr(decode_uint32(buf)? != 0);
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -2042,7 +2042,7 @@ impl Message for Tags {
             self.set_comment(s);
           }
           13 => {
-            self.set_language(if s.is_empty() { None } else { Some(s) });
+            self.update_language(if s.is_empty() { None } else { Some(s) });
           }
           _ => unreachable!(),
         }
@@ -2059,19 +2059,19 @@ impl Message for Tags {
         let opt = if v == 0 { None } else { Some(v) };
         match n {
           8 => {
-            self.set_year(opt);
+            self.update_year(opt);
           }
           9 => {
-            self.set_track_number(opt);
+            self.update_track_number(opt);
           }
           10 => {
-            self.set_track_total(opt);
+            self.update_track_total(opt);
           }
           11 => {
-            self.set_disc_number(opt);
+            self.update_disc_number(opt);
           }
           12 => {
-            self.set_disc_total(opt);
+            self.update_disc_total(opt);
           }
           _ => unreachable!(),
         }
@@ -2453,7 +2453,7 @@ impl Message for GeoLocation {
           });
         }
         let v = decode_float(buf)?;
-        self.set_altitude(Some(v));
+        self.set_altitude(v);
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -3474,10 +3474,10 @@ mod tests {
       .with_title("Song")
       .with_artist("Band")
       .with_album("Album")
-      .with_year(Some(1999))
-      .with_track_number(Some(3))
-      .with_track_total(Some(12))
-      .with_language(Some(SmolStr::new("en-US")));
+      .with_year(1999)
+      .with_track_number(3)
+      .with_track_total(12)
+      .with_language("en-US");
     let b = t.encode_to_vec();
     assert_eq!(Tags::decode_from_slice(&b).unwrap(), t);
     // Default round-trips.

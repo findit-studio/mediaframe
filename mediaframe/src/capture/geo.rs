@@ -77,18 +77,42 @@ impl GeoLocation {
     self.altitude
   }
 
-  /// Replaces the altitude in place (`None` = unknown).
+  /// Sets the altitude to `Some(altitude)` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_altitude(&mut self, altitude: Option<f32>) -> &mut Self {
+  pub const fn set_altitude(&mut self, altitude: f32) -> &mut Self {
+    self.altitude = Some(altitude);
+    self
+  }
+
+  /// Assigns the raw altitude wrapper in place (`None` = unknown).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_altitude(&mut self, altitude: Option<f32>) -> &mut Self {
     self.altitude = altitude;
     self
   }
 
-  /// Returns a new `GeoLocation` with the altitude replaced (consuming
-  /// builder; useful for chaining off [`Self::try_new`]).
+  /// Clears the altitude (`None` = unknown).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_altitude(&mut self) -> &mut Self {
+    self.altitude = None;
+    self
+  }
+
+  /// Returns a new `GeoLocation` with the altitude set to
+  /// `Some(altitude)` (consuming builder; useful for chaining off
+  /// [`Self::try_new`]).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_altitude(mut self, altitude: Option<f32>) -> Self {
+  pub const fn with_altitude(mut self, altitude: f32) -> Self {
+    self.altitude = Some(altitude);
+    self
+  }
+
+  /// Returns a new `GeoLocation` with the raw altitude wrapper assigned
+  /// (consuming builder; `None` = unknown).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_altitude(mut self, altitude: Option<f32>) -> Self {
     self.altitude = altitude;
     self
   }
@@ -501,16 +525,28 @@ mod tests {
   fn with_altitude_builder() {
     let g = GeoLocation::try_new(0.0, 0.0, None)
       .unwrap()
-      .with_altitude(Some(120.0));
+      .with_altitude(120.0);
     assert_eq!(g.altitude(), Some(120.0));
+  }
+
+  #[test]
+  fn maybe_altitude_assigns_raw_wrapper() {
+    let g = GeoLocation::try_new(0.0, 0.0, None)
+      .unwrap()
+      .maybe_altitude(Some(80.0));
+    assert_eq!(g.altitude(), Some(80.0));
+    let g = g.maybe_altitude(None);
+    assert!(g.altitude().is_none());
   }
 
   #[test]
   fn set_altitude_mutates_in_place() {
     let mut g = GeoLocation::try_new(0.0, 0.0, None).unwrap();
-    g.set_altitude(Some(50.5));
+    g.set_altitude(50.5);
     assert_eq!(g.altitude(), Some(50.5));
-    g.set_altitude(None);
+    g.update_altitude(Some(60.0));
+    assert_eq!(g.altitude(), Some(60.0));
+    g.clear_altitude();
     assert!(g.altitude().is_none());
   }
 }

@@ -186,47 +186,89 @@ impl Tags {
     self.comment = v.into();
     self
   }
-  /// Sets the year (consuming builder). Pass `None` to clear.
+  /// Sets the year to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_year(mut self, v: Option<u16>) -> Self {
+  pub const fn with_year(mut self, v: u16) -> Self {
+    self.year = Some(v);
+    self
+  }
+  /// Assigns the raw year wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_year(mut self, v: Option<u16>) -> Self {
     self.year = v;
     self
   }
-  /// Sets the track number (consuming builder).
+  /// Sets the track number to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_track_number(mut self, v: Option<u16>) -> Self {
+  pub const fn with_track_number(mut self, v: u16) -> Self {
+    self.track_number = Some(v);
+    self
+  }
+  /// Assigns the raw track-number wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_track_number(mut self, v: Option<u16>) -> Self {
     self.track_number = v;
     self
   }
-  /// Sets the track total (consuming builder).
+  /// Sets the track total to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_track_total(mut self, v: Option<u16>) -> Self {
+  pub const fn with_track_total(mut self, v: u16) -> Self {
+    self.track_total = Some(v);
+    self
+  }
+  /// Assigns the raw track-total wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_track_total(mut self, v: Option<u16>) -> Self {
     self.track_total = v;
     self
   }
-  /// Sets the disc number (consuming builder).
+  /// Sets the disc number to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_disc_number(mut self, v: Option<u16>) -> Self {
+  pub const fn with_disc_number(mut self, v: u16) -> Self {
+    self.disc_number = Some(v);
+    self
+  }
+  /// Assigns the raw disc-number wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_disc_number(mut self, v: Option<u16>) -> Self {
     self.disc_number = v;
     self
   }
-  /// Sets the disc total (consuming builder).
+  /// Sets the disc total to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_disc_total(mut self, v: Option<u16>) -> Self {
+  pub const fn with_disc_total(mut self, v: u16) -> Self {
+    self.disc_total = Some(v);
+    self
+  }
+  /// Assigns the raw disc-total wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_disc_total(mut self, v: Option<u16>) -> Self {
     self.disc_total = v;
     self
   }
-  /// Sets the language tag (consuming builder). Pass `None` to
-  /// clear. TODO(lang): swap to `Option<crate::Language>` once it
-  /// lands.
+  /// Sets the language tag to `Some(v)` (consuming builder).
+  /// TODO(lang): swap to `crate::Language` once it lands.
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_language(mut self, v: Option<SmolStr>) -> Self {
+  pub fn with_language(mut self, v: impl Into<SmolStr>) -> Self {
+    self.language = Some(v.into());
+    self
+  }
+  /// Assigns the raw language wrapper (consuming builder).
+  /// TODO(lang): swap to `Option<crate::Language>` once it lands.
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn maybe_language(mut self, v: Option<SmolStr>) -> Self {
     self.language = v;
     self
   }
@@ -273,41 +315,114 @@ impl Tags {
     self.comment = v.into();
     self
   }
-  /// Sets the year in place.
+  /// Sets the year to `Some(v)` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_year(&mut self, v: Option<u16>) -> &mut Self {
+  pub const fn set_year(&mut self, v: u16) -> &mut Self {
+    self.year = Some(v);
+    self
+  }
+  /// Assigns the raw year wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_year(&mut self, v: Option<u16>) -> &mut Self {
     self.year = v;
     self
   }
-  /// Sets the track number in place.
+  /// Clears the year (`None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_track_number(&mut self, v: Option<u16>) -> &mut Self {
+  pub const fn clear_year(&mut self) -> &mut Self {
+    self.year = None;
+    self
+  }
+  /// Sets the track number to `Some(v)` in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_track_number(&mut self, v: u16) -> &mut Self {
+    self.track_number = Some(v);
+    self
+  }
+  /// Assigns the raw track-number wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_track_number(&mut self, v: Option<u16>) -> &mut Self {
     self.track_number = v;
     self
   }
-  /// Sets the track total in place.
+  /// Clears the track number (`None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_track_total(&mut self, v: Option<u16>) -> &mut Self {
+  pub const fn clear_track_number(&mut self) -> &mut Self {
+    self.track_number = None;
+    self
+  }
+  /// Sets the track total to `Some(v)` in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_track_total(&mut self, v: u16) -> &mut Self {
+    self.track_total = Some(v);
+    self
+  }
+  /// Assigns the raw track-total wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_track_total(&mut self, v: Option<u16>) -> &mut Self {
     self.track_total = v;
     self
   }
-  /// Sets the disc number in place.
+  /// Clears the track total (`None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_disc_number(&mut self, v: Option<u16>) -> &mut Self {
+  pub const fn clear_track_total(&mut self) -> &mut Self {
+    self.track_total = None;
+    self
+  }
+  /// Sets the disc number to `Some(v)` in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_disc_number(&mut self, v: u16) -> &mut Self {
+    self.disc_number = Some(v);
+    self
+  }
+  /// Assigns the raw disc-number wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_disc_number(&mut self, v: Option<u16>) -> &mut Self {
     self.disc_number = v;
     self
   }
-  /// Sets the disc total in place.
+  /// Clears the disc number (`None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_disc_total(&mut self, v: Option<u16>) -> &mut Self {
+  pub const fn clear_disc_number(&mut self) -> &mut Self {
+    self.disc_number = None;
+    self
+  }
+  /// Sets the disc total to `Some(v)` in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_disc_total(&mut self, v: u16) -> &mut Self {
+    self.disc_total = Some(v);
+    self
+  }
+  /// Assigns the raw disc-total wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_disc_total(&mut self, v: Option<u16>) -> &mut Self {
     self.disc_total = v;
     self
   }
-  /// Sets the language tag in place. TODO(lang): swap to
+  /// Clears the disc total (`None`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_disc_total(&mut self) -> &mut Self {
+    self.disc_total = None;
+    self
+  }
+  /// Sets the language tag to `Some(v)` in place. TODO(lang): swap to
+  /// `crate::Language` once it lands.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_language(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.language = Some(v.into());
+    self
+  }
+  /// Assigns the raw language wrapper in place. TODO(lang): swap to
   /// `Option<crate::Language>` once it lands.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_language(&mut self, v: Option<SmolStr>) -> &mut Self {
+  pub fn update_language(&mut self, v: Option<SmolStr>) -> &mut Self {
     self.language = v;
+    self
+  }
+  /// Clears the language tag (`None`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn clear_language(&mut self) -> &mut Self {
+    self.language = None;
     self
   }
 }
@@ -349,12 +464,12 @@ mod tests {
       .with_composer("Composer Y")
       .with_genre("Electronic")
       .with_comment("ripped 2026")
-      .with_year(Some(2026))
-      .with_track_number(Some(3))
-      .with_track_total(Some(12))
-      .with_disc_number(Some(1))
-      .with_disc_total(Some(2))
-      .with_language(Some(SmolStr::new("en-US")));
+      .with_year(2026)
+      .with_track_number(3)
+      .with_track_total(12)
+      .with_disc_number(1)
+      .with_disc_total(2)
+      .with_language("en-US");
     assert_eq!(t.title(), "My Track");
     assert_eq!(t.artist(), "Artist X");
     assert_eq!(t.album_artist(), "Various Artists");
@@ -373,15 +488,49 @@ mod tests {
   #[test]
   fn setters_mutate_in_place() {
     let mut t = Tags::new();
-    t.set_title("Foo").set_artist("Bar").set_year(Some(1999));
+    t.set_title("Foo").set_artist("Bar").set_year(1999);
     assert_eq!(t.title(), "Foo");
     assert_eq!(t.artist(), "Bar");
     assert_eq!(t.year(), Some(1999));
   }
 
   #[test]
+  fn option_mutator_vocabulary_covers_set_update_clear() {
+    // present-value forms
+    let t = Tags::new().with_year(2026).with_track_number(3);
+    assert_eq!(t.year(), Some(2026));
+    assert_eq!(t.track_number(), Some(3));
+
+    // raw-wrapper forms (consuming + in-place)
+    let t = Tags::new().maybe_year(Some(1999)).maybe_disc_total(None);
+    assert_eq!(t.year(), Some(1999));
+    assert_eq!(t.disc_total(), None);
+
+    let mut t = Tags::new();
+    t.update_year(Some(2000)).update_track_total(Some(10));
+    assert_eq!(t.year(), Some(2000));
+    assert_eq!(t.track_total(), Some(10));
+
+    // clear forms
+    t.clear_year().clear_track_total();
+    assert_eq!(t.year(), None);
+    assert_eq!(t.track_total(), None);
+
+    // language vocabulary
+    let mut t = Tags::new();
+    t.set_language("en-US");
+    assert_eq!(t.language(), Some("en-US"));
+    t.update_language(Some(SmolStr::new("fr-FR")));
+    assert_eq!(t.language(), Some("fr-FR"));
+    t.clear_language();
+    assert_eq!(t.language(), None);
+    let t = Tags::new().with_language("de-DE").maybe_language(None);
+    assert_eq!(t.language(), None);
+  }
+
+  #[test]
   fn year_zero_is_meaningful_not_absent() {
-    let t = Tags::new().with_year(Some(0));
+    let t = Tags::new().with_year(0);
     assert_eq!(t.year(), Some(0));
     assert_ne!(t.year(), None);
   }

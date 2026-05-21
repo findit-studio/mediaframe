@@ -15,6 +15,11 @@ use derive_more::{Display, IsVariant};
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::coded::bit_rate_mode")
+)]
 pub enum BitRateMode {
   /// Constant bit rate (`"cbr"`).
   #[default]

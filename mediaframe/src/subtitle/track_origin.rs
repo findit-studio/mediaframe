@@ -17,6 +17,11 @@ use derive_more::{Display, IsVariant};
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::coded::track_origin")
+)]
 pub enum TrackOrigin {
   /// Stream multiplexed into the container alongside the video /
   /// audio tracks (e.g. an `.mkv` with embedded `.srt`-equivalent

@@ -45,6 +45,11 @@ use derive_more::{Display, IsVariant};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::coded::pixel_format")
+)]
 pub enum PixelFormat {
   /// Unknown / unset format. The wrapped `u32` is the original
   /// wire value passed to [`PixelFormat::from_u32`] — preserved so

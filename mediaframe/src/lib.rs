@@ -18,6 +18,13 @@ extern crate alloc as std;
 #[allow(unused_extern_crates)]
 extern crate std;
 
+/// Audio-stream descriptor vocabulary — channel layout, sample /
+/// container format, bit-rate mode, EBU R128 loudness, fingerprint,
+/// embedded metadata tags + cover art. Requires the `alloc` feature
+/// (`std` includes it) for the `Other(SmolStr)` escape arms and the
+/// `Vec<u8>` payloads.
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub mod audio;
 #[cfg(feature = "buffa")]
 mod buffa;
 /// Stream-descriptor codec/format/layout vocabulary for video, audio, and
@@ -26,6 +33,11 @@ mod buffa;
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub mod codec;
 pub mod color;
+/// Top-level multimedia container-format vocabulary. Requires the
+/// `alloc` feature (`std` includes it) for the `Other(SmolStr)`
+/// escape arm.
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub mod container;
 pub mod frame;
 pub mod pixel_format;
 pub mod source;

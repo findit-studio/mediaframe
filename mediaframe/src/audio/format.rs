@@ -95,7 +95,7 @@ impl SampleFormat {
   /// canonicalises through the wire to [`Self::Unknown(u32::MAX)`]
   /// (the slug is preserved only on the string-codec path).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn to_u32(&self) -> u32 {
+  pub const fn to_u32(&self) -> u32 {
     match self {
       Self::U8 => 0,
       Self::S16 => 1,

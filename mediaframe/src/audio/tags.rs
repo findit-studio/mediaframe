@@ -17,7 +17,7 @@ use smol_str::SmolStr;
 /// - Numeric fields use `Option<u16>` because `0` is a *valid*
 ///   value (year `0` exists historically; "track 0" sometimes
 ///   appears in test files), so the absent state must be distinct.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tags {
   title: SmolStr,
   artist: SmolStr,
@@ -35,6 +35,14 @@ pub struct Tags {
   // capture-lang subagent's mediaframe::Language lands. Currently a
   // BCP-47 SmolStr placeholder.
   language: Option<SmolStr>,
+}
+
+impl Default for Tags {
+  /// Delegates to [`Tags::new`] — every field absent / empty.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Tags {

@@ -80,6 +80,17 @@ pub enum Format {
   Other(SmolStr),
 }
 
+impl Default for Format {
+  /// `Other("")` — the "unspecified format" sentinel, matching the
+  /// convention used by every other string-bearing format enum in
+  /// the crate (`audio::ContainerFormat`, `container::Format`,
+  /// `audio::ChannelLayout`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::Other(SmolStr::new_inline(""))
+  }
+}
+
 impl Format {
   /// Canonical FFmpeg-style short name for this format (matches the
   /// demuxer / codec slug FFmpeg uses for the corresponding file

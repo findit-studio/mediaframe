@@ -72,7 +72,7 @@ impl Fingerprint {
 
   /// Returns the raw fingerprint bytes.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn value(&self) -> &[u8] {
+  pub const fn value(&self) -> &[u8] {
     self.value.as_slice()
   }
 }

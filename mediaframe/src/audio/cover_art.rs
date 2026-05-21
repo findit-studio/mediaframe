@@ -73,7 +73,7 @@ impl CoverArt {
 
   /// Returns the raw encoded image bytes.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn data(&self) -> &[u8] {
+  pub const fn data(&self) -> &[u8] {
     self.data.as_slice()
   }
 }

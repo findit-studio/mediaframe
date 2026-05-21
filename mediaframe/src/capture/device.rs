@@ -21,10 +21,18 @@ use smol_str::SmolStr;
 /// sentinel for "absent" so callers never need `Option<SmolStr>`
 /// (matches the codec / source-tagging convention elsewhere in this
 /// crate). Use [`Self::is_empty`] to detect the fully-absent state.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Device {
   make: SmolStr,
   model: SmolStr,
+}
+
+impl Default for Device {
+  /// Delegates to [`Device::new`] — both `make` and `model` empty.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Device {

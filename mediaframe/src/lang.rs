@@ -42,6 +42,17 @@ pub struct Language {
 }
 
 impl Language {
+  /// Constructs the undetermined language (`"und"`) — the same value
+  /// [`Default::default`] yields. `const`, allocation-free.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new() -> Self {
+    Self {
+      language: IcuLanguage::UND,
+      script: None,
+      region: None,
+    }
+  }
+
   /// Constructs a `Language` from the three (optionally-present)
   /// subtag strings, validating each via the corresponding
   /// `icu_locid` parser. `lang` is required (use `"und"` to mean
@@ -150,14 +161,11 @@ impl Language {
 }
 
 impl Default for Language {
-  /// Returns the BCP-47 `"und"` (undetermined language).
+  /// Delegates to [`Language::new`] — the BCP-47 `"und"`
+  /// (undetermined language).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
-    Self {
-      language: IcuLanguage::UND,
-      script: None,
-      region: None,
-    }
+    Self::new()
   }
 }
 

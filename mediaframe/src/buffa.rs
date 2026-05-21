@@ -2222,14 +2222,10 @@ mod subtitle_impls {
   // is a distinct, legal value — eliding the field would conflate it with
   // an absent field. Writing the slug unconditionally side-steps the
   // ambiguity; on decode an absent field stays at the encoder's seed
-  // (`Default::default()` = `Srt`).
+  // (`Default::default()` = `Other("")`, defined ungated in
+  // `crate::subtitle::format` — available regardless of the `buffa`
+  // feature).
   // ----------------------------------------------------------------------------
-
-  impl Default for Format {
-    fn default() -> Self {
-      Format::Srt
-    }
-  }
 
   impl DefaultInstance for Format {
     fn default_instance() -> &'static Self {

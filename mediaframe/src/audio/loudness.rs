@@ -23,12 +23,21 @@
 ///
 /// `f32` storage precludes `Eq`/`Hash` (NaN ≠ NaN); the derives are
 /// limited to `Debug`/`Clone`/`Copy`/`PartialEq`.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Loudness {
   integrated_lufs: f32,
   range_lu: f32,
   true_peak_dbtp: f32,
   sample_peak_dbfs: f32,
+}
+
+impl Default for Loudness {
+  /// Delegates to [`Loudness::new`] — the all-zero
+  /// "silent / fresh measurement" sentinel.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::new(0.0, 0.0, 0.0, 0.0)
+  }
 }
 
 impl Loudness {

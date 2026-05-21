@@ -653,7 +653,7 @@ impl ChromaLocation {
 /// RAW backends populate from clip-level color science and leave
 /// `Unspecified` if absent. `Info::UNSPECIFIED` is the sensible
 /// default for RAW backends that don't carry per-frame color data.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Info {
   primaries: Primaries,
   transfer: Transfer,
@@ -662,11 +662,20 @@ pub struct Info {
   chroma_location: ChromaLocation,
 }
 
+impl Default for Info {
+  /// Delegates to [`Info::UNSPECIFIED`] — the canonical all-`Unspecified`
+  /// instance is the single source of truth for the default.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::UNSPECIFIED
+  }
+}
+
 impl Info {
   /// All-`Unspecified` color info (for `Default` / RAW-backend use).
   /// Every field — including `matrix` — stores the FFmpeg
-  /// `UNSPECIFIED` code; this is exactly `#[derive(Default)]` since
-  /// each enum's `Default` is now its `Unspecified` variant. The
+  /// `UNSPECIFIED` code; `Default` delegates to this const, and it
+  /// coincides with each enum's `Default` (its `Unspecified` variant). The
   /// FFmpeg BT.709-vs-BT.601-by-height fallback for an unspecified
   /// matrix is a **consumer** concern applied at read time, not
   /// stored here.

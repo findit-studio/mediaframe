@@ -62,7 +62,10 @@ mod tests {
         geo.lon()
       );
       if let Some(alt) = geo.altitude() {
-        assert!(alt.is_finite(), "altitude must be finite when Some, got {alt}");
+        assert!(
+          alt.is_finite(),
+          "altitude must be finite when Some, got {alt}"
+        );
       }
     });
   }
@@ -106,7 +109,10 @@ mod tests {
       let r = crate::frame::Rotation::arbitrary(g);
       assert_eq!(crate::frame::Rotation::from_u32(r.to_u32()), r);
       let d = crate::disposition::TrackDisposition::arbitrary(g);
-      assert_eq!(crate::disposition::TrackDisposition::from_u32(d.to_u32()), d);
+      assert_eq!(
+        crate::disposition::TrackDisposition::from_u32(d.to_u32()),
+        d
+      );
     });
   }
 }

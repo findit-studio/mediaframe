@@ -12,6 +12,53 @@ Initial `mediaframe` release — this crate is a **rename** of the
 are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
 identity).
 
+### Added
+
+- **`audio` module** — first cut of the audio-stream descriptor
+  vocabulary (audio + container cluster of the `0.1.0` stream-vocab
+  expansion):
+  - `audio::ChannelLayout` — `#[non_exhaustive]` closed enum of
+    common FFmpeg `AV_CH_LAYOUT_*` shapes (`Mono`, `Stereo`,
+    `_2_1` through `_7_1` with `*Back` side-vs-back variants,
+    `Hexagonal`, `Octagonal`, `Ambisonic1`/`2`/`3`) plus
+    `Other(SmolStr)` lossless escape; `as_str()` returns the
+    FFmpeg-canonical slug, `FromStr` is total.
+  - `audio::BitRateMode` — closed `Cbr` / `Vbr` / `Abr` trichotomy
+    (default `Cbr`), `to_u32`/`from_u32` for the wire codec.
+  - `audio::AudioFormat` — sample-format vocabulary mirroring
+    FFmpeg `AVSampleFormat` (`U8`/`S16`/`S32`/`S64`/`Flt`/`Dbl`
+    packed + their `*p` planar twins), lossless `Unknown(u32)` +
+    `Other(SmolStr)` escapes, `to_u32`/`from_u32` per FFmpeg
+    `AV_SAMPLE_FMT_*` enum indices, `is_planar()` predicate.
+  - `audio::AudioContainerFormat` — audio-only container vocab
+    (`Mp3`, `Aac`, `Flac`, `Ogg`, `Opus`, `Wav`, `Aiff`, `Alac`,
+    `Wma`, `Ape`, `Wv`, `Mka`, `M4a`, `Caf`) plus `Other(SmolStr)`.
+  - `audio::Loudness` — EBU R128 / ITU-R BS.1770 measurement
+    value object (`integrated_lufs`, `range_lu`, `true_peak_dbtp`,
+    `sample_peak_dbfs` — all `f32`; no `Eq`/`Hash`).
+  - `audio::AudioFingerprint` — algorithm-tagged opaque bytes
+    (`{ algorithm: SmolStr, value: Vec<u8> }`), `try_new` rejects
+    empty algorithm.
+  - `audio::AudioCoverArt` — embedded picture
+    (`{ mime: SmolStr, data: Vec<u8> }`), `try_new` rejects empty
+    mime / empty data.
+  - `audio::AudioTags` — FFmpeg / Vorbis-Comment / iTunes-atom
+    metadata: title, artist, album_artist, album, composer,
+    genre, comment (`SmolStr`, `""` = absent) + year, track / disc
+    number + total (`Option<u16>`) + language (`Option<SmolStr>`,
+    TODO(lang) — swap to `Option<crate::Language>` after the
+    capture-lang cluster lands).
+- **`container::ContainerFormat`** — top-level multimedia container
+  vocabulary (`Mov`, `Mp4`, `Mkv`, `Webm`, `Avi`, `Flv`, `MpegTs`,
+  `Ogg`, `Asf`, `Rm`, `Wmv`, `Mxf`, `Gxf`, `Threegp` — `.3gp` digit-
+  prefix-renamed) plus `Other(SmolStr)`; audio-only containers live
+  on [`audio::AudioContainerFormat`].
+- **`buffa`** — hand-written `Message`/`DefaultInstance` wire
+  support for every new type (see the `## Audio + container types`
+  sub-section of the `buffa.rs` module doc). The `buffa` feature
+  now implies `alloc` (string-bearing wire codecs pull in
+  `smol_str`).
+
 ### Changes
 
 - **Crate rename** — `videoframe` → `mediaframe`, version reset to

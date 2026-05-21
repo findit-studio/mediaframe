@@ -1,0 +1,380 @@
+//! Embedded audio metadata tags — FFmpeg / Vorbis-Comment / iTunes
+//! atom-style key-value side data (artist, album, year, genre, …).
+
+use smol_str::SmolStr;
+
+/// Embedded media-metadata tags carried alongside an audio stream.
+///
+/// Read from FFmpeg `AVFormatContext.metadata` /
+/// `AVStream.metadata` / Vorbis Comments / ID3v2 frames / MP4 `udta`
+/// atoms (`©nam`, `©ART`, `©alb`, `aART`, `trkn`, `disk`, …) /
+/// FLAC tags. Field names mirror the FFmpeg metadata-key convention
+/// (lowercase ASCII).
+///
+/// **Absent-vs-empty convention:**
+/// - String fields use `SmolStr`; an empty string `""` means
+///   "absent" (no separate `Option` wrapper).
+/// - Numeric fields use `Option<u16>` because `0` is a *valid*
+///   value (year `0` exists historically; "track 0" sometimes
+///   appears in test files), so the absent state must be distinct.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct AudioTags {
+  title: SmolStr,
+  artist: SmolStr,
+  album_artist: SmolStr,
+  album: SmolStr,
+  composer: SmolStr,
+  genre: SmolStr,
+  comment: SmolStr,
+  year: Option<u16>,
+  track_number: Option<u16>,
+  track_total: Option<u16>,
+  disc_number: Option<u16>,
+  disc_total: Option<u16>,
+  // TODO(lang): swap to `Option<crate::Language>` once the
+  // capture-lang subagent's mediaframe::Language lands. Currently a
+  // BCP-47 SmolStr placeholder.
+  language: Option<SmolStr>,
+}
+
+impl AudioTags {
+  /// Constructs a fresh `AudioTags` with every field absent /
+  /// empty.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new() -> Self {
+    Self {
+      title: SmolStr::new_inline(""),
+      artist: SmolStr::new_inline(""),
+      album_artist: SmolStr::new_inline(""),
+      album: SmolStr::new_inline(""),
+      composer: SmolStr::new_inline(""),
+      genre: SmolStr::new_inline(""),
+      comment: SmolStr::new_inline(""),
+      year: None,
+      track_number: None,
+      track_total: None,
+      disc_number: None,
+      disc_total: None,
+      language: None,
+    }
+  }
+
+  /// Track title (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn title(&self) -> &str {
+    self.title.as_str()
+  }
+  /// Track artist (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn artist(&self) -> &str {
+    self.artist.as_str()
+  }
+  /// Album artist — distinct from per-track `artist` for
+  /// compilations / split-credit releases (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn album_artist(&self) -> &str {
+    self.album_artist.as_str()
+  }
+  /// Album title (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn album(&self) -> &str {
+    self.album.as_str()
+  }
+  /// Composer (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn composer(&self) -> &str {
+    self.composer.as_str()
+  }
+  /// Genre (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn genre(&self) -> &str {
+    self.genre.as_str()
+  }
+  /// Free-form comment (`""` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn comment(&self) -> &str {
+    self.comment.as_str()
+  }
+  /// Year (`None` if absent; `Some(0)` and `Some(9999)` are both
+  /// legal — `0` is *not* a sentinel here).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn year(&self) -> Option<u16> {
+    self.year
+  }
+  /// 1-based track number (`None` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn track_number(&self) -> Option<u16> {
+    self.track_number
+  }
+  /// Total number of tracks on the release (`None` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn track_total(&self) -> Option<u16> {
+    self.track_total
+  }
+  /// 1-based disc number (`None` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn disc_number(&self) -> Option<u16> {
+    self.disc_number
+  }
+  /// Total number of discs in the release (`None` if absent).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn disc_total(&self) -> Option<u16> {
+    self.disc_total
+  }
+  /// BCP-47 language tag (`None` if absent). TODO(lang): swap to
+  /// `Option<crate::Language>` once the capture-lang subagent's
+  /// `mediaframe::Language` lands.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn language(&self) -> Option<&str> {
+    self.language.as_deref()
+  }
+
+  /// Sets the title (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_title(mut self, v: impl Into<SmolStr>) -> Self {
+    self.title = v.into();
+    self
+  }
+  /// Sets the artist (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_artist(mut self, v: impl Into<SmolStr>) -> Self {
+    self.artist = v.into();
+    self
+  }
+  /// Sets the album artist (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_album_artist(mut self, v: impl Into<SmolStr>) -> Self {
+    self.album_artist = v.into();
+    self
+  }
+  /// Sets the album (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_album(mut self, v: impl Into<SmolStr>) -> Self {
+    self.album = v.into();
+    self
+  }
+  /// Sets the composer (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_composer(mut self, v: impl Into<SmolStr>) -> Self {
+    self.composer = v.into();
+    self
+  }
+  /// Sets the genre (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_genre(mut self, v: impl Into<SmolStr>) -> Self {
+    self.genre = v.into();
+    self
+  }
+  /// Sets the comment (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_comment(mut self, v: impl Into<SmolStr>) -> Self {
+    self.comment = v.into();
+    self
+  }
+  /// Sets the year (consuming builder). Pass `None` to clear.
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_year(mut self, v: Option<u16>) -> Self {
+    self.year = v;
+    self
+  }
+  /// Sets the track number (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_track_number(mut self, v: Option<u16>) -> Self {
+    self.track_number = v;
+    self
+  }
+  /// Sets the track total (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_track_total(mut self, v: Option<u16>) -> Self {
+    self.track_total = v;
+    self
+  }
+  /// Sets the disc number (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_disc_number(mut self, v: Option<u16>) -> Self {
+    self.disc_number = v;
+    self
+  }
+  /// Sets the disc total (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn with_disc_total(mut self, v: Option<u16>) -> Self {
+    self.disc_total = v;
+    self
+  }
+  /// Sets the language tag (consuming builder). Pass `None` to
+  /// clear. TODO(lang): swap to `Option<crate::Language>` once it
+  /// lands.
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn with_language(mut self, v: Option<SmolStr>) -> Self {
+    self.language = v;
+    self
+  }
+
+  /// Sets the title in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_title(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.title = v.into();
+    self
+  }
+  /// Sets the artist in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_artist(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.artist = v.into();
+    self
+  }
+  /// Sets the album artist in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_album_artist(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.album_artist = v.into();
+    self
+  }
+  /// Sets the album in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_album(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.album = v.into();
+    self
+  }
+  /// Sets the composer in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_composer(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.composer = v.into();
+    self
+  }
+  /// Sets the genre in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_genre(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.genre = v.into();
+    self
+  }
+  /// Sets the comment in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_comment(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+    self.comment = v.into();
+    self
+  }
+  /// Sets the year in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_year(&mut self, v: Option<u16>) -> &mut Self {
+    self.year = v;
+    self
+  }
+  /// Sets the track number in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_track_number(&mut self, v: Option<u16>) -> &mut Self {
+    self.track_number = v;
+    self
+  }
+  /// Sets the track total in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_track_total(&mut self, v: Option<u16>) -> &mut Self {
+    self.track_total = v;
+    self
+  }
+  /// Sets the disc number in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_disc_number(&mut self, v: Option<u16>) -> &mut Self {
+    self.disc_number = v;
+    self
+  }
+  /// Sets the disc total in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_disc_total(&mut self, v: Option<u16>) -> &mut Self {
+    self.disc_total = v;
+    self
+  }
+  /// Sets the language tag in place. TODO(lang): swap to
+  /// `Option<crate::Language>` once it lands.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn set_language(&mut self, v: Option<SmolStr>) -> &mut Self {
+    self.language = v;
+    self
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn default_is_all_empty_or_none() {
+    let t = AudioTags::default();
+    assert_eq!(t.title(), "");
+    assert_eq!(t.artist(), "");
+    assert_eq!(t.album_artist(), "");
+    assert_eq!(t.album(), "");
+    assert_eq!(t.composer(), "");
+    assert_eq!(t.genre(), "");
+    assert_eq!(t.comment(), "");
+    assert_eq!(t.year(), None);
+    assert_eq!(t.track_number(), None);
+    assert_eq!(t.track_total(), None);
+    assert_eq!(t.disc_number(), None);
+    assert_eq!(t.disc_total(), None);
+    assert_eq!(t.language(), None);
+  }
+
+  #[test]
+  fn new_matches_default() {
+    assert_eq!(AudioTags::new(), AudioTags::default());
+  }
+
+  #[test]
+  fn with_builders_roundtrip_every_field() {
+    let t = AudioTags::new()
+      .with_title("My Track")
+      .with_artist("Artist X")
+      .with_album_artist("Various Artists")
+      .with_album("Best Album")
+      .with_composer("Composer Y")
+      .with_genre("Electronic")
+      .with_comment("ripped 2026")
+      .with_year(Some(2026))
+      .with_track_number(Some(3))
+      .with_track_total(Some(12))
+      .with_disc_number(Some(1))
+      .with_disc_total(Some(2))
+      .with_language(Some(SmolStr::new("en-US")));
+    assert_eq!(t.title(), "My Track");
+    assert_eq!(t.artist(), "Artist X");
+    assert_eq!(t.album_artist(), "Various Artists");
+    assert_eq!(t.album(), "Best Album");
+    assert_eq!(t.composer(), "Composer Y");
+    assert_eq!(t.genre(), "Electronic");
+    assert_eq!(t.comment(), "ripped 2026");
+    assert_eq!(t.year(), Some(2026));
+    assert_eq!(t.track_number(), Some(3));
+    assert_eq!(t.track_total(), Some(12));
+    assert_eq!(t.disc_number(), Some(1));
+    assert_eq!(t.disc_total(), Some(2));
+    assert_eq!(t.language(), Some("en-US"));
+  }
+
+  #[test]
+  fn setters_mutate_in_place() {
+    let mut t = AudioTags::new();
+    t.set_title("Foo").set_artist("Bar").set_year(Some(1999));
+    assert_eq!(t.title(), "Foo");
+    assert_eq!(t.artist(), "Bar");
+    assert_eq!(t.year(), Some(1999));
+  }
+
+  #[test]
+  fn year_zero_is_meaningful_not_absent() {
+    let t = AudioTags::new().with_year(Some(0));
+    assert_eq!(t.year(), Some(0));
+    assert_ne!(t.year(), None);
+  }
+}

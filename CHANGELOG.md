@@ -84,7 +84,7 @@ identity).
     strings are rejected via `GeoLocationError::{LatOutOfRange,
     LonOutOfRange, Iso6709Malformed}`.
 - **`lang::Language`** (alloc-gated) — validated BCP-47 language tag
-  wrapping `icu_locid` `Language`/`Script`/`Region` subtags (`Copy`,
+  wrapping `icu_locale_core` `Language`/`Script`/`Region` subtags (`Copy`,
   heap-free in-rust representation; the `to_bcp47() -> String` /
   `Display` surface needs the allocator). `try_new(lang, script,
   region)` + `from_bcp47` / `Default = "und"` (ISO 639-3
@@ -101,7 +101,7 @@ identity).
   (field emitted iff `Some`, including for `Some(0.0)`). The `buffa`
   feature now implies `alloc` (string-bearing wire codecs pull in
   `smol_str`).
-- **Deps** — adds `icu_locid = "1.5"` and `bytes = "1"` (both
+- **Deps** — adds `icu_locale_core = "2"` and `bytes = "1"` (both
   optional, gated on the `alloc` feature; both `no_std`-friendly).
   `bytes::Bytes` backs the `audio::CoverArt` / `audio::Fingerprint`
   payloads so large blobs clone in O(1).

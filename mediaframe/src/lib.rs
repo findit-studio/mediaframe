@@ -49,7 +49,7 @@ pub mod container;
 /// (video / audio / subtitle).
 pub mod disposition;
 pub mod frame;
-/// Validated BCP-47 language tag wrapping `icu_locid` subtags
+/// Validated BCP-47 language tag wrapping `icu_locale_core` subtags
 /// (`Copy`, heap-free representation; `to_bcp47() -> String` and
 /// `Display` need the allocator).
 #[cfg(any(feature = "std", feature = "alloc"))]

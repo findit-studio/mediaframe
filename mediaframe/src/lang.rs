@@ -1,12 +1,12 @@
 //! BCP-47 language tag — language + optional script + optional
-//! region, validated by `icu_locid`.
+//! region, validated by `icu_locale_core`.
 //!
 //! Supersedes the dropped `medialang` crate plan: mediaframe owns the
 //! single canonical language type, engine crates (`whispercpp::Lang`
 //! and friends) stay engine-internal and boundary-convert in.
 //!
 //! Note on representation: the spec calls for wrapping
-//! `icu_locid::LanguageIdentifier`, but that full struct includes a
+//! `icu_locale_core::LanguageIdentifier`, but that full struct includes a
 //! heap-backed `Variants` collection and is therefore NOT `Copy`.
 //! Since the public API only needs `language` + optional `script` +
 //! optional `region` (and the brief explicitly requires `Copy`,
@@ -16,14 +16,14 @@
 //! that appear in the source BCP-47 string are validated by
 //! `LanguageIdentifier::try_from_bytes` and then discarded.
 
-use icu_locid::{
+use icu_locale_core::{
   LanguageIdentifier,
   subtags::{Language as IcuLanguage, Region as IcuRegion, Script as IcuScript},
 };
 use smol_str::SmolStr;
 
 /// Validated BCP-47 language tag — language subtag plus optional
-/// script + region. Wraps the `icu_locid` subtag types directly so
+/// script + region. Wraps the `icu_locale_core` subtag types directly so
 /// the whole value is `Copy` and heap-free.
 ///
 /// Construct from a full tag string with [`Self::from_bcp47`] or
@@ -47,7 +47,7 @@ impl Language {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self {
-      language: IcuLanguage::UND,
+      language: IcuLanguage::UNKNOWN,
       script: None,
       region: None,
     }
@@ -55,7 +55,7 @@ impl Language {
 
   /// Constructs a `Language` from the three (optionally-present)
   /// subtag strings, validating each via the corresponding
-  /// `icu_locid` parser. `lang` is required (use `"und"` to mean
+  /// `icu_locale_core` parser. `lang` is required (use `"und"` to mean
   /// "undetermined"); `script` / `region` are optional.
   ///
   /// # Errors
@@ -71,19 +71,17 @@ impl Language {
     script: Option<&str>,
     region: Option<&str>,
   ) -> Result<Self, LanguageError> {
-    let language = IcuLanguage::try_from_bytes(lang.as_bytes())
+    let language = IcuLanguage::try_from_str(lang)
       .map_err(|_| LanguageError::InvalidLanguage(SmolStr::from(lang)))?;
     let script = match script {
       Some(s) => Some(
-        IcuScript::try_from_bytes(s.as_bytes())
-          .map_err(|_| LanguageError::InvalidScript(SmolStr::from(s)))?,
+        IcuScript::try_from_str(s).map_err(|_| LanguageError::InvalidScript(SmolStr::from(s)))?,
       ),
       None => None,
     };
     let region = match region {
       Some(r) => Some(
-        IcuRegion::try_from_bytes(r.as_bytes())
-          .map_err(|_| LanguageError::InvalidRegion(SmolStr::from(r)))?,
+        IcuRegion::try_from_str(r).map_err(|_| LanguageError::InvalidRegion(SmolStr::from(r)))?,
       ),
       None => None,
     };
@@ -96,7 +94,7 @@ impl Language {
 
   /// Parses a full BCP-47 language tag like `"en"`, `"en-US"`, or
   /// `"zh-Hant-TW"`. Variants and extensions that appear in the
-  /// input are validated by `icu_locid` and then discarded — only
+  /// input are validated by `icu_locale_core` and then discarded — only
   /// the language / script / region subtags are retained.
   ///
   /// # Errors
@@ -104,7 +102,7 @@ impl Language {
   /// - [`LanguageError::MalformedBcp47`] when the input is not a
   ///   well-formed BCP-47 language identifier.
   pub fn from_bcp47(s: &str) -> Result<Self, LanguageError> {
-    let id = LanguageIdentifier::try_from_bytes(s.as_bytes())
+    let id = LanguageIdentifier::try_from_str(s)
       .map_err(|_| LanguageError::MalformedBcp47(SmolStr::from(s)))?;
     Ok(Self {
       language: id.language,
@@ -155,8 +153,8 @@ impl Language {
   /// Returns `true` when the language subtag is the ISO 639-3 `"und"`
   /// (undetermined) — the value [`Default::default`] yields.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn is_undetermined(&self) -> bool {
-    self.language == IcuLanguage::UND
+  pub const fn is_undetermined(&self) -> bool {
+    self.language.is_unknown()
   }
 }
 
@@ -208,7 +206,7 @@ mod tests {
   use super::*;
   use core::str::FromStr;
 
-  // Compile-time check that `Language` is `Copy`. (If the icu_locid
+  // Compile-time check that `Language` is `Copy`. (If the icu_locale_core
   // upgrade ever breaks this, the build fails here rather than at a
   // distant call site that relied on it.)
   const fn _is_copy<T: Copy>() {}

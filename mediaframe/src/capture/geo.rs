@@ -42,6 +42,13 @@ impl GeoLocation {
   /// `-90.0 <= lat <= 90.0` and `-180.0 <= lon <= 180.0`. `altitude`
   /// is metres above the WGS84 reference ellipsoid; `None` = unknown.
   ///
+  /// A non-finite `altitude` (`NaN` / `±inf`) is **not** a meaningful
+  /// altitude and is normalised to `None` (unknown) — unlike lat/lon,
+  /// a *present* coordinate can't be "unknown", so those are rejected,
+  /// whereas a bad altitude simply degrades to "no recorded altitude".
+  /// This keeps the field invariant "`altitude` is `None` or finite"
+  /// so [`Self::to_iso6709`] never emits a `NaN`→`0` cast artifact.
+  ///
   /// # Errors
   ///
   /// - [`GeoLocationError::LatOutOfRange`] when `lat` is outside
@@ -55,7 +62,11 @@ impl GeoLocation {
     if !lon.is_finite() || !(-180.0..=180.0).contains(&lon) {
       return Err(GeoLocationError::LonOutOfRange(lon));
     }
-    Ok(Self { lat, lon, altitude })
+    Ok(Self {
+      lat,
+      lon,
+      altitude: normalize_altitude(altitude),
+    })
   }
 
   /// Returns the latitude in decimal degrees (`-90.0..=90.0`).
@@ -77,17 +88,19 @@ impl GeoLocation {
     self.altitude
   }
 
-  /// Sets the altitude to `Some(altitude)` in place.
+  /// Sets the altitude to `Some(altitude)` in place (a non-finite
+  /// value normalises to `None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn set_altitude(&mut self, altitude: f32) -> &mut Self {
-    self.altitude = Some(altitude);
+    self.altitude = normalize_altitude(Some(altitude));
     self
   }
 
-  /// Assigns the raw altitude wrapper in place (`None` = unknown).
+  /// Assigns the raw altitude wrapper in place (`None` = unknown; a
+  /// non-finite `Some` normalises to `None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn update_altitude(&mut self, altitude: Option<f32>) -> &mut Self {
-    self.altitude = altitude;
+    self.altitude = normalize_altitude(altitude);
     self
   }
 
@@ -99,21 +112,22 @@ impl GeoLocation {
   }
 
   /// Returns a new `GeoLocation` with the altitude set to
-  /// `Some(altitude)` (consuming builder; useful for chaining off
-  /// [`Self::try_new`]).
+  /// `Some(altitude)` (consuming builder; a non-finite value
+  /// normalises to `None`; useful for chaining off [`Self::try_new`]).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn with_altitude(mut self, altitude: f32) -> Self {
-    self.altitude = Some(altitude);
+    self.altitude = normalize_altitude(Some(altitude));
     self
   }
 
   /// Returns a new `GeoLocation` with the raw altitude wrapper assigned
-  /// (consuming builder; `None` = unknown).
+  /// (consuming builder; `None` = unknown; a non-finite `Some`
+  /// normalises to `None`).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn maybe_altitude(mut self, altitude: Option<f32>) -> Self {
-    self.altitude = altitude;
+    self.altitude = normalize_altitude(altitude);
     self
   }
 
@@ -292,6 +306,18 @@ fn next_sign(bytes: &[u8], from: usize) -> Option<usize> {
     i += 1;
   }
   None
+}
+
+/// Collapses a non-finite altitude (`NaN` / `±inf`) to `None`. A finite
+/// `Some(v)` passes through unchanged. The single funnel every altitude
+/// entry point (`try_new`, `set_/with_/update_/maybe_altitude`) routes
+/// through so the field invariant "`altitude` is `None` or finite" holds.
+#[cfg_attr(not(tarpaulin), inline(always))]
+const fn normalize_altitude(altitude: Option<f32>) -> Option<f32> {
+  match altitude {
+    Some(v) if v.is_finite() => Some(v),
+    _ => None,
+  }
 }
 
 /// Parses a signed fixed-width decimal: `±` + exactly `int_digits`
@@ -548,5 +574,51 @@ mod tests {
     assert_eq!(g.altitude(), Some(60.0));
     g.clear_altitude();
     assert!(g.altitude().is_none());
+  }
+
+  #[test]
+  fn non_finite_altitude_normalises_to_none() {
+    // Every altitude entry point collapses NaN / ±inf to `None` so the
+    // field invariant ("None or finite") holds and `to_iso6709` never
+    // emits a NaN->0 cast artifact.
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+      assert!(
+        GeoLocation::try_new(48.0, 2.0, Some(bad))
+          .unwrap()
+          .altitude()
+          .is_none(),
+        "try_new should normalise non-finite altitude to None"
+      );
+      let mut g = GeoLocation::try_new(48.0, 2.0, Some(10.0)).unwrap();
+      g.set_altitude(bad);
+      assert!(
+        g.altitude().is_none(),
+        "set_altitude should normalise non-finite to None"
+      );
+      g.update_altitude(Some(bad));
+      assert!(
+        g.altitude().is_none(),
+        "update_altitude should normalise non-finite to None"
+      );
+      assert!(
+        GeoLocation::try_new(48.0, 2.0, None)
+          .unwrap()
+          .with_altitude(bad)
+          .altitude()
+          .is_none(),
+        "with_altitude should normalise non-finite to None"
+      );
+      assert!(
+        GeoLocation::try_new(48.0, 2.0, None)
+          .unwrap()
+          .maybe_altitude(Some(bad))
+          .altitude()
+          .is_none(),
+        "maybe_altitude should normalise non-finite to None"
+      );
+    }
+    // A non-finite altitude must not survive into ISO-6709 output.
+    let g = GeoLocation::try_new(48.8566, 2.3522, Some(f32::NAN)).unwrap();
+    assert_eq!(g.to_iso6709(), "+48.8566+002.3522/");
   }
 }

@@ -124,7 +124,7 @@ identity).
 
 — the following entries are from the crate's `videoframe` history —
 
-## [0.3.1] May 19, 2026
+## videoframe 0.3.1 — May 19, 2026
 
 ### Added
 
@@ -157,7 +157,7 @@ identity).
   the `From` surface (added `From<Rational> for SampleAspectRatio`,
   added `rational()` alongside `as_rational()`) changed.
 
-## [0.3.0] May 19, 2026
+## videoframe 0.3.0 — May 19, 2026
 
 ### Added
 
@@ -202,7 +202,7 @@ identity).
   `DcpTargetGamut`; passing `Unknown(_)` panics with a descriptive
   message instead of silently decoding as DCI-P3.
 
-## [0.2.0] May 12, 2026
+## videoframe 0.2.0 — May 12, 2026
 
 ### Added
 
@@ -216,7 +216,7 @@ identity).
 
 - Make all error enums follows tuple enum errors
 
-## [0.1.0] May 11, 2026
+## videoframe 0.1.0 — May 11, 2026
 
 This is the first release line. Nothing has been published to
 crates.io yet; everything below describes the shape of the

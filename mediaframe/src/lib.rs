@@ -18,6 +18,15 @@ extern crate alloc as std;
 #[allow(unused_extern_crates)]
 extern crate std;
 
+/// Hand-written [`arbitrary::Arbitrary`] impls for the descriptor vocabulary
+/// (codecs, container/subtitle/audio formats, capture, language, colour, pixel
+/// format, frame geometry/orientation, disposition). All generation goes through
+/// the types' public constructors so private fields stay encapsulated and
+/// `try_new` validated types come out valid by construction. Mirrors the
+/// surface covered by [`serde`](serde_impls) — the same descriptor set the
+/// storage / wire layers serialize.
+#[cfg(feature = "arbitrary")]
+mod arbitrary_impls;
 /// Audio-stream descriptor vocabulary — channel layout, sample /
 /// container format, bit-rate mode, EBU R128 loudness, fingerprint,
 /// embedded metadata tags + cover art. Requires the `alloc` feature

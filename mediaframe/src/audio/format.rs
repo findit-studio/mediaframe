@@ -20,6 +20,11 @@ use smol_str::SmolStr;
 /// any named variant round-trip via [`Self::Other`].
 ///
 /// `#[non_exhaustive]` keeps future additions non-breaking.
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::strings::sample_format")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
@@ -182,6 +187,11 @@ impl FromStr for SampleFormat {
 ///
 /// `as_str` returns the file-extension-style slug (`"mp3"`, `"aac"`,
 /// `"flac"`, …).
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::strings::audio_container_format")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]

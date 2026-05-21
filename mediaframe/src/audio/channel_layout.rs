@@ -26,6 +26,11 @@ use smol_str::SmolStr;
 ///
 /// `#[non_exhaustive]` keeps future additions non-breaking. `Display`
 /// renders via [`Self::as_str`].
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::strings::channel_layout")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]

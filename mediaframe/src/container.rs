@@ -26,6 +26,11 @@ use smol_str::SmolStr;
 /// and `_3gp` would render as `"3gp"` under `derive_more::Display`'s
 /// snake-casing but is unidiomatic. The `as_str()` / `FromStr`
 /// surface still returns / matches the canonical `"3gp"` slug.
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::strings::container_format")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]

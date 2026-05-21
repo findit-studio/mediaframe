@@ -1,12 +1,12 @@
-//! [`SubtitleFormat`] — file/container vocabulary for subtitle streams.
+//! [`Format`] — file/container vocabulary for subtitle streams.
 //!
 //! Distinct from [`crate::codec::SubtitleCodec`]: `SubtitleCodec` is the
 //! FFmpeg *codec* family enumerated by `libavcodec` (`srt` / `webvtt` /
-//! `ass` / …), whereas `SubtitleFormat` is the *file form* / *demuxer
+//! `ass` / …), whereas `Format` is the *file form* / *demuxer
 //! tag* — what you get from `ffprobe`'s `format_name` for a sidecar
 //! subtitle file, or the matroska `S_TEXT/UTF8`-style stream tag of an
 //! embedded track. The two correlate (a `SubtitleCodec::Srt` track is
-//! usually carried in a `SubtitleFormat::Srt` file) but the modelling
+//! usually carried in a `Format::Srt` file) but the modelling
 //! split lets callers describe `.srt` content carried inside an `.mkv`
 //! without lying about either axis.
 
@@ -27,7 +27,7 @@ use smol_str::SmolStr;
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 #[non_exhaustive]
-pub enum SubtitleFormat {
+pub enum Format {
   /// SubRip — the canonical text-based subtitle format
   /// (`.srt`, FFmpeg slug `"srt"`).
   Srt,
@@ -80,7 +80,7 @@ pub enum SubtitleFormat {
   Other(SmolStr),
 }
 
-impl SubtitleFormat {
+impl Format {
   /// Canonical FFmpeg-style short name for this format (matches the
   /// demuxer / codec slug FFmpeg uses for the corresponding file
   /// form). [`Self::Other`] returns the wrapped slug verbatim.
@@ -141,7 +141,7 @@ impl SubtitleFormat {
   }
 }
 
-impl FromStr for SubtitleFormat {
+impl FromStr for Format {
   type Err = core::convert::Infallible;
 
   /// Recognise an FFmpeg-style short name; unknown values land in
@@ -175,33 +175,33 @@ mod tests {
   use ::std::string::ToString;
 
   /// Every named variant's slug round-trips through `as_str` →
-  /// `FromStr`. [`SubtitleFormat::HdmvPgs`] shares its slug with
-  /// [`SubtitleFormat::PgsSub`] so the round-trip canonicalises to
+  /// `FromStr`. [`Format::HdmvPgs`] shares its slug with
+  /// [`Format::PgsSub`] so the round-trip canonicalises to
   /// `PgsSub`; that pair is verified separately.
-  const NAMED_SLUGS: &[(&str, SubtitleFormat)] = &[
-    ("srt", SubtitleFormat::Srt),
-    ("webvtt", SubtitleFormat::WebVtt),
-    ("ass", SubtitleFormat::Ass),
-    ("ssa", SubtitleFormat::Ssa),
-    ("microdvd", SubtitleFormat::Sub),
-    ("mpl2", SubtitleFormat::Mpl2),
-    ("lrc", SubtitleFormat::Lrc),
-    ("sami", SubtitleFormat::Smi),
-    ("stl", SubtitleFormat::Stl),
-    ("subviewer", SubtitleFormat::Sbv),
-    ("ttml", SubtitleFormat::Ttml),
-    ("mov_text", SubtitleFormat::MovText),
-    ("dvd_subtitle", SubtitleFormat::DvdSub),
-    ("hdmv_pgs_subtitle", SubtitleFormat::PgsSub),
-    ("dvb_subtitle", SubtitleFormat::DvbSub),
-    ("xsub", SubtitleFormat::XSub),
+  const NAMED_SLUGS: &[(&str, Format)] = &[
+    ("srt", Format::Srt),
+    ("webvtt", Format::WebVtt),
+    ("ass", Format::Ass),
+    ("ssa", Format::Ssa),
+    ("microdvd", Format::Sub),
+    ("mpl2", Format::Mpl2),
+    ("lrc", Format::Lrc),
+    ("sami", Format::Smi),
+    ("stl", Format::Stl),
+    ("subviewer", Format::Sbv),
+    ("ttml", Format::Ttml),
+    ("mov_text", Format::MovText),
+    ("dvd_subtitle", Format::DvdSub),
+    ("hdmv_pgs_subtitle", Format::PgsSub),
+    ("dvb_subtitle", Format::DvbSub),
+    ("xsub", Format::XSub),
   ];
 
   #[test]
   fn as_str_round_trips_for_every_named_variant() {
     for (slug, variant) in NAMED_SLUGS {
       assert_eq!(variant.as_str(), *slug, "as_str mismatch for {variant:?}");
-      let parsed: SubtitleFormat = slug.parse().unwrap();
+      let parsed: Format = slug.parse().unwrap();
       assert_eq!(&parsed, variant, "FromStr mismatch for {slug:?}");
     }
   }
@@ -212,37 +212,34 @@ mod tests {
     // slug. Both render to it; parsing the slug picks the first
     // arm — `PgsSub`. `HdmvPgs` is kept as an alias for callers
     // that prefer the FFmpeg-canonical name.
-    assert_eq!(SubtitleFormat::HdmvPgs.as_str(), "hdmv_pgs_subtitle");
-    assert_eq!(SubtitleFormat::PgsSub.as_str(), "hdmv_pgs_subtitle");
-    let parsed: SubtitleFormat = "hdmv_pgs_subtitle".parse().unwrap();
-    assert_eq!(parsed, SubtitleFormat::PgsSub);
+    assert_eq!(Format::HdmvPgs.as_str(), "hdmv_pgs_subtitle");
+    assert_eq!(Format::PgsSub.as_str(), "hdmv_pgs_subtitle");
+    let parsed: Format = "hdmv_pgs_subtitle".parse().unwrap();
+    assert_eq!(parsed, Format::PgsSub);
   }
 
   #[test]
   fn from_str_is_total_for_unknown_slug() {
-    let parsed: SubtitleFormat = "definitely_not_a_real_subtitle_format_xyz".parse().unwrap();
-    assert!(matches!(parsed, SubtitleFormat::Other(_)));
+    let parsed: Format = "definitely_not_a_real_subtitle_format_xyz".parse().unwrap();
+    assert!(matches!(parsed, Format::Other(_)));
     assert_eq!(parsed.as_str(), "definitely_not_a_real_subtitle_format_xyz");
   }
 
   #[test]
   fn is_image_based_classifies_known_variants() {
     // Image-based.
-    assert_eq!(SubtitleFormat::DvdSub.is_image_based(), Some(true));
-    assert_eq!(SubtitleFormat::PgsSub.is_image_based(), Some(true));
-    assert_eq!(SubtitleFormat::HdmvPgs.is_image_based(), Some(true));
-    assert_eq!(SubtitleFormat::DvbSub.is_image_based(), Some(true));
-    assert_eq!(SubtitleFormat::XSub.is_image_based(), Some(true));
+    assert_eq!(Format::DvdSub.is_image_based(), Some(true));
+    assert_eq!(Format::PgsSub.is_image_based(), Some(true));
+    assert_eq!(Format::HdmvPgs.is_image_based(), Some(true));
+    assert_eq!(Format::DvbSub.is_image_based(), Some(true));
+    assert_eq!(Format::XSub.is_image_based(), Some(true));
     // Text-based.
-    assert_eq!(SubtitleFormat::Srt.is_image_based(), Some(false));
-    assert_eq!(SubtitleFormat::WebVtt.is_image_based(), Some(false));
-    assert_eq!(SubtitleFormat::Ass.is_image_based(), Some(false));
-    assert_eq!(SubtitleFormat::MovText.is_image_based(), Some(false));
+    assert_eq!(Format::Srt.is_image_based(), Some(false));
+    assert_eq!(Format::WebVtt.is_image_based(), Some(false));
+    assert_eq!(Format::Ass.is_image_based(), Some(false));
+    assert_eq!(Format::MovText.is_image_based(), Some(false));
     // Unknown.
-    assert_eq!(
-      SubtitleFormat::Other(SmolStr::new("weird")).is_image_based(),
-      None,
-    );
+    assert_eq!(Format::Other(SmolStr::new("weird")).is_image_based(), None,);
   }
 
   #[test]
@@ -251,15 +248,15 @@ mod tests {
       assert_eq!(variant.to_string(), variant.as_str());
     }
     assert_eq!(
-      SubtitleFormat::Other(SmolStr::new("custom_fmt")).to_string(),
+      Format::Other(SmolStr::new("custom_fmt")).to_string(),
       "custom_fmt",
     );
   }
 
   #[test]
   fn is_variant_predicates() {
-    assert!(SubtitleFormat::Srt.is_srt());
-    assert!(!SubtitleFormat::Srt.is_web_vtt());
-    assert!(SubtitleFormat::Other(SmolStr::new("x")).is_other());
+    assert!(Format::Srt.is_srt());
+    assert!(!Format::Srt.is_web_vtt());
+    assert!(Format::Other(SmolStr::new("x")).is_other());
   }
 }

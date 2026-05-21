@@ -1,6 +1,6 @@
-//! Audio sample-format vocabulary (`AudioFormat`, FFmpeg
+//! Audio sample-format vocabulary (`SampleFormat`, FFmpeg
 //! `AVSampleFormat`) and audio-only container-format vocabulary
-//! (`AudioContainerFormat`, audio file extensions).
+//! (`ContainerFormat`, audio file extensions).
 
 use core::str::FromStr;
 
@@ -23,7 +23,7 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum AudioFormat {
+pub enum SampleFormat {
   /// `AV_SAMPLE_FMT_U8` (code `0`) — unsigned 8-bit, packed.
   U8,
   /// `AV_SAMPLE_FMT_S16` (code `1`) — signed 16-bit, packed.
@@ -57,7 +57,7 @@ pub enum AudioFormat {
   Other(SmolStr),
 }
 
-impl Default for AudioFormat {
+impl Default for SampleFormat {
   /// `AV_SAMPLE_FMT_NONE` is `-1` in FFmpeg; we use [`Self::Unknown`]
   /// at code `u32::MAX` as the sentinel (no real code overlaps).
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -66,7 +66,7 @@ impl Default for AudioFormat {
   }
 }
 
-impl AudioFormat {
+impl SampleFormat {
   /// FFmpeg-canonical slug (`"u8"`, `"s16"`, `"flt"`, `"u8p"`, …).
   pub fn as_str(&self) -> &str {
     match self {
@@ -146,7 +146,7 @@ impl AudioFormat {
   }
 }
 
-impl FromStr for AudioFormat {
+impl FromStr for SampleFormat {
   type Err = core::convert::Infallible;
   /// Recognise a canonical FFmpeg sample-format slug; unknown
   /// values land in [`Self::Other`] (infallible, lossless).
@@ -174,7 +174,7 @@ impl FromStr for AudioFormat {
 /// Audio-only file / container format vocabulary.
 ///
 /// Top-level multimedia containers (`mp4`/`mkv`/`mov`/`webm`/…)
-/// live on [`crate::container::ContainerFormat`]; this enum
+/// live on [`crate::container::Format`]; this enum
 /// enumerates the **audio-only** containers (one audio stream, no
 /// video). Closed-ish vocabulary — not FFmpeg-coded, so there is no
 /// `to_u32`/`from_u32`; the `Other(SmolStr)` arm preserves unknown
@@ -185,7 +185,7 @@ impl FromStr for AudioFormat {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum AudioContainerFormat {
+pub enum ContainerFormat {
   /// MPEG-1/2 Audio Layer III (`.mp3`).
   Mp3,
   /// Raw AAC ADTS / ADIF stream (`.aac`).
@@ -220,7 +220,7 @@ pub enum AudioContainerFormat {
   Other(SmolStr),
 }
 
-impl Default for AudioContainerFormat {
+impl Default for ContainerFormat {
   /// `Other("")` — the wire-zero / "absent" sentinel. Audio
   /// containers vary by source; there is no universally-defensible
   /// default. Callers picking a meaningful fallback should be
@@ -231,7 +231,7 @@ impl Default for AudioContainerFormat {
   }
 }
 
-impl AudioContainerFormat {
+impl ContainerFormat {
   /// File-extension-style slug (`"mp3"`, `"aac"`, `"flac"`, …).
   pub fn as_str(&self) -> &str {
     match self {
@@ -254,7 +254,7 @@ impl AudioContainerFormat {
   }
 }
 
-impl FromStr for AudioContainerFormat {
+impl FromStr for ContainerFormat {
   type Err = core::convert::Infallible;
   /// Recognise a canonical extension-style slug; unknown values
   /// land in [`Self::Other`] (infallible, lossless).
@@ -287,28 +287,28 @@ mod tests {
   #[test]
   fn audio_format_u32_round_trips_named_variants() {
     for v in [
-      AudioFormat::U8,
-      AudioFormat::S16,
-      AudioFormat::S32,
-      AudioFormat::Flt,
-      AudioFormat::Dbl,
-      AudioFormat::U8p,
-      AudioFormat::S16p,
-      AudioFormat::S32p,
-      AudioFormat::Fltp,
-      AudioFormat::Dblp,
-      AudioFormat::S64,
-      AudioFormat::S64p,
+      SampleFormat::U8,
+      SampleFormat::S16,
+      SampleFormat::S32,
+      SampleFormat::Flt,
+      SampleFormat::Dbl,
+      SampleFormat::U8p,
+      SampleFormat::S16p,
+      SampleFormat::S32p,
+      SampleFormat::Fltp,
+      SampleFormat::Dblp,
+      SampleFormat::S64,
+      SampleFormat::S64p,
     ] {
-      let back = AudioFormat::from_u32(v.to_u32());
+      let back = SampleFormat::from_u32(v.to_u32());
       assert_eq!(back, v, "round-trip mismatch for `{}`", v.as_str());
     }
   }
 
   #[test]
   fn audio_format_unknown_u32_round_trips() {
-    let v = AudioFormat::Unknown(12_345);
-    assert_eq!(AudioFormat::from_u32(v.to_u32()), v);
+    let v = SampleFormat::Unknown(12_345);
+    assert_eq!(SampleFormat::from_u32(v.to_u32()), v);
   }
 
   #[test]
@@ -316,7 +316,7 @@ mod tests {
     for slug in [
       "u8", "s16", "s32", "flt", "dbl", "u8p", "s16p", "s32p", "fltp", "dblp", "s64", "s64p",
     ] {
-      let v: AudioFormat = slug.parse().unwrap();
+      let v: SampleFormat = slug.parse().unwrap();
       assert!(!v.is_other(), "`{slug}` should be a named variant");
       assert_eq!(v.as_str(), slug);
     }
@@ -324,24 +324,24 @@ mod tests {
 
   #[test]
   fn audio_format_unknown_slug_lands_in_other() {
-    let v: AudioFormat = "weird_sample_fmt".parse().unwrap();
+    let v: SampleFormat = "weird_sample_fmt".parse().unwrap();
     assert!(v.is_other());
     assert_eq!(v.as_str(), "weird_sample_fmt");
   }
 
   #[test]
   fn audio_format_is_planar_predicate() {
-    assert!(AudioFormat::U8p.is_planar());
-    assert!(AudioFormat::S16p.is_planar());
-    assert!(AudioFormat::Fltp.is_planar());
-    assert!(!AudioFormat::U8.is_planar());
-    assert!(!AudioFormat::Flt.is_planar());
+    assert!(SampleFormat::U8p.is_planar());
+    assert!(SampleFormat::S16p.is_planar());
+    assert!(SampleFormat::Fltp.is_planar());
+    assert!(!SampleFormat::U8.is_planar());
+    assert!(!SampleFormat::Flt.is_planar());
   }
 
   #[test]
   fn audio_format_display_matches_as_str() {
-    assert_eq!(AudioFormat::Flt.to_string(), "flt");
-    assert_eq!(AudioFormat::Fltp.to_string(), "fltp");
+    assert_eq!(SampleFormat::Flt.to_string(), "flt");
+    assert_eq!(SampleFormat::Fltp.to_string(), "fltp");
   }
 
   #[test]
@@ -350,7 +350,7 @@ mod tests {
       "mp3", "aac", "flac", "ogg", "opus", "wav", "aiff", "alac", "wma", "ape", "wv", "mka", "m4a",
       "caf",
     ] {
-      let v: AudioContainerFormat = slug.parse().unwrap();
+      let v: ContainerFormat = slug.parse().unwrap();
       assert!(!v.is_other(), "`{slug}` should be a named variant");
       assert_eq!(v.as_str(), slug);
     }
@@ -358,17 +358,17 @@ mod tests {
 
   #[test]
   fn audio_container_unknown_lands_in_other() {
-    let v: AudioContainerFormat = "weird_audio_container".parse().unwrap();
+    let v: ContainerFormat = "weird_audio_container".parse().unwrap();
     assert!(v.is_other());
     assert_eq!(v.as_str(), "weird_audio_container");
   }
 
   #[test]
   fn audio_container_display_matches_as_str() {
-    assert_eq!(AudioContainerFormat::Mp3.to_string(), "mp3");
-    assert_eq!(AudioContainerFormat::Flac.to_string(), "flac");
+    assert_eq!(ContainerFormat::Mp3.to_string(), "mp3");
+    assert_eq!(ContainerFormat::Flac.to_string(), "flac");
     assert_eq!(
-      AudioContainerFormat::Other(SmolStr::new("snd")).to_string(),
+      ContainerFormat::Other(SmolStr::new("snd")).to_string(),
       "snd"
     );
   }

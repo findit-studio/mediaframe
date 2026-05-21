@@ -25,42 +25,42 @@ identity).
     FFmpeg-canonical slug, `FromStr` is total.
   - `audio::BitRateMode` — closed `Cbr` / `Vbr` / `Abr` trichotomy
     (default `Cbr`), `to_u32`/`from_u32` for the wire codec.
-  - `audio::AudioFormat` — sample-format vocabulary mirroring
+  - `audio::SampleFormat` — sample-format vocabulary mirroring
     FFmpeg `AVSampleFormat` (`U8`/`S16`/`S32`/`S64`/`Flt`/`Dbl`
     packed + their `*p` planar twins), lossless `Unknown(u32)` +
     `Other(SmolStr)` escapes, `to_u32`/`from_u32` per FFmpeg
     `AV_SAMPLE_FMT_*` enum indices, `is_planar()` predicate.
-  - `audio::AudioContainerFormat` — audio-only container vocab
+  - `audio::ContainerFormat` — audio-only container vocab
     (`Mp3`, `Aac`, `Flac`, `Ogg`, `Opus`, `Wav`, `Aiff`, `Alac`,
     `Wma`, `Ape`, `Wv`, `Mka`, `M4a`, `Caf`) plus `Other(SmolStr)`.
   - `audio::Loudness` — EBU R128 / ITU-R BS.1770 measurement
     value object (`integrated_lufs`, `range_lu`, `true_peak_dbtp`,
     `sample_peak_dbfs` — all `f32`; no `Eq`/`Hash`).
-  - `audio::AudioFingerprint` — algorithm-tagged opaque bytes
+  - `audio::Fingerprint` — algorithm-tagged opaque bytes
     (`{ algorithm: SmolStr, value: Vec<u8> }`), `try_new` rejects
     empty algorithm.
-  - `audio::AudioCoverArt` — embedded picture
+  - `audio::CoverArt` — embedded picture
     (`{ mime: SmolStr, data: Vec<u8> }`), `try_new` rejects empty
     mime / empty data.
-  - `audio::AudioTags` — FFmpeg / Vorbis-Comment / iTunes-atom
+  - `audio::Tags` — FFmpeg / Vorbis-Comment / iTunes-atom
     metadata: title, artist, album_artist, album, composer,
     genre, comment (`SmolStr`, `""` = absent) + year, track / disc
     number + total (`Option<u16>`) + language (`Option<SmolStr>`,
     TODO(lang) — swap to `Option<crate::Language>` after the
     capture-lang cluster lands).
-- **`container::ContainerFormat`** — top-level multimedia container
+- **`container::Format`** — top-level multimedia container
   vocabulary (`Mov`, `Mp4`, `Mkv`, `Webm`, `Avi`, `Flv`, `MpegTs`,
   `Ogg`, `Asf`, `Rm`, `Wmv`, `Mxf`, `Gxf`, `Threegp` — `.3gp` digit-
   prefix-renamed) plus `Other(SmolStr)`; audio-only containers live
-  on [`audio::AudioContainerFormat`].
-- **`subtitle` module** — `SubtitleFormat` (file / demuxer-tag axis,
+  on [`audio::ContainerFormat`].
+- **`subtitle` module** — `Format` (file / demuxer-tag axis,
   `#[non_exhaustive]` + `Other(SmolStr)`; named variants for the
   common text- and image-based formats — `Srt` / `WebVtt` / `Ass` /
   `Ssa` / `Sub` (MicroDVD) / `Mpl2` / `Lrc` / `Smi` / `Stl` / `Sbv` /
   `Ttml` / `MovText` / `DvdSub` / `PgsSub` / `HdmvPgs` / `DvbSub` /
   `XSub`; `as_str` / total `FromStr` round-trip; `is_image_based`
   helper for mediaschema's `REQUIRES_OCR` derivation) and
-  `SubtitleTrackOrigin` (closed unit-only enum — `Embedded` /
+  `TrackOrigin` (closed unit-only enum — `Embedded` /
   `Sidecar` / `External`; stable `to_u32` / `from_u32` ids
   `0` / `1` / `2`; `Default == Embedded`). The module is gated on
   the `alloc` feature for the `Other(SmolStr)` escape.
@@ -167,7 +167,7 @@ identity).
   colour enum, `Rotation`, and `DcpTargetGamut`: unrecognised /
   future / corrupt wire ids round-trip verbatim instead of collapsing
   to a default.
-- **`color`** — `DOMAIN_EXT_BASE` + `ColorMatrix::Bt601`
+- **`color`** — `DOMAIN_EXT_BASE` + `Matrix::Bt601`
   (videoframe-domain superset id, disjoint from FFmpeg/H.273 codes).
 - **`color`/`frame`** — `ContentLightLevel`, `ChromaCoord`,
   `MasteringDisplay`, `HdrStaticMetadata` (SMPTE ST 2086 / FFmpeg
@@ -177,14 +177,14 @@ identity).
 
 ### Breakage
 
-- **`color`** — `ColorPrimaries`/`ColorTransfer`/`ColorMatrix`/
-  `ColorRange`/`ChromaLocation` renumbered to exact FFmpeg n8.1 /
+- **`color`** — `Primaries`/`Transfer`/`Matrix`/
+  `DynamicRange`/`ChromaLocation` renumbered to exact FFmpeg n8.1 /
   ITU-T H.273 code points; `to_u32`/`from_u32` now lossless.
-- **`color::ColorTransfer`** — `Bt470M`/`Bt470Bg` renamed to
+- **`color::Transfer`** — `Bt470M`/`Bt470Bg` renamed to
   `Gamma22`/`Gamma28` (FFmpeg-canonical names for the identical
   transfer code 4/5; slugs / `Display` unchanged).
-- **`color::ColorMatrix`** — `Default` changed `Bt709` →
-  `Unspecified` (FFmpeg `AVCOL_SPC_UNSPECIFIED`); `ColorInfo`
+- **`color::Matrix`** — `Default` changed `Bt709` →
+  `Unspecified` (FFmpeg `AVCOL_SPC_UNSPECIFIED`); `Info`
   default/`UNSPECIFIED` `matrix` likewise.
 - **`color::ChromaCoord`** — `x`/`y` widened `u16` → `u32` so
   out-of-range wire values are preserved losslessly (no saturation).
@@ -195,7 +195,7 @@ identity).
 
 - **`buffa`** — standalone-enum codec elides on the type's `Default`
   (FFmpeg `UNSPECIFIED`), not proto3 wire-zero, so code `0` (e.g.
-  `ColorMatrix::Rgb`) is no longer conflated with "absent".
+  `Matrix::Rgb`) is no longer conflated with "absent".
 - **`source::xyz12`** — `xyz12_to` requires a concrete
   `DcpTargetGamut`; passing `Unknown(_)` panics with a descriptive
   message instead of silently decoding as DCI-P3.
@@ -222,9 +222,9 @@ forthcoming `0.1.0`.
 
 ### Added
 
-- **`color`** — ITU-T H.273 enums (`ColorMatrix`, `ColorPrimaries`,
-  `ColorTransfer`, `ColorRange`, `ChromaLocation`) bundled into
-  `ColorInfo`. Plus `DcpTargetGamut` for DCI-XYZ target-gamut
+- **`color`** — ITU-T H.273 enums (`Matrix`, `Primaries`,
+  `Transfer`, `DynamicRange`, `ChromaLocation`) bundled into
+  `Info`. Plus `DcpTargetGamut` for DCI-XYZ target-gamut
   selection. Each enum exposes `pub const fn as_str() -> &'static
   str` returning the FFmpeg-style wire slug, and a
   `derive_more::Display` impl routes through `as_str()` so the two
@@ -239,7 +239,7 @@ forthcoming `0.1.0`.
   structural primitives (always available).
 - **`frame::VideoFrame<P, B>`** — runtime-tagged frame: dimensions,
   pixel format `P`, up to 4 `Plane<B>`, optional visible-rect crop,
-  `ColorInfo`. **No timestamp**, no backend extras — pure pixel
+  `Info`. **No timestamp**, no backend extras — pure pixel
   data. Generic over `P` (typically `PixelFormat`) and `B` (buffer
   type — `&'a [u8]` / `Vec<u8>` / `Bytes` / refcounted FFmpeg buffer).
 - **`frame::TimestampedFrame<F>`** — orthogonal time-carrying wrapper

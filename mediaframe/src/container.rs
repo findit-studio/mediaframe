@@ -2,7 +2,7 @@
 //! audio) containers.
 //!
 //! Audio-only containers (`mp3`, `flac`, `wav`, …) live on
-//! [`crate::audio::AudioContainerFormat`]; this enum enumerates the
+//! [`crate::audio::ContainerFormat`]; this enum enumerates the
 //! multimedia containers that carry one-or-more streams of *any*
 //! kind (video, audio, subtitle, data).
 
@@ -29,7 +29,7 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum ContainerFormat {
+pub enum Format {
   /// QuickTime File Format (`.mov`).
   Mov,
   /// ISO Base Media / MPEG-4 Part 14 (`.mp4`).
@@ -46,7 +46,7 @@ pub enum ContainerFormat {
   /// `"mpegts"`.
   MpegTs,
   /// Ogg container (`.ogv` / `.ogx` — video-bearing Ogg). Audio-only
-  /// `.ogg` is [`crate::audio::AudioContainerFormat::Ogg`] instead.
+  /// `.ogg` is [`crate::audio::ContainerFormat::Ogg`] instead.
   Ogg,
   /// Advanced Systems Format (`.asf`).
   Asf,
@@ -69,18 +69,18 @@ pub enum ContainerFormat {
   Other(SmolStr),
 }
 
-impl Default for ContainerFormat {
+impl Default for Format {
   /// `Other("")` — the wire-zero / "absent" sentinel. Containers
   /// vary by source; there is no universally-defensible default.
   /// Callers picking a meaningful fallback should be explicit
-  /// (`ContainerFormat::Mp4` is the common one).
+  /// (`Format::Mp4` is the common one).
   #[inline]
   fn default() -> Self {
     Self::Other(SmolStr::new_inline(""))
   }
 }
 
-impl ContainerFormat {
+impl Format {
   /// Canonical extension-style slug (`"mov"`, `"mp4"`, `"mkv"`,
   /// `"webm"`, `"3gp"`, …).
   pub fn as_str(&self) -> &str {
@@ -104,7 +104,7 @@ impl ContainerFormat {
   }
 }
 
-impl FromStr for ContainerFormat {
+impl FromStr for Format {
   type Err = core::convert::Infallible;
   /// Recognise a canonical container slug; unknown values land in
   /// [`Self::Other`] (infallible, lossless).
@@ -140,7 +140,7 @@ mod tests {
       "mov", "mp4", "mkv", "webm", "avi", "flv", "mpegts", "ogg", "asf", "rm", "wmv", "mxf", "gxf",
       "3gp",
     ] {
-      let v: ContainerFormat = slug.parse().unwrap();
+      let v: Format = slug.parse().unwrap();
       assert!(!v.is_other(), "`{slug}` should be a named variant");
       assert_eq!(v.as_str(), slug);
     }
@@ -148,7 +148,7 @@ mod tests {
 
   #[test]
   fn unknown_slug_lands_in_other() {
-    let v: ContainerFormat = "weird_container".parse().unwrap();
+    let v: Format = "weird_container".parse().unwrap();
     assert!(v.is_other());
     assert_eq!(v.as_str(), "weird_container");
     assert_eq!(v.to_string(), "weird_container");
@@ -156,19 +156,16 @@ mod tests {
 
   #[test]
   fn display_matches_as_str() {
-    assert_eq!(ContainerFormat::Mp4.to_string(), "mp4");
-    assert_eq!(ContainerFormat::MpegTs.to_string(), "mpegts");
-    assert_eq!(ContainerFormat::Threegp.to_string(), "3gp");
-    assert_eq!(
-      ContainerFormat::Other(SmolStr::new("custom")).to_string(),
-      "custom"
-    );
+    assert_eq!(Format::Mp4.to_string(), "mp4");
+    assert_eq!(Format::MpegTs.to_string(), "mpegts");
+    assert_eq!(Format::Threegp.to_string(), "3gp");
+    assert_eq!(Format::Other(SmolStr::new("custom")).to_string(), "custom");
   }
 
   #[test]
   fn is_variant_predicates() {
-    assert!(ContainerFormat::Mp4.is_mp_4());
-    assert!(ContainerFormat::Threegp.is_threegp());
-    assert!(ContainerFormat::Other(SmolStr::new("x")).is_other());
+    assert!(Format::Mp4.is_mp_4());
+    assert!(Format::Threegp.is_threegp());
+    assert!(Format::Other(SmolStr::new("x")).is_other());
   }
 }

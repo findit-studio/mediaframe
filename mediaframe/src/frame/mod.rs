@@ -1146,12 +1146,12 @@ pub struct VideoFrame<P, B> {
   pixel_format: P,
   plane_count: u8,
   planes: [Plane<B>; 4],
-  color: crate::color::ColorInfo,
+  color: crate::color::Info,
 }
 
 impl<P, B> VideoFrame<P, B> {
   /// Constructs a `VideoFrame`. `visible_rect` defaults to `None`,
-  /// color to `ColorInfo::UNSPECIFIED`.
+  /// color to `Info::UNSPECIFIED`.
   ///
   /// # Panics
   ///
@@ -1176,7 +1176,7 @@ impl<P, B> VideoFrame<P, B> {
       pixel_format,
       plane_count,
       planes,
-      color: crate::color::ColorInfo::UNSPECIFIED,
+      color: crate::color::Info::UNSPECIFIED,
     }
   }
 
@@ -1234,7 +1234,7 @@ impl<P, B> VideoFrame<P, B> {
 
   /// Returns the color metadata.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn color(&self) -> crate::color::ColorInfo {
+  pub const fn color(&self) -> crate::color::Info {
     self.color
   }
 
@@ -1249,7 +1249,7 @@ impl<P, B> VideoFrame<P, B> {
   /// Sets the color metadata (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_color(mut self, v: crate::color::ColorInfo) -> Self {
+  pub const fn with_color(mut self, v: crate::color::Info) -> Self {
     self.color = v;
     self
   }
@@ -1263,7 +1263,7 @@ impl<P, B> VideoFrame<P, B> {
 
   /// Sets the color metadata in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_color(&mut self, v: crate::color::ColorInfo) -> &mut Self {
+  pub const fn set_color(&mut self, v: crate::color::Info) -> &mut Self {
     self.color = v;
     self
   }
@@ -1639,7 +1639,7 @@ mod tests_primitives {
 
   // ---------- VideoFrame -------------------------------------------------
 
-  use crate::{color::ColorInfo, pixel_format::PixelFormat};
+  use crate::{color::Info, pixel_format::PixelFormat};
 
   #[test]
   fn video_frame_construction_defaults() {
@@ -1656,7 +1656,7 @@ mod tests_primitives {
     assert_eq!(*vf.pixel_format(), PixelFormat::Yuv420p);
     assert_eq!(vf.plane_count(), 3);
     assert!(vf.visible_rect().is_none());
-    assert_eq!(vf.color(), ColorInfo::UNSPECIFIED);
+    assert_eq!(vf.color(), Info::UNSPECIFIED);
   }
 
   #[test]

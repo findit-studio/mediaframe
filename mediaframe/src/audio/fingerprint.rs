@@ -13,12 +13,12 @@ use smol_str::SmolStr;
 /// **allowed** (some algorithms emit an empty fingerprint for
 /// silence / sub-second clips).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AudioFingerprint {
+pub struct Fingerprint {
   algorithm: SmolStr,
   value: std::vec::Vec<u8>,
 }
 
-impl Default for AudioFingerprint {
+impl Default for Fingerprint {
   /// Synthetic `Default` — `algorithm: "default"`, `value: []`. The
   /// public constructor [`Self::try_new`] still rejects empty
   /// algorithm; the default value here exists purely as a decoder
@@ -33,30 +33,30 @@ impl Default for AudioFingerprint {
   }
 }
 
-/// Error returned by [`AudioFingerprint::try_new`] when the inputs
+/// Error returned by [`Fingerprint::try_new`] when the inputs
 /// are structurally invalid (empty `algorithm`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
 #[non_exhaustive]
-pub enum AudioFingerprintError {
+pub enum FingerprintError {
   /// The `algorithm` label was empty — a fingerprint without an
   /// algorithm tag cannot be routed.
   #[error("audio fingerprint algorithm label is empty")]
   EmptyAlgorithm,
 }
 
-impl AudioFingerprint {
-  /// Constructs an `AudioFingerprint` from an algorithm label and
+impl Fingerprint {
+  /// Constructs an `Fingerprint` from an algorithm label and
   /// raw bytes. Rejects an empty `algorithm` with
-  /// [`AudioFingerprintError::EmptyAlgorithm`]. Empty `value` is
+  /// [`FingerprintError::EmptyAlgorithm`]. Empty `value` is
   /// allowed (some algorithms emit no bytes for silence / very
   /// short clips).
   pub fn try_new(
     algorithm: impl Into<SmolStr>,
     value: impl Into<std::vec::Vec<u8>>,
-  ) -> Result<Self, AudioFingerprintError> {
+  ) -> Result<Self, FingerprintError> {
     let algorithm = algorithm.into();
     if algorithm.is_empty() {
-      return Err(AudioFingerprintError::EmptyAlgorithm);
+      return Err(FingerprintError::EmptyAlgorithm);
     }
     Ok(Self {
       algorithm,
@@ -84,20 +84,20 @@ mod tests {
 
   #[test]
   fn try_new_happy_path() {
-    let fp = AudioFingerprint::try_new("chromaprint", vec![1u8, 2, 3, 4]).unwrap();
+    let fp = Fingerprint::try_new("chromaprint", vec![1u8, 2, 3, 4]).unwrap();
     assert_eq!(fp.algorithm(), "chromaprint");
     assert_eq!(fp.value(), &[1, 2, 3, 4]);
   }
 
   #[test]
   fn try_new_rejects_empty_algorithm() {
-    let err = AudioFingerprint::try_new("", vec![1u8]).unwrap_err();
-    assert_eq!(err, AudioFingerprintError::EmptyAlgorithm);
+    let err = Fingerprint::try_new("", vec![1u8]).unwrap_err();
+    assert_eq!(err, FingerprintError::EmptyAlgorithm);
   }
 
   #[test]
   fn try_new_accepts_empty_value() {
-    let fp = AudioFingerprint::try_new("acoustid", vec![]).unwrap();
+    let fp = Fingerprint::try_new("acoustid", vec![]).unwrap();
     assert_eq!(fp.algorithm(), "acoustid");
     assert!(fp.value().is_empty());
   }

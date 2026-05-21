@@ -12,8 +12,8 @@ pub mod tags;
 
 pub use bit_rate_mode::BitRateMode;
 pub use channel_layout::ChannelLayout;
-pub use cover_art::{AudioCoverArt, AudioCoverArtError};
-pub use fingerprint::{AudioFingerprint, AudioFingerprintError};
-pub use format::{AudioContainerFormat, AudioFormat};
+pub use cover_art::{CoverArt, CoverArtError};
+pub use fingerprint::{Fingerprint, FingerprintError};
+pub use format::{ContainerFormat, SampleFormat};
 pub use loudness::Loudness;
-pub use tags::AudioTags;
+pub use tags::Tags;

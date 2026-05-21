@@ -73,7 +73,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::{PixelSink, color::ColorMatrix, frame::Y210Frame};
+  use crate::{PixelSink, color::Matrix, frame::Y210Frame};
   use core::convert::Infallible;
 
   struct CountingSink {
@@ -105,7 +105,7 @@ mod tests {
       last_width: 0,
       last_row_idx: 0,
     };
-    y210_to(&frame, true, ColorMatrix::Bt709, &mut sink).unwrap();
+    y210_to(&frame, true, Matrix::Bt709, &mut sink).unwrap();
     assert_eq!(sink.rows_seen, 4);
     assert_eq!(sink.last_width, 8);
     assert_eq!(sink.last_row_idx, 3);
@@ -126,7 +126,7 @@ mod tests {
       let _: fn(
         &crate::frame::Y210LeFrame<'_>,
         bool,
-        crate::color::ColorMatrix,
+        crate::color::Matrix,
         &mut S,
       ) -> Result<(), S::Error> = y210_to::<S>;
     }

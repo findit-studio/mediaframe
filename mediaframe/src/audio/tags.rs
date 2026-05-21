@@ -18,7 +18,7 @@ use smol_str::SmolStr;
 ///   value (year `0` exists historically; "track 0" sometimes
 ///   appears in test files), so the absent state must be distinct.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub struct AudioTags {
+pub struct Tags {
   title: SmolStr,
   artist: SmolStr,
   album_artist: SmolStr,
@@ -37,8 +37,8 @@ pub struct AudioTags {
   language: Option<SmolStr>,
 }
 
-impl AudioTags {
-  /// Constructs a fresh `AudioTags` with every field absent /
+impl Tags {
+  /// Constructs a fresh `Tags` with every field absent /
   /// empty.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
@@ -310,7 +310,7 @@ mod tests {
 
   #[test]
   fn default_is_all_empty_or_none() {
-    let t = AudioTags::default();
+    let t = Tags::default();
     assert_eq!(t.title(), "");
     assert_eq!(t.artist(), "");
     assert_eq!(t.album_artist(), "");
@@ -328,12 +328,12 @@ mod tests {
 
   #[test]
   fn new_matches_default() {
-    assert_eq!(AudioTags::new(), AudioTags::default());
+    assert_eq!(Tags::new(), Tags::default());
   }
 
   #[test]
   fn with_builders_roundtrip_every_field() {
-    let t = AudioTags::new()
+    let t = Tags::new()
       .with_title("My Track")
       .with_artist("Artist X")
       .with_album_artist("Various Artists")
@@ -364,7 +364,7 @@ mod tests {
 
   #[test]
   fn setters_mutate_in_place() {
-    let mut t = AudioTags::new();
+    let mut t = Tags::new();
     t.set_title("Foo").set_artist("Bar").set_year(Some(1999));
     assert_eq!(t.title(), "Foo");
     assert_eq!(t.artist(), "Bar");
@@ -373,7 +373,7 @@ mod tests {
 
   #[test]
   fn year_zero_is_meaningful_not_absent() {
-    let t = AudioTags::new().with_year(Some(0));
+    let t = Tags::new().with_year(Some(0));
     assert_eq!(t.year(), Some(0));
     assert_ne!(t.year(), None);
   }

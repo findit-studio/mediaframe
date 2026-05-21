@@ -14,10 +14,10 @@
 //! ## Enums (each is a standalone message = one field)
 //!
 //! ```text
-//! ColorMatrix    { uint32 value = 1; }   // value = to_u32()
-//! ColorPrimaries { uint32 value = 1; }
-//! ColorTransfer  { uint32 value = 1; }
-//! ColorRange     { uint32 value = 1; }
+//! Matrix    { uint32 value = 1; }   // value = to_u32()
+//! Primaries { uint32 value = 1; }
+//! Transfer  { uint32 value = 1; }
+//! DynamicRange     { uint32 value = 1; }
 //! ChromaLocation { uint32 value = 1; }
 //! DcpTargetGamut { uint32 value = 1; }
 //! Rotation       { uint32 value = 1; }
@@ -28,8 +28,8 @@
 //!
 //! Each enum encodes its stable `to_u32()` id as a single `uint32`
 //! at field #1, decoded via `from_u32()`. The colour enums now use
-//! the **FFmpeg code points** (e.g. `ColorMatrix::Unspecified` → 2,
-//! `ColorMatrix::Rgb` → 0); an unrecognised id round-trips losslessly
+//! the **FFmpeg code points** (e.g. `Matrix::Unspecified` → 2,
+//! `Matrix::Rgb` → 0); an unrecognised id round-trips losslessly
 //! as `Unknown(n)` (every enum, including `PixelFormat`, has a
 //! data-carrying `Unknown(u32)`).
 //!
@@ -39,7 +39,7 @@
 //! enums — code `2` for primaries/transfer/matrix, `0` for
 //! range/chroma), so an absent field decodes back to `Default`. A
 //! *present* field always carries the exact `to_u32()` code —
-//! **including code `0`** (`ColorMatrix::Rgb`, FFmpeg
+//! **including code `0`** (`Matrix::Rgb`, FFmpeg
 //! `AVCOL_SPC_RGB`), which is *non-default* and therefore explicitly
 //! encoded, so it is never conflated with an absent field. Plain
 //! proto3 zero-elision would be **unsound** here (it would drop the
@@ -60,10 +60,10 @@
 //! DolbyVisionConfig { uint32 profile = 1; uint32 level = 2;      // proto3 zero-elision
 //!                     bool rpu_present = 3; bool el_present = 4; //   (all-zero default)
 //!                     uint32 bl_signal_compat_id = 5; }
-//! ColorInfo         { ColorPrimaries primaries = 1;              // all five ALWAYS
-//!                     ColorTransfer  transfer  = 2;              //   encoded as the
-//!                     ColorMatrix    matrix    = 3;              //   bare uint32 id
-//!                     ColorRange     range     = 4;              //   (not nested msgs)
+//! Info         { Primaries primaries = 1;              // all five ALWAYS
+//!                     Transfer  transfer  = 2;              //   encoded as the
+//!                     Matrix    matrix    = 3;              //   bare uint32 id
+//!                     DynamicRange     range     = 4;              //   (not nested msgs)
 //!                     ChromaLocation chroma    = 5; }
 //! ContentLightLevel { uint32 max_cll = 1; uint32 max_fall = 2; }
 //! ChromaCoord       { uint32 x = 1; uint32 y = 2; }              // u16 widened to uint32
@@ -99,13 +99,13 @@
 //!   `mediatime::Timebase` stance applies, like `MasteringDisplay`'s
 //!   coords); `is_vfr` defaults to `false` == proto-zero so it uses
 //!   proto3 zero-elision.
-//! - `ColorInfo` — **all five enum fields are always encoded** as
+//! - `Info` — **all five enum fields are always encoded** as
 //!   the bare FFmpeg-code `uint32` id (not a nested message); tags
-//!   #1–#5 are single-byte. `ColorInfo`'s own seed is
-//!   `ColorInfo::UNSPECIFIED` (every field FFmpeg `UNSPECIFIED`).
+//!   #1–#5 are single-byte. `Info`'s own seed is
+//!   `Info::UNSPECIFIED` (every field FFmpeg `UNSPECIFIED`).
 //!   Always-encoding keeps the round-trip exact regardless of which
 //!   FFmpeg code a field holds — in particular `matrix ==
-//!   ColorMatrix::Rgb` (FFmpeg code `0`) survives because the id is
+//!   Matrix::Rgb` (FFmpeg code `0`) survives because the id is
 //!   written unconditionally, never elided — the same defensive
 //!   `mediatime::Timebase` always-encode stance.
 //! - `MasteringDisplay` — the three primaries and the white point
@@ -126,15 +126,15 @@
 //! ```text
 //! ChannelLayout        { string value = 1; }   // value = as_str()
 //! BitRateMode          { uint32 value = 1; }   // value = to_u32() (Cbr=0)
-//! AudioFormat          { uint32 value = 1; }   // value = to_u32() (FFmpeg AV_SAMPLE_FMT_* code, Other → u32::MAX)
-//! AudioContainerFormat { string value = 1; }   // value = as_str()
-//! ContainerFormat      { string value = 1; }   // value = as_str()
+//! SampleFormat          { uint32 value = 1; }   // value = to_u32() (FFmpeg AV_SAMPLE_FMT_* code, Other → u32::MAX)
+//! ContainerFormat { string value = 1; }   // value = as_str()
+//! Format      { string value = 1; }   // value = as_str()
 //!
 //! Loudness         { float integrated_lufs = 1; float range_lu = 2;
 //!                    float true_peak_dbtp = 3; float sample_peak_dbfs = 4; }
-//! AudioFingerprint { string algorithm = 1; bytes value = 2; }     // algorithm ALWAYS encoded
-//! AudioCoverArt    { string mime      = 1; bytes data  = 2; }     // both ALWAYS encoded
-//! AudioTags        { string title        = 1; string artist        = 2;
+//! Fingerprint { string algorithm = 1; bytes value = 2; }     // algorithm ALWAYS encoded
+//! CoverArt    { string mime      = 1; bytes data  = 2; }     // both ALWAYS encoded
+//! Tags        { string title        = 1; string artist        = 2;
 //!                    string album_artist = 3; string album         = 4;
 //!                    string composer     = 5; string genre         = 6;
 //!                    string comment      = 7;
@@ -143,30 +143,30 @@
 //!                    uint32 disc_total   = 12; string language      = 13; }
 //! ```
 //!
-//! - **String-bearing enums** (`ChannelLayout`, `AudioContainerFormat`,
-//!   `ContainerFormat`) encode their `as_str()` slug. Default
+//! - **String-bearing enums** (`ChannelLayout`, `ContainerFormat`,
+//!   `Format`) encode their `as_str()` slug. Default
 //!   (where defined) elides; `Other(SmolStr)` round-trips losslessly.
-//!   `BitRateMode` and `AudioFormat` encode the `to_u32()` id;
-//!   `AudioFormat::Other(SmolStr)` collapses to `Unknown(u32::MAX)`
+//!   `BitRateMode` and `SampleFormat` encode the `to_u32()` id;
+//!   `SampleFormat::Other(SmolStr)` collapses to `Unknown(u32::MAX)`
 //!   on the wire (string content is not preserved by the numeric
 //!   codec — `Other` is meant for the `FromStr` lossless escape, not
 //!   the wire).
 //! - **`Loudness`** — all four `f32` fields use proto3 zero-elision
 //!   (`Default` is all-zero == proto-zero for `f32`). Each present
 //!   field is wire-type `Fixed32` (4 bytes LE).
-//! - **`AudioFingerprint`** — `algorithm` is ALWAYS encoded
+//! - **`Fingerprint`** — `algorithm` is ALWAYS encoded
 //!   (`try_new` rejects empty, so a default-constructed wire-empty
-//!   `algorithm` would not be a valid `AudioFingerprint` — encoding
+//!   `algorithm` would not be a valid `Fingerprint` — encoding
 //!   it explicitly preserves the invariant on the wire round-trip).
 //!   `value` (bytes) uses proto3 zero-elision (an empty fingerprint
 //!   is legal). The decoder seed is `try_new("default", []).unwrap()`
 //!   so that an absent `algorithm` decodes to a synthetic non-empty
 //!   placeholder rather than violating the type invariant.
-//! - **`AudioCoverArt`** — both `mime` and `data` are ALWAYS encoded
+//! - **`CoverArt`** — both `mime` and `data` are ALWAYS encoded
 //!   (`try_new` rejects empty in either, so default-constructed
 //!   wire-empty fields would violate the invariant). Same
-//!   placeholder-seed strategy as `AudioFingerprint`.
-//! - **`AudioTags`** — string fields use proto3 zero-elision (the
+//!   placeholder-seed strategy as `Fingerprint`.
+//! - **`Tags`** — string fields use proto3 zero-elision (the
 //!   empty string is the canonical "absent" value); numeric `u16`
 //!   fields are widened to `uint32` and use proto3 zero-elision —
 //!   `Some(0)` (legal value) and `None` (absent) **cannot be
@@ -182,12 +182,12 @@
 //! modules. All three are standalone one-field messages:
 //!
 //! ```text
-//! SubtitleFormat      { string value = 1; }   // FFmpeg-style slug from `as_str()`
-//! SubtitleTrackOrigin { uint32 value = 1; }   // value = to_u32()
+//! Format      { string value = 1; }   // FFmpeg-style slug from `as_str()`
+//! TrackOrigin { uint32 value = 1; }   // value = to_u32()
 //! TrackDisposition    { uint32 bits  = 1; }   // bits = to_u32() (= raw bitflags bits)
 //! ```
 //!
-//! - **`SubtitleFormat`** — a closed-ish enum with an `Other(SmolStr)`
+//! - **`Format`** — a closed-ish enum with an `Other(SmolStr)`
 //!   escape arm has no stable numeric id, so it encodes the
 //!   FFmpeg-style slug (`"srt"` / `"webvtt"` / `"hdmv_pgs_subtitle"` /
 //!   …) as a `string`. The decoder funnels through `FromStr` (total —
@@ -198,7 +198,7 @@
 //!   always-encode the slug so an empty string can never be conflated
 //!   with `Srt`; on decode an empty string maps to `Other("")`,
 //!   matching `FromStr`.
-//! - **`SubtitleTrackOrigin`** — closed unit enum with stable ids
+//! - **`TrackOrigin`** — closed unit enum with stable ids
 //!   `Embedded=0` / `Sidecar=1` / `External=2`. Default-elision is
 //!   sound: the default `Embedded` maps to `0` (proto-zero), so an
 //!   absent field decodes back to `Embedded`.
@@ -221,7 +221,7 @@
 //!
 //! - **`Device`** — two empty strings == proto-zero, so proto3
 //!   zero-elision is sound. Empty string is the in-rust sentinel
-//!   for "absent" (matches the same convention used by `AudioTags`).
+//!   for "absent" (matches the same convention used by `Tags`).
 //! - **`GeoLocation`** — the `(0.0, 0.0)` "Null Island" default is a
 //!   real, legal coordinate, so proto3 zero-elision on `lat`/`lon`
 //!   would be **unsound** (it would lose the Null-Island record).
@@ -254,15 +254,15 @@ use smol_str::SmolStr;
 
 use crate::{
   audio::{
-    AudioContainerFormat, AudioCoverArt, AudioFingerprint, AudioFormat, AudioTags, BitRateMode,
-    ChannelLayout, Loudness,
+    BitRateMode, ChannelLayout, ContainerFormat, CoverArt, Fingerprint, Loudness, SampleFormat,
+    Tags,
   },
   capture::{Device, GeoLocation},
   color::{
-    ChromaCoord, ChromaLocation, ColorInfo, ColorMatrix, ColorPrimaries, ColorRange, ColorTransfer,
-    ContentLightLevel, DcpTargetGamut, DolbyVisionConfig, HdrStaticMetadata, MasteringDisplay,
+    ChromaCoord, ChromaLocation, ContentLightLevel, DcpTargetGamut, DolbyVisionConfig,
+    DynamicRange, HdrStaticMetadata, Info, MasteringDisplay, Matrix, Primaries, Transfer,
   },
-  container::ContainerFormat,
+  container::Format,
   disposition::TrackDisposition,
   frame::{
     Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode,
@@ -284,7 +284,7 @@ const LEN: u8 = WireType::LengthDelimited as u8;
 // The decoder seeds from `Default` (= FFmpeg `UNSPECIFIED` for the
 // colour enums), so an absent field decodes back to the default; a
 // present field always carries the exact code — including code 0
-// (`ColorMatrix::Rgb`), which is non-default and therefore explicitly
+// (`Matrix::Rgb`), which is non-default and therefore explicitly
 // encoded, so it is never conflated with an absent field. Plain
 // zero-elision would drop that non-default code-0 value and is thus
 // unsound here. `Unknown(n)` round-trips losslessly. Requires
@@ -304,7 +304,7 @@ macro_rules! impl_enum_message {
       fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
         // Default-elision (NOT proto3 zero-elision): the decoder
         // seeds from `Default`, so only a non-default value needs
-        // its FFmpeg-code id written. Code 0 (`ColorMatrix::Rgb`)
+        // its FFmpeg-code id written. Code 0 (`Matrix::Rgb`)
         // is non-default and is therefore encoded.
         if *self != <$ty>::default() {
           let v: u32 = $to(self);
@@ -353,25 +353,13 @@ macro_rules! impl_enum_message {
   };
 }
 
+impl_enum_message!(Matrix, |s: &Matrix| s.to_u32(), Matrix::from_u32);
+impl_enum_message!(Primaries, |s: &Primaries| s.to_u32(), Primaries::from_u32);
+impl_enum_message!(Transfer, |s: &Transfer| s.to_u32(), Transfer::from_u32);
 impl_enum_message!(
-  ColorMatrix,
-  |s: &ColorMatrix| s.to_u32(),
-  ColorMatrix::from_u32
-);
-impl_enum_message!(
-  ColorPrimaries,
-  |s: &ColorPrimaries| s.to_u32(),
-  ColorPrimaries::from_u32
-);
-impl_enum_message!(
-  ColorTransfer,
-  |s: &ColorTransfer| s.to_u32(),
-  ColorTransfer::from_u32
-);
-impl_enum_message!(
-  ColorRange,
-  |s: &ColorRange| s.to_u32(),
-  ColorRange::from_u32
+  DynamicRange,
+  |s: &DynamicRange| s.to_u32(),
+  DynamicRange::from_u32
 );
 impl_enum_message!(
   ChromaLocation,
@@ -943,21 +931,21 @@ impl Message for DolbyVisionConfig {
 }
 
 // ----------------------------------------------------------------------------
-// ColorInfo — five enum ids, each a bare `uint32`, ALL always
+// Info — five enum ids, each a bare `uint32`, ALL always
 // encoded. See the module doc: always-encoding (esp. `matrix`, whose
 // semantic default is `Bt709`) decouples the wire round-trip from
-// the `ColorMatrix` discriminant assignment — the `mediatime`
+// the `Matrix` discriminant assignment — the `mediatime`
 // always-encode-nontrivial-default stance. Tags #1–#5 single-byte.
 // ----------------------------------------------------------------------------
 
-impl DefaultInstance for ColorInfo {
+impl DefaultInstance for Info {
   fn default_instance() -> &'static Self {
-    static VALUE: buffa::__private::OnceBox<ColorInfo> = buffa::__private::OnceBox::new();
-    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(ColorInfo::UNSPECIFIED))
+    static VALUE: buffa::__private::OnceBox<Info> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Info::UNSPECIFIED))
   }
 }
 
-impl Message for ColorInfo {
+impl Message for Info {
   fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
     // All five are unconditionally encoded (presence-independent).
     5 + uint32_encoded_len(self.primaries().to_u32()) as u32
@@ -991,7 +979,7 @@ impl Message for ColorInfo {
           });
         }
         let v = decode_uint32(buf)?;
-        self.set_primaries(ColorPrimaries::from_u32(v));
+        self.set_primaries(Primaries::from_u32(v));
       }
       2 => {
         if tag.wire_type() != WireType::Varint {
@@ -1002,7 +990,7 @@ impl Message for ColorInfo {
           });
         }
         let v = decode_uint32(buf)?;
-        self.set_transfer(ColorTransfer::from_u32(v));
+        self.set_transfer(Transfer::from_u32(v));
       }
       3 => {
         if tag.wire_type() != WireType::Varint {
@@ -1013,7 +1001,7 @@ impl Message for ColorInfo {
           });
         }
         let v = decode_uint32(buf)?;
-        self.set_matrix(ColorMatrix::from_u32(v));
+        self.set_matrix(Matrix::from_u32(v));
       }
       4 => {
         if tag.wire_type() != WireType::Varint {
@@ -1024,7 +1012,7 @@ impl Message for ColorInfo {
           });
         }
         let v = decode_uint32(buf)?;
-        self.set_range(ColorRange::from_u32(v));
+        self.set_range(DynamicRange::from_u32(v));
       }
       5 => {
         if tag.wire_type() != WireType::Varint {
@@ -1043,7 +1031,7 @@ impl Message for ColorInfo {
   }
 
   fn clear(&mut self) {
-    *self = ColorInfo::UNSPECIFIED;
+    *self = Info::UNSPECIFIED;
   }
 }
 
@@ -1487,13 +1475,10 @@ macro_rules! impl_string_enum_message {
 // (round-trips losslessly through the slug codec).
 impl_string_enum_message!(ChannelLayout, ChannelLayout::Other(SmolStr::new_inline("")));
 impl_string_enum_message!(
-  AudioContainerFormat,
-  AudioContainerFormat::Other(SmolStr::new_inline(""))
-);
-impl_string_enum_message!(
   ContainerFormat,
   ContainerFormat::Other(SmolStr::new_inline(""))
 );
+impl_string_enum_message!(Format, Format::Other(SmolStr::new_inline("")));
 
 // ----------------------------------------------------------------------------
 // BitRateMode — { uint32 value = 1; }
@@ -1551,9 +1536,9 @@ impl Message for BitRateMode {
 }
 
 // ----------------------------------------------------------------------------
-// AudioFormat — { uint32 value = 1; }
+// SampleFormat — { uint32 value = 1; }
 //
-// FFmpeg-coded; `AudioFormat::default() == Unknown(u32::MAX)` (the
+// FFmpeg-coded; `SampleFormat::default() == Unknown(u32::MAX)` (the
 // `AV_SAMPLE_FMT_NONE` sentinel), whose `to_u32() == u32::MAX`.
 // That is NOT proto-zero, so default-elision (NOT proto3
 // zero-elision) is used: written iff `*self != default()`. `U8`
@@ -1563,16 +1548,16 @@ impl Message for BitRateMode {
 // (numeric codec; the slug is preserved only on the `FromStr` path).
 // ----------------------------------------------------------------------------
 
-impl DefaultInstance for AudioFormat {
+impl DefaultInstance for SampleFormat {
   fn default_instance() -> &'static Self {
-    static VALUE: buffa::__private::OnceBox<AudioFormat> = buffa::__private::OnceBox::new();
-    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(AudioFormat::default()))
+    static VALUE: buffa::__private::OnceBox<SampleFormat> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(SampleFormat::default()))
   }
 }
 
-impl Message for AudioFormat {
+impl Message for SampleFormat {
   fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
-    if *self != AudioFormat::default() {
+    if *self != SampleFormat::default() {
       let v = self.to_u32();
       1 + uint32_encoded_len(v) as u32
     } else {
@@ -1581,7 +1566,7 @@ impl Message for AudioFormat {
   }
 
   fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
-    if *self != AudioFormat::default() {
+    if *self != SampleFormat::default() {
       let v = self.to_u32();
       Tag::new(1, WireType::Varint).encode(buf);
       encode_uint32(v, buf);
@@ -1598,7 +1583,7 @@ impl Message for AudioFormat {
             actual: tag.wire_type() as u8,
           });
         }
-        *self = AudioFormat::from_u32(decode_uint32(buf)?);
+        *self = SampleFormat::from_u32(decode_uint32(buf)?);
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -1606,7 +1591,7 @@ impl Message for AudioFormat {
   }
 
   fn clear(&mut self) {
-    *self = AudioFormat::default();
+    *self = SampleFormat::default();
   }
 }
 
@@ -1702,30 +1687,30 @@ impl Message for Loudness {
 }
 
 // ----------------------------------------------------------------------------
-// AudioFingerprint — { string algorithm = 1; bytes value = 2; }
+// Fingerprint — { string algorithm = 1; bytes value = 2; }
 //
 // `try_new` rejects empty `algorithm`, so the type has no
 // natural-zero `Default`. The decoder seed is a synthetic
-// `AudioFingerprint { algorithm: "default", value: [] }` (the
+// `Fingerprint { algorithm: "default", value: [] }` (the
 // always-encoded `algorithm` overwrites it on decode). `algorithm`
 // is encoded UNCONDITIONALLY; `value` (bytes) uses proto3
 // zero-elision (empty fingerprint is a legal value).
 // ----------------------------------------------------------------------------
 
-fn audio_fingerprint_seed() -> AudioFingerprint {
+fn audio_fingerprint_seed() -> Fingerprint {
   // Safety: the literal is non-empty so `try_new` cannot fail.
-  AudioFingerprint::try_new(SmolStr::new_inline("default"), std::vec::Vec::new())
+  Fingerprint::try_new(SmolStr::new_inline("default"), std::vec::Vec::new())
     .unwrap_or_else(|_| unreachable!())
 }
 
-impl DefaultInstance for AudioFingerprint {
+impl DefaultInstance for Fingerprint {
   fn default_instance() -> &'static Self {
-    static VALUE: buffa::__private::OnceBox<AudioFingerprint> = buffa::__private::OnceBox::new();
+    static VALUE: buffa::__private::OnceBox<Fingerprint> = buffa::__private::OnceBox::new();
     VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(audio_fingerprint_seed()))
   }
 }
 
-impl Message for AudioFingerprint {
+impl Message for Fingerprint {
   fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
     let mut size = 1 + string_encoded_len(self.algorithm()) as u32;
     if !self.value().is_empty() {
@@ -1765,7 +1750,7 @@ impl Message for AudioFingerprint {
         // Preserve existing `value`, swap `algorithm`. `try_new`
         // moves the bytes back in unchanged.
         let value = self.value().to_vec();
-        *self = AudioFingerprint::try_new(algo, value).unwrap_or_else(|_| audio_fingerprint_seed());
+        *self = Fingerprint::try_new(algo, value).unwrap_or_else(|_| audio_fingerprint_seed());
       }
       2 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1778,7 +1763,7 @@ impl Message for AudioFingerprint {
         let bytes = decode_bytes(buf)?;
         // Preserve `algorithm`, replace `value`.
         let algo = SmolStr::from(self.algorithm());
-        *self = AudioFingerprint::try_new(algo, bytes).unwrap_or_else(|_| audio_fingerprint_seed());
+        *self = Fingerprint::try_new(algo, bytes).unwrap_or_else(|_| audio_fingerprint_seed());
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -1791,31 +1776,31 @@ impl Message for AudioFingerprint {
 }
 
 // ----------------------------------------------------------------------------
-// AudioCoverArt — { string mime = 1; bytes data = 2; }
+// CoverArt — { string mime = 1; bytes data = 2; }
 //
 // `try_new` rejects empty mime / empty data, so the type has no
 // natural-zero `Default`. Decoder seed is a synthetic
-// `AudioCoverArt { mime: "application/octet-stream", data: [0u8] }`
+// `CoverArt { mime: "application/octet-stream", data: [0u8] }`
 // (sentinel that gets overwritten on decode; both fields are
 // ALWAYS encoded on the write path).
 // ----------------------------------------------------------------------------
 
-fn audio_cover_art_seed() -> AudioCoverArt {
-  AudioCoverArt::try_new(
+fn audio_cover_art_seed() -> CoverArt {
+  CoverArt::try_new(
     SmolStr::new_static("application/octet-stream"),
     std::vec![0u8],
   )
   .unwrap_or_else(|_| unreachable!())
 }
 
-impl DefaultInstance for AudioCoverArt {
+impl DefaultInstance for CoverArt {
   fn default_instance() -> &'static Self {
-    static VALUE: buffa::__private::OnceBox<AudioCoverArt> = buffa::__private::OnceBox::new();
+    static VALUE: buffa::__private::OnceBox<CoverArt> = buffa::__private::OnceBox::new();
     VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(audio_cover_art_seed()))
   }
 }
 
-impl Message for AudioCoverArt {
+impl Message for CoverArt {
   fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
     2 + string_encoded_len(self.mime()) as u32 + bytes_encoded_len(self.data()) as u32
   }
@@ -1851,7 +1836,7 @@ impl Message for AudioCoverArt {
         } else {
           data
         };
-        *self = AudioCoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
+        *self = CoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
       }
       2 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1870,7 +1855,7 @@ impl Message for AudioCoverArt {
           data
         };
         let mime = SmolStr::from(self.mime());
-        *self = AudioCoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
+        *self = CoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
       }
       _ => skip_field_depth(tag, buf, depth)?,
     }
@@ -1883,21 +1868,21 @@ impl Message for AudioCoverArt {
 }
 
 // ----------------------------------------------------------------------------
-// AudioTags — every string field uses proto3 zero-elision ("" ==
+// Tags — every string field uses proto3 zero-elision ("" ==
 // "absent" by the type's own convention); every numeric Option<u16>
 // is widened to uint32 and uses proto3 zero-elision. `Some(0)`
 // (theoretically legal) and `None` (absent) round-trip identically
 // to `None` — documented limitation.
 // ----------------------------------------------------------------------------
 
-impl DefaultInstance for AudioTags {
+impl DefaultInstance for Tags {
   fn default_instance() -> &'static Self {
-    static VALUE: buffa::__private::OnceBox<AudioTags> = buffa::__private::OnceBox::new();
-    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(AudioTags::default()))
+    static VALUE: buffa::__private::OnceBox<Tags> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Tags::default()))
   }
 }
 
-impl Message for AudioTags {
+impl Message for Tags {
   fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
     let mut size = 0u32;
     if !self.title().is_empty() {
@@ -2097,7 +2082,7 @@ impl Message for AudioTags {
   }
 
   fn clear(&mut self) {
-    *self = AudioTags::default();
+    *self = Tags::default();
   }
 }
 
@@ -2158,9 +2143,9 @@ impl Message for TrackDisposition {
 }
 
 // ----------------------------------------------------------------------------
-// SubtitleTrackOrigin + SubtitleFormat live in `crate::subtitle`, which is
+// TrackOrigin + Format live in `crate::subtitle`, which is
 // `cfg`-gated on the `alloc` feature (the `Other(SmolStr)` escape on
-// `SubtitleFormat`). Mirror that gate on the wire impls so a
+// `Format`). Mirror that gate on the wire impls so a
 // `--no-default-features --features buffa` build (no `alloc`) still compiles.
 // ----------------------------------------------------------------------------
 
@@ -2170,28 +2155,27 @@ mod subtitle_impls {
   use ::buffa::types::{decode_string, encode_string, string_encoded_len};
   use core::str::FromStr;
 
-  use crate::subtitle::{SubtitleFormat, SubtitleTrackOrigin};
+  use crate::subtitle::{Format, TrackOrigin};
 
   // ----------------------------------------------------------------------------
-  // SubtitleTrackOrigin — { uint32 value = 1; }
+  // TrackOrigin — { uint32 value = 1; }
   // Default is `Embedded` (to_u32() == 0), so proto3 zero-elision is sound —
   // identical pattern to the colour / `PixelFormat` enum codec.
   // ----------------------------------------------------------------------------
 
-  impl DefaultInstance for SubtitleTrackOrigin {
+  impl DefaultInstance for TrackOrigin {
     fn default_instance() -> &'static Self {
-      static VALUE: buffa::__private::OnceBox<SubtitleTrackOrigin> =
-        buffa::__private::OnceBox::new();
-      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(SubtitleTrackOrigin::default()))
+      static VALUE: buffa::__private::OnceBox<TrackOrigin> = buffa::__private::OnceBox::new();
+      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(TrackOrigin::default()))
     }
   }
 
-  impl Message for SubtitleTrackOrigin {
+  impl Message for TrackOrigin {
     fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
       // Default-elision (= proto3 zero-elision here since `Embedded`'s
       // id is `0`). An absent field decodes back to `Embedded`; a
       // present field always carries the exact id.
-      if *self != SubtitleTrackOrigin::default() {
+      if *self != TrackOrigin::default() {
         let v: u32 = self.to_u32();
         1 + uint32_encoded_len(v) as u32
       } else {
@@ -2200,7 +2184,7 @@ mod subtitle_impls {
     }
 
     fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
-      if *self != SubtitleTrackOrigin::default() {
+      if *self != TrackOrigin::default() {
         let v: u32 = self.to_u32();
         Tag::new(1, WireType::Varint).encode(buf);
         encode_uint32(v, buf);
@@ -2218,7 +2202,7 @@ mod subtitle_impls {
             });
           }
           let v = decode_uint32(buf)?;
-          *self = SubtitleTrackOrigin::from_u32(v);
+          *self = TrackOrigin::from_u32(v);
         }
         _ => skip_field_depth(tag, buf, depth)?,
       }
@@ -2226,12 +2210,12 @@ mod subtitle_impls {
     }
 
     fn clear(&mut self) {
-      *self = SubtitleTrackOrigin::default();
+      *self = TrackOrigin::default();
     }
   }
 
   // ----------------------------------------------------------------------------
-  // SubtitleFormat — { string value = 1; }
+  // Format — { string value = 1; }
   // No stable numeric id; encodes the FFmpeg-style slug from `as_str()`.
   // Always-encoded (NOT proto3 zero-elision and NOT default-elision): the
   // empty string is `Other("")` on decode (per the total `FromStr`), which
@@ -2241,20 +2225,20 @@ mod subtitle_impls {
   // (`Default::default()` = `Srt`).
   // ----------------------------------------------------------------------------
 
-  impl Default for SubtitleFormat {
+  impl Default for Format {
     fn default() -> Self {
-      SubtitleFormat::Srt
+      Format::Srt
     }
   }
 
-  impl DefaultInstance for SubtitleFormat {
+  impl DefaultInstance for Format {
     fn default_instance() -> &'static Self {
-      static VALUE: buffa::__private::OnceBox<SubtitleFormat> = buffa::__private::OnceBox::new();
-      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(SubtitleFormat::default()))
+      static VALUE: buffa::__private::OnceBox<Format> = buffa::__private::OnceBox::new();
+      VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Format::default()))
     }
   }
 
-  impl Message for SubtitleFormat {
+  impl Message for Format {
     fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
       // Always-encode the slug — see the module-level wire-format note
       // for the rationale (empty slug is `Other("")` ≠ absent).
@@ -2279,9 +2263,9 @@ mod subtitle_impls {
             });
           }
           let s = decode_string(buf)?;
-          // `FromStr for SubtitleFormat` is `Infallible` (total — every
+          // `FromStr for Format` is `Infallible` (total — every
           // string decodes either to a named variant or to `Other(_)`).
-          let Ok(parsed) = SubtitleFormat::from_str(&s);
+          let Ok(parsed) = Format::from_str(&s);
           *self = parsed;
         }
         _ => skip_field_depth(tag, buf, depth)?,
@@ -2290,7 +2274,7 @@ mod subtitle_impls {
     }
 
     fn clear(&mut self) {
-      *self = SubtitleFormat::default();
+      *self = Format::default();
     }
   }
 }
@@ -2575,7 +2559,7 @@ mod tests {
   //
   // For every enum: (a) `default()` encodes to ZERO bytes and
   // decodes back to `default()`; (b) a non-default value whose
-  // `to_u32() == 0` (`ColorMatrix::Rgb`, FFmpeg `AVCOL_SPC_RGB`)
+  // `to_u32() == 0` (`Matrix::Rgb`, FFmpeg `AVCOL_SPC_RGB`)
   // encodes to NON-zero bytes and round-trips — proving an absent
   // field is never conflated with code-0 `Rgb`; (c) `Unknown(12345)`
   // round-trips losslessly; (d) a normal non-default value
@@ -2584,27 +2568,24 @@ mod tests {
   #[test]
   fn enum_default_elides_to_zero_bytes() {
     // (a) Default value → empty wire → decodes back to default.
-    assert!(ColorMatrix::default().encode_to_vec().is_empty());
-    assert!(ColorPrimaries::default().encode_to_vec().is_empty());
-    assert!(ColorTransfer::default().encode_to_vec().is_empty());
-    assert!(ColorRange::default().encode_to_vec().is_empty());
+    assert!(Matrix::default().encode_to_vec().is_empty());
+    assert!(Primaries::default().encode_to_vec().is_empty());
+    assert!(Transfer::default().encode_to_vec().is_empty());
+    assert!(DynamicRange::default().encode_to_vec().is_empty());
     assert!(ChromaLocation::default().encode_to_vec().is_empty());
     assert!(DcpTargetGamut::default().encode_to_vec().is_empty());
+    assert_eq!(Matrix::decode_from_slice(&[]).unwrap(), Matrix::default());
     assert_eq!(
-      ColorMatrix::decode_from_slice(&[]).unwrap(),
-      ColorMatrix::default()
+      Primaries::decode_from_slice(&[]).unwrap(),
+      Primaries::default()
     );
     assert_eq!(
-      ColorPrimaries::decode_from_slice(&[]).unwrap(),
-      ColorPrimaries::default()
+      Transfer::decode_from_slice(&[]).unwrap(),
+      Transfer::default()
     );
     assert_eq!(
-      ColorTransfer::decode_from_slice(&[]).unwrap(),
-      ColorTransfer::default()
-    );
-    assert_eq!(
-      ColorRange::decode_from_slice(&[]).unwrap(),
-      ColorRange::default()
+      DynamicRange::decode_from_slice(&[]).unwrap(),
+      DynamicRange::default()
     );
     assert_eq!(
       ChromaLocation::decode_from_slice(&[]).unwrap(),
@@ -2618,15 +2599,15 @@ mod tests {
 
   #[test]
   fn enum_non_default_code_zero_is_encoded_not_conflated() {
-    // (b) `ColorMatrix::Rgb` is FFmpeg code 0 but is NON-default, so
+    // (b) `Matrix::Rgb` is FFmpeg code 0 but is NON-default, so
     // it must be explicitly encoded (non-empty) and round-trip to
     // `Rgb` — never decoded as the absent/default `Unspecified`.
-    let b = ColorMatrix::Rgb.encode_to_vec();
+    let b = Matrix::Rgb.encode_to_vec();
     assert!(!b.is_empty(), "non-default code-0 Rgb must be encoded");
-    let back = ColorMatrix::decode_from_slice(&b).unwrap();
-    assert_eq!(back, ColorMatrix::Rgb);
+    let back = Matrix::decode_from_slice(&b).unwrap();
+    assert_eq!(back, Matrix::Rgb);
     assert!(back.is_rgb());
-    assert_ne!(back, ColorMatrix::default());
+    assert_ne!(back, Matrix::default());
   }
 
   #[test]
@@ -2639,10 +2620,10 @@ mod tests {
         assert_eq!(<$ty>::decode_from_slice(&b).unwrap(), v);
       }};
     }
-    rt_unknown!(ColorMatrix);
-    rt_unknown!(ColorPrimaries);
-    rt_unknown!(ColorTransfer);
-    rt_unknown!(ColorRange);
+    rt_unknown!(Matrix);
+    rt_unknown!(Primaries);
+    rt_unknown!(Transfer);
+    rt_unknown!(DynamicRange);
     rt_unknown!(ChromaLocation);
     rt_unknown!(DcpTargetGamut);
     rt_unknown!(PixelFormat);
@@ -2651,20 +2632,17 @@ mod tests {
   #[test]
   fn enum_non_default_round_trips() {
     // (d) A normal non-default value round-trips for every enum.
-    let cm = ColorMatrix::Bt2020Ncl.encode_to_vec();
+    let cm = Matrix::Bt2020Ncl.encode_to_vec();
+    assert_eq!(Matrix::decode_from_slice(&cm).unwrap(), Matrix::Bt2020Ncl);
+    let cp = Primaries::Bt2020.encode_to_vec();
     assert_eq!(
-      ColorMatrix::decode_from_slice(&cm).unwrap(),
-      ColorMatrix::Bt2020Ncl
+      Primaries::decode_from_slice(&cp).unwrap(),
+      Primaries::Bt2020
     );
-    let cp = ColorPrimaries::Bt2020.encode_to_vec();
+    let ct = Transfer::AribStdB67Hlg.encode_to_vec();
     assert_eq!(
-      ColorPrimaries::decode_from_slice(&cp).unwrap(),
-      ColorPrimaries::Bt2020
-    );
-    let ct = ColorTransfer::AribStdB67Hlg.encode_to_vec();
-    assert_eq!(
-      ColorTransfer::decode_from_slice(&ct).unwrap(),
-      ColorTransfer::AribStdB67Hlg
+      Transfer::decode_from_slice(&ct).unwrap(),
+      Transfer::AribStdB67Hlg
     );
     let dg = DcpTargetGamut::Rec2020.encode_to_vec();
     assert_eq!(
@@ -2702,44 +2680,41 @@ mod tests {
 
   #[test]
   fn color_matrix_bt601_domain_variant_round_trips() {
-    // `ColorMatrix::Bt601` is a mediaframe-domain id
+    // `Matrix::Bt601` is a mediaframe-domain id
     // (`DOMAIN_EXT_BASE` = 0x8000_0000), non-default, so it must be
     // explicitly encoded to NON-zero bytes and round-trip losslessly
     // via the `Message` impl (uint32 carrying 0x8000_0000).
-    let b = ColorMatrix::Bt601.encode_to_vec();
+    let b = Matrix::Bt601.encode_to_vec();
     assert!(!b.is_empty(), "non-default domain Bt601 must be encoded");
-    let back = ColorMatrix::decode_from_slice(&b).unwrap();
-    assert_eq!(back, ColorMatrix::Bt601);
+    let back = Matrix::decode_from_slice(&b).unwrap();
+    assert_eq!(back, Matrix::Bt601);
     assert!(back.is_bt_601());
-    assert_ne!(back, ColorMatrix::default());
+    assert_ne!(back, Matrix::default());
     // Default `Unspecified` still elides to zero bytes.
-    assert!(ColorMatrix::default().encode_to_vec().is_empty());
-    assert_eq!(
-      ColorMatrix::decode_from_slice(&[]).unwrap(),
-      ColorMatrix::default()
-    );
+    assert!(Matrix::default().encode_to_vec().is_empty());
+    assert_eq!(Matrix::decode_from_slice(&[]).unwrap(), Matrix::default());
   }
 
   #[test]
   fn color_matrix_default_instance_and_clear() {
     assert_eq!(
-      *<ColorMatrix as DefaultInstance>::default_instance(),
-      ColorMatrix::default()
+      *<Matrix as DefaultInstance>::default_instance(),
+      Matrix::default()
     );
-    let mut m = ColorMatrix::YCgCo;
+    let mut m = Matrix::YCgCo;
     Message::clear(&mut m);
-    assert_eq!(m, ColorMatrix::default());
+    assert_eq!(m, Matrix::default());
   }
 
   #[test]
   fn color_range_round_trip() {
     for r in [
-      ColorRange::Unspecified,
-      ColorRange::Limited,
-      ColorRange::Full,
+      DynamicRange::Unspecified,
+      DynamicRange::Limited,
+      DynamicRange::Full,
     ] {
       let b = r.encode_to_vec();
-      assert_eq!(ColorRange::decode_from_slice(&b).unwrap(), r);
+      assert_eq!(DynamicRange::decode_from_slice(&b).unwrap(), r);
     }
   }
 
@@ -2767,7 +2742,7 @@ mod tests {
     let mut buf: Vec<u8> = Vec::new();
     Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
     encode_varint(0, &mut buf);
-    let err = <ColorMatrix as Message>::decode_from_slice(&buf).unwrap_err();
+    let err = <Matrix as Message>::decode_from_slice(&buf).unwrap_err();
     assert!(
       matches!(err, DecodeError::WireTypeMismatch { field_number: 1, expected, actual }
         if expected == VARINT && actual == LEN),
@@ -2777,12 +2752,12 @@ mod tests {
 
   #[test]
   fn enum_unknown_field_is_skipped() {
-    let mut buf = ColorRange::Full.encode_to_vec();
+    let mut buf = DynamicRange::Full.encode_to_vec();
     Tag::new(7, WireType::Varint).encode(&mut buf); // unknown → skip
     encode_varint(123, &mut buf);
     assert_eq!(
-      <ColorRange as Message>::decode_from_slice(&buf).unwrap(),
-      ColorRange::Full
+      <DynamicRange as Message>::decode_from_slice(&buf).unwrap(),
+      DynamicRange::Full
     );
   }
 
@@ -2794,8 +2769,8 @@ mod tests {
     Tag::new(1, WireType::Varint).encode(&mut buf);
     encode_uint32(9_999, &mut buf);
     assert_eq!(
-      <ColorTransfer as Message>::decode_from_slice(&buf).unwrap(),
-      ColorTransfer::Unknown(9_999)
+      <Transfer as Message>::decode_from_slice(&buf).unwrap(),
+      Transfer::Unknown(9_999)
     );
   }
 
@@ -2937,38 +2912,38 @@ mod tests {
     assert_eq!(s.den().get(), 1);
   }
 
-  // ---- ColorInfo ----
+  // ---- Info ----
 
   #[test]
   fn color_info_round_trip_default_and_nondefault() {
-    let default = ColorInfo::UNSPECIFIED;
+    let default = Info::UNSPECIFIED;
     let b = default.encode_to_vec();
-    assert_eq!(ColorInfo::decode_from_slice(&b).unwrap(), default);
+    assert_eq!(Info::decode_from_slice(&b).unwrap(), default);
 
-    let ci = ColorInfo::UNSPECIFIED
-      .with_primaries(ColorPrimaries::Bt2020)
-      .with_transfer(ColorTransfer::SmpteSt2084Pq)
-      .with_matrix(ColorMatrix::Bt2020Ncl)
-      .with_range(ColorRange::Limited)
+    let ci = Info::UNSPECIFIED
+      .with_primaries(Primaries::Bt2020)
+      .with_transfer(Transfer::SmpteSt2084Pq)
+      .with_matrix(Matrix::Bt2020Ncl)
+      .with_range(DynamicRange::Limited)
       .with_chroma_location(ChromaLocation::Left);
     let b2 = ci.encode_to_vec();
-    assert_eq!(ColorInfo::decode_from_slice(&b2).unwrap(), ci);
+    assert_eq!(Info::decode_from_slice(&b2).unwrap(), ci);
   }
 
   #[test]
   fn color_info_matrix_always_encoded_round_trips_code_zero_matrix() {
-    // `ColorMatrix::Rgb` is FFmpeg code 0; `ColorInfo` always-encodes
+    // `Matrix::Rgb` is FFmpeg code 0; `Info` always-encodes
     // all five ids as bare uint32, so a code-0 matrix survives and is
     // never conflated with an unset field.
-    let ci = ColorInfo::new(
-      ColorPrimaries::Unspecified,
-      ColorTransfer::Unspecified,
-      ColorMatrix::Rgb,
-      ColorRange::Unspecified,
+    let ci = Info::new(
+      Primaries::Unspecified,
+      Transfer::Unspecified,
+      Matrix::Rgb,
+      DynamicRange::Unspecified,
       ChromaLocation::Unspecified,
     );
     let b = ci.encode_to_vec();
-    let back = ColorInfo::decode_from_slice(&b).unwrap();
+    let back = Info::decode_from_slice(&b).unwrap();
     assert_eq!(back, ci);
     assert!(back.matrix().is_rgb());
   }
@@ -2979,18 +2954,18 @@ mod tests {
     Tag::new(3, WireType::LengthDelimited).encode(&mut buf);
     encode_varint(0, &mut buf);
     assert!(matches!(
-      <ColorInfo as Message>::decode_from_slice(&buf).unwrap_err(),
+      <Info as Message>::decode_from_slice(&buf).unwrap_err(),
       DecodeError::WireTypeMismatch { field_number: 3, expected, actual }
         if expected == VARINT && actual == LEN
     ));
-    let mut ok = ColorInfo::UNSPECIFIED
-      .with_range(ColorRange::Full)
+    let mut ok = Info::UNSPECIFIED
+      .with_range(DynamicRange::Full)
       .encode_to_vec();
     Tag::new(9, WireType::Varint).encode(&mut ok);
     encode_varint(1, &mut ok);
     assert_eq!(
-      <ColorInfo as Message>::decode_from_slice(&ok).unwrap(),
-      ColorInfo::UNSPECIFIED.with_range(ColorRange::Full)
+      <Info as Message>::decode_from_slice(&ok).unwrap(),
+      Info::UNSPECIFIED.with_range(DynamicRange::Full)
     );
   }
 
@@ -3397,30 +3372,24 @@ mod tests {
 
   #[test]
   fn audio_container_round_trip() {
-    let v = AudioContainerFormat::Mp3;
+    let v = ContainerFormat::Mp3;
     assert_eq!(
-      AudioContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
+      ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
       v
     );
-    let v = AudioContainerFormat::Other(SmolStr::new("snd"));
+    let v = ContainerFormat::Other(SmolStr::new("snd"));
     assert_eq!(
-      AudioContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
+      ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
       v
     );
   }
 
   #[test]
   fn container_format_round_trip() {
-    let v = ContainerFormat::Mp4;
-    assert_eq!(
-      ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
-      v
-    );
-    let v = ContainerFormat::Threegp;
-    assert_eq!(
-      ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
-      v
-    );
+    let v = Format::Mp4;
+    assert_eq!(Format::decode_from_slice(&v.encode_to_vec()).unwrap(), v);
+    let v = Format::Threegp;
+    assert_eq!(Format::decode_from_slice(&v.encode_to_vec()).unwrap(), v);
   }
 
   #[test]
@@ -3443,25 +3412,28 @@ mod tests {
   fn audio_format_round_trip_named_and_unknown() {
     // Default = Unknown(u32::MAX) (AV_SAMPLE_FMT_NONE-ish sentinel),
     // non-zero `to_u32` — but default-elision means it encodes to empty.
-    assert!(AudioFormat::default().encode_to_vec().is_empty());
+    assert!(SampleFormat::default().encode_to_vec().is_empty());
     assert_eq!(
-      AudioFormat::decode_from_slice(&[]).unwrap(),
-      AudioFormat::default()
+      SampleFormat::decode_from_slice(&[]).unwrap(),
+      SampleFormat::default()
     );
     // U8 is FFmpeg code 0 but NON-default — must be explicitly encoded.
-    let b = AudioFormat::U8.encode_to_vec();
+    let b = SampleFormat::U8.encode_to_vec();
     assert!(!b.is_empty(), "non-default code-0 U8 must be encoded");
-    assert_eq!(AudioFormat::decode_from_slice(&b).unwrap(), AudioFormat::U8);
-    // A normal named variant.
-    let b = AudioFormat::Fltp.encode_to_vec();
     assert_eq!(
-      AudioFormat::decode_from_slice(&b).unwrap(),
-      AudioFormat::Fltp
+      SampleFormat::decode_from_slice(&b).unwrap(),
+      SampleFormat::U8
+    );
+    // A normal named variant.
+    let b = SampleFormat::Fltp.encode_to_vec();
+    assert_eq!(
+      SampleFormat::decode_from_slice(&b).unwrap(),
+      SampleFormat::Fltp
     );
     // Unknown(n) round-trips.
-    let v = AudioFormat::Unknown(12_345);
+    let v = SampleFormat::Unknown(12_345);
     assert_eq!(
-      AudioFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
+      SampleFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
       v
     );
   }
@@ -3484,26 +3456,25 @@ mod tests {
 
   #[test]
   fn audio_fingerprint_round_trip() {
-    let fp =
-      AudioFingerprint::try_new("chromaprint", ::buffa::alloc::vec![0xAA, 0xBB, 0xCC]).unwrap();
+    let fp = Fingerprint::try_new("chromaprint", ::buffa::alloc::vec![0xAA, 0xBB, 0xCC]).unwrap();
     let b = fp.encode_to_vec();
-    assert_eq!(AudioFingerprint::decode_from_slice(&b).unwrap(), fp);
+    assert_eq!(Fingerprint::decode_from_slice(&b).unwrap(), fp);
     // Empty value (legal) round-trips.
-    let fp = AudioFingerprint::try_new("acoustid", ::buffa::alloc::vec::Vec::new()).unwrap();
+    let fp = Fingerprint::try_new("acoustid", ::buffa::alloc::vec::Vec::new()).unwrap();
     let b = fp.encode_to_vec();
-    assert_eq!(AudioFingerprint::decode_from_slice(&b).unwrap(), fp);
+    assert_eq!(Fingerprint::decode_from_slice(&b).unwrap(), fp);
   }
 
   #[test]
   fn audio_cover_art_round_trip() {
-    let art = AudioCoverArt::try_new("image/jpeg", ::buffa::alloc::vec![0xFF, 0xD8, 0xFF]).unwrap();
+    let art = CoverArt::try_new("image/jpeg", ::buffa::alloc::vec![0xFF, 0xD8, 0xFF]).unwrap();
     let b = art.encode_to_vec();
-    assert_eq!(AudioCoverArt::decode_from_slice(&b).unwrap(), art);
+    assert_eq!(CoverArt::decode_from_slice(&b).unwrap(), art);
   }
 
   #[test]
   fn audio_tags_round_trip() {
-    let t = AudioTags::new()
+    let t = Tags::new()
       .with_title("Song")
       .with_artist("Band")
       .with_album("Album")
@@ -3512,11 +3483,11 @@ mod tests {
       .with_track_total(Some(12))
       .with_language(Some(SmolStr::new("en-US")));
     let b = t.encode_to_vec();
-    assert_eq!(AudioTags::decode_from_slice(&b).unwrap(), t);
+    assert_eq!(Tags::decode_from_slice(&b).unwrap(), t);
     // Default round-trips.
-    let t0 = AudioTags::default();
+    let t0 = Tags::default();
     assert!(t0.encode_to_vec().is_empty());
-    assert_eq!(AudioTags::decode_from_slice(&[]).unwrap(), t0);
+    assert_eq!(Tags::decode_from_slice(&[]).unwrap(), t0);
   }
 
   // ---- Capture + language wire round-trips ----

@@ -38,10 +38,11 @@ can all speak to without agreeing on anything heavier.
   table — see [xtask](#xtask). Requires `alloc` (gated behind
   `any(feature = "std", feature = "alloc")` for the `Other(SmolStr)`
   arm).
-- **`color`** — ITU-T H.273 colour-metadata enums (`ColorMatrix`,
-  `ColorPrimaries`, `ColorTransfer`, `ColorRange`, `ChromaLocation`)
-  bundled into `ColorInfo`, with FFmpeg-exact code points and a
-  lossless `Unknown(u32)` arm on each. Plus `DcpTargetGamut`
+- **`color`** — ITU-T H.273 colour-metadata enums (`color::Matrix`,
+  `color::Primaries`, `color::Transfer`, `color::DynamicRange`,
+  `color::ChromaLocation`) bundled into `color::Info`, with
+  FFmpeg-exact code points and a lossless `Unknown(u32)` arm on
+  each. Plus `DcpTargetGamut`
   (DCI-XYZ target-gamut selection), `Rotation`, HDR static side-
   data (`ContentLightLevel`, `ChromaCoord`, `MasteringDisplay`,
   `HdrStaticMetadata` per SMPTE ST 2086 / FFmpeg HDR10), and

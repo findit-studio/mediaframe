@@ -56,7 +56,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::{PixelSink, color::ColorMatrix, frame::VuyaFrame};
+  use crate::{PixelSink, color::Matrix, frame::VuyaFrame};
   use core::convert::Infallible;
 
   struct CountingSink {
@@ -89,7 +89,7 @@ mod tests {
       last_packed_len: 0,
       last_row_idx: 0,
     };
-    vuya_to(&frame, false, ColorMatrix::Bt709, &mut sink).unwrap();
+    vuya_to(&frame, false, Matrix::Bt709, &mut sink).unwrap();
     assert_eq!(sink.rows_seen, 4);
     assert_eq!(sink.last_packed_len, 16); // width × 4 bytes per row
     assert_eq!(sink.last_row_idx, 3);

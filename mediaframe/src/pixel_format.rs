@@ -72,23 +72,23 @@ pub enum PixelFormat {
   // ===================================================================
   /// Deprecated full-range alias of [`Self::Yuv411p`] (FFmpeg keeps for
   /// backward compat; downstream should prefer [`Self::Yuv411p`] +
-  /// `ColorRange::Full`).
+  /// `DynamicRange::Full`).
   Yuvj411p,
   /// Deprecated full-range alias of [`Self::Yuv420p`] (FFmpeg keeps for
   /// backward compat; downstream should prefer [`Self::Yuv420p`] +
-  /// `ColorRange::Full`).
+  /// `DynamicRange::Full`).
   Yuvj420p,
   /// Deprecated full-range alias of [`Self::Yuv422p`] (FFmpeg keeps for
   /// backward compat; downstream should prefer [`Self::Yuv422p`] +
-  /// `ColorRange::Full`).
+  /// `DynamicRange::Full`).
   Yuvj422p,
   /// Deprecated full-range alias of [`Self::Yuv440p`] (FFmpeg keeps for
   /// backward compat; downstream should prefer [`Self::Yuv440p`] +
-  /// `ColorRange::Full`).
+  /// `DynamicRange::Full`).
   Yuvj440p,
   /// Deprecated full-range alias of [`Self::Yuv444p`] (FFmpeg keeps for
   /// backward compat; downstream should prefer [`Self::Yuv444p`] +
-  /// `ColorRange::Full`).
+  /// `DynamicRange::Full`).
   Yuvj444p,
 
   // ===================================================================

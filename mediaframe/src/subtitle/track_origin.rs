@@ -1,4 +1,4 @@
-//! [`SubtitleTrackOrigin`] — provenance axis for a subtitle track:
+//! [`TrackOrigin`] — provenance axis for a subtitle track:
 //! where the bytes come from relative to the media file.
 
 use derive_more::{Display, IsVariant};
@@ -17,7 +17,7 @@ use derive_more::{Display, IsVariant};
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum SubtitleTrackOrigin {
+pub enum TrackOrigin {
   /// Stream multiplexed into the container alongside the video /
   /// audio tracks (e.g. an `.mkv` with embedded `.srt`-equivalent
   /// subtitle streams). The default origin.
@@ -34,7 +34,7 @@ pub enum SubtitleTrackOrigin {
   External,
 }
 
-impl SubtitleTrackOrigin {
+impl TrackOrigin {
   /// Canonical lowercase slug for this origin (`"embedded"` /
   /// `"sidecar"` / `"external"`). Stable; matches what
   /// [`core::fmt::Display`] produces.
@@ -79,32 +79,29 @@ mod tests {
   use super::*;
   use ::std::string::ToString;
 
-  const ALL: &[SubtitleTrackOrigin] = &[
-    SubtitleTrackOrigin::Embedded,
-    SubtitleTrackOrigin::Sidecar,
-    SubtitleTrackOrigin::External,
+  const ALL: &[TrackOrigin] = &[
+    TrackOrigin::Embedded,
+    TrackOrigin::Sidecar,
+    TrackOrigin::External,
   ];
 
   #[test]
   fn round_trip_via_u32_for_every_variant() {
     for &o in ALL {
-      assert_eq!(SubtitleTrackOrigin::from_u32(o.to_u32()), o);
+      assert_eq!(TrackOrigin::from_u32(o.to_u32()), o);
     }
   }
 
   #[test]
   fn from_u32_unknown_falls_back_to_default() {
-    assert_eq!(
-      SubtitleTrackOrigin::from_u32(999),
-      SubtitleTrackOrigin::Embedded,
-    );
+    assert_eq!(TrackOrigin::from_u32(999), TrackOrigin::Embedded,);
   }
 
   #[test]
   fn as_str_matches_spec() {
-    assert_eq!(SubtitleTrackOrigin::Embedded.as_str(), "embedded");
-    assert_eq!(SubtitleTrackOrigin::Sidecar.as_str(), "sidecar");
-    assert_eq!(SubtitleTrackOrigin::External.as_str(), "external");
+    assert_eq!(TrackOrigin::Embedded.as_str(), "embedded");
+    assert_eq!(TrackOrigin::Sidecar.as_str(), "sidecar");
+    assert_eq!(TrackOrigin::External.as_str(), "external");
   }
 
   #[test]
@@ -116,17 +113,14 @@ mod tests {
 
   #[test]
   fn default_is_embedded() {
-    assert_eq!(
-      SubtitleTrackOrigin::default(),
-      SubtitleTrackOrigin::Embedded
-    );
+    assert_eq!(TrackOrigin::default(), TrackOrigin::Embedded);
   }
 
   #[test]
   fn is_variant_predicates() {
-    assert!(SubtitleTrackOrigin::Embedded.is_embedded());
-    assert!(!SubtitleTrackOrigin::Embedded.is_sidecar());
-    assert!(SubtitleTrackOrigin::Sidecar.is_sidecar());
-    assert!(SubtitleTrackOrigin::External.is_external());
+    assert!(TrackOrigin::Embedded.is_embedded());
+    assert!(!TrackOrigin::Embedded.is_sidecar());
+    assert!(TrackOrigin::Sidecar.is_sidecar());
+    assert!(TrackOrigin::External.is_external());
   }
 }

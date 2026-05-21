@@ -52,7 +52,7 @@ impl<'a> Gbrp10Row<'a> {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::color::ColorMatrix;
+  use crate::color::Matrix;
 
   // Compile-pass regression for the codex round-1 finding on PR #109
   // (`planar3_bits_be` arm). Switching from `walker!(planar3_bits)` to
@@ -67,12 +67,8 @@ mod tests {
   fn gbrp10_to_explicit_turbofish_one_generic_compiles() {
     #[allow(clippy::type_complexity)]
     fn _check<S: Gbrp10Sink>() {
-      let _: fn(
-        &crate::frame::Gbrp10LeFrame<'_>,
-        bool,
-        ColorMatrix,
-        &mut S,
-      ) -> Result<(), S::Error> = gbrp10_to::<S>;
+      let _: fn(&crate::frame::Gbrp10LeFrame<'_>, bool, Matrix, &mut S) -> Result<(), S::Error> =
+        gbrp10_to::<S>;
     }
   }
 }

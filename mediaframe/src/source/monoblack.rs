@@ -6,7 +6,7 @@
 //! ≥ 1 byte per pixel; 1-bit-per-pixel formats need byte→pixel index expansion
 //! (one byte covers 8 pixels) which doesn't fit the macro's per-element shape.
 
-use crate::{PixelSink, color::ColorMatrix, frame::MonoblackFrame};
+use crate::{PixelSink, color::Matrix, frame::MonoblackFrame};
 
 /// Marker type for the `Monoblack` source format (FFmpeg
 /// `AV_PIX_FMT_MONOBLACK`).
@@ -23,7 +23,7 @@ pub struct MonoblackRow<'a> {
   data: &'a [u8],
   width: u32,
   row: usize,
-  matrix: ColorMatrix,
+  matrix: Matrix,
   full_range: bool,
 }
 
@@ -34,7 +34,7 @@ impl<'a> MonoblackRow<'a> {
     data: &'a [u8],
     width: u32,
     row: usize,
-    matrix: ColorMatrix,
+    matrix: Matrix,
     full_range: bool,
   ) -> Self {
     Self {
@@ -60,7 +60,7 @@ impl<'a> MonoblackRow<'a> {
 
   /// Color matrix carried through from the kernel call.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn matrix(&self) -> ColorMatrix {
+  pub const fn matrix(&self) -> Matrix {
     self.matrix
   }
 
@@ -88,7 +88,7 @@ pub trait MonoblackSink: for<'a> PixelSink<Input<'a> = MonoblackRow<'a>> {}
 pub fn monoblack_to<S: MonoblackSink>(
   src: &MonoblackFrame<'_>,
   full_range: bool,
-  matrix: ColorMatrix,
+  matrix: Matrix,
   sink: &mut S,
 ) -> Result<(), S::Error> {
   sink.begin_frame(src.width(), src.height())?;

@@ -10,14 +10,14 @@ use smol_str::SmolStr;
 /// (`"image/jpeg"`, `"image/png"`, …); `data` is the raw encoded
 /// image bytes — opaque to this crate. Both must be non-empty (an
 /// empty mime or empty payload is not a meaningful cover-art
-/// attachment); use [`AudioCoverArt::try_new`].
+/// attachment); use [`CoverArt::try_new`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AudioCoverArt {
+pub struct CoverArt {
   mime: SmolStr,
   data: std::vec::Vec<u8>,
 }
 
-impl Default for AudioCoverArt {
+impl Default for CoverArt {
   /// Synthetic `Default` — `mime: "application/octet-stream"`,
   /// `data: [0u8]`. The public constructor [`Self::try_new`] still
   /// rejects empty mime / empty data; the default here exists
@@ -32,10 +32,10 @@ impl Default for AudioCoverArt {
   }
 }
 
-/// Error returned by [`AudioCoverArt::try_new`].
+/// Error returned by [`CoverArt::try_new`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
 #[non_exhaustive]
-pub enum AudioCoverArtError {
+pub enum CoverArtError {
   /// `mime` was empty — IANA media types are mandatory.
   #[error("audio cover-art mime type is empty")]
   EmptyMime,
@@ -45,21 +45,21 @@ pub enum AudioCoverArtError {
   EmptyData,
 }
 
-impl AudioCoverArt {
-  /// Constructs an `AudioCoverArt` from a mime type and raw bytes.
-  /// Rejects empty `mime` with [`AudioCoverArtError::EmptyMime`] and
-  /// empty `data` with [`AudioCoverArtError::EmptyData`].
+impl CoverArt {
+  /// Constructs an `CoverArt` from a mime type and raw bytes.
+  /// Rejects empty `mime` with [`CoverArtError::EmptyMime`] and
+  /// empty `data` with [`CoverArtError::EmptyData`].
   pub fn try_new(
     mime: impl Into<SmolStr>,
     data: impl Into<std::vec::Vec<u8>>,
-  ) -> Result<Self, AudioCoverArtError> {
+  ) -> Result<Self, CoverArtError> {
     let mime = mime.into();
     if mime.is_empty() {
-      return Err(AudioCoverArtError::EmptyMime);
+      return Err(CoverArtError::EmptyMime);
     }
     let data = data.into();
     if data.is_empty() {
-      return Err(AudioCoverArtError::EmptyData);
+      return Err(CoverArtError::EmptyData);
     }
     Ok(Self { mime, data })
   }
@@ -85,20 +85,20 @@ mod tests {
 
   #[test]
   fn try_new_happy_path() {
-    let art = AudioCoverArt::try_new("image/jpeg", vec![0xFFu8, 0xD8, 0xFF]).unwrap();
+    let art = CoverArt::try_new("image/jpeg", vec![0xFFu8, 0xD8, 0xFF]).unwrap();
     assert_eq!(art.mime(), "image/jpeg");
     assert_eq!(art.data(), &[0xFF, 0xD8, 0xFF]);
   }
 
   #[test]
   fn try_new_rejects_empty_mime() {
-    let err = AudioCoverArt::try_new("", vec![1u8, 2, 3]).unwrap_err();
-    assert_eq!(err, AudioCoverArtError::EmptyMime);
+    let err = CoverArt::try_new("", vec![1u8, 2, 3]).unwrap_err();
+    assert_eq!(err, CoverArtError::EmptyMime);
   }
 
   #[test]
   fn try_new_rejects_empty_data() {
-    let err = AudioCoverArt::try_new("image/png", vec![]).unwrap_err();
-    assert_eq!(err, AudioCoverArtError::EmptyData);
+    let err = CoverArt::try_new("image/png", vec![]).unwrap_err();
+    assert_eq!(err, CoverArtError::EmptyData);
   }
 }

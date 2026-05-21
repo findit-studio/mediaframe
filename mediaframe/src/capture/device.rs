@@ -21,6 +21,7 @@ use smol_str::SmolStr;
 /// sentinel for "absent" so callers never need `Option<SmolStr>`
 /// (matches the codec / source-tagging convention elsewhere in this
 /// crate). Use [`Self::is_empty`] to detect the fully-absent state.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Device {
   make: SmolStr,

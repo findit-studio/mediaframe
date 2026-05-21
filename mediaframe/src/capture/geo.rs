@@ -15,11 +15,37 @@ use smol_str::SmolStr;
 /// parse from an ISO 6709 string via [`Self::from_iso6709`] /
 /// `parse::<GeoLocation>()` (the [`core::str::FromStr`] impl).
 /// Serialise back via [`Self::to_iso6709`] / [`core::fmt::Display`].
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(try_from = "GeoLocationShadow")
+)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GeoLocation {
   lat: f64,
   lon: f64,
   altitude: Option<f32>,
+}
+
+/// Deserialization shadow for [`GeoLocation`] — routes through
+/// [`GeoLocation::try_new`] so out-of-range coordinates are rejected and
+/// a non-finite altitude is normalised to `None`, instead of being
+/// materialised directly by a field-derived `Deserialize`.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct GeoLocationShadow {
+  lat: f64,
+  lon: f64,
+  #[serde(default)]
+  altitude: Option<f32>,
+}
+
+#[cfg(feature = "serde")]
+impl core::convert::TryFrom<GeoLocationShadow> for GeoLocation {
+  type Error = GeoLocationError;
+  fn try_from(s: GeoLocationShadow) -> Result<Self, Self::Error> {
+    Self::try_new(s.lat, s.lon, s.altitude)
+  }
 }
 
 impl Default for GeoLocation {

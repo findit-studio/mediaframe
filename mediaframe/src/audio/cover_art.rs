@@ -13,10 +13,34 @@ use smol_str::SmolStr;
 /// large image clones in O(1) (refcount bump) rather than a deep copy.
 /// Both must be non-empty (an empty mime or empty payload is not a
 /// meaningful cover-art attachment); use [`CoverArt::try_new`].
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(try_from = "CoverArtShadow")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CoverArt {
   mime: SmolStr,
   data: Bytes,
+}
+
+/// Deserialization shadow for [`CoverArt`] — routes through
+/// [`CoverArt::try_new`] so the non-empty `mime` / `data` invariants are
+/// enforced on the way in, instead of being bypassed by a field-derived
+/// `Deserialize`.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct CoverArtShadow {
+  mime: SmolStr,
+  data: Bytes,
+}
+
+#[cfg(feature = "serde")]
+impl core::convert::TryFrom<CoverArtShadow> for CoverArt {
+  type Error = CoverArtError;
+  fn try_from(s: CoverArtShadow) -> Result<Self, Self::Error> {
+    Self::try_new(s.mime, s.data)
+  }
 }
 
 impl Default for CoverArt {

@@ -75,6 +75,14 @@ can all speak to without agreeing on anything heavier.
   frame / HDR vocabulary so downstream proto schemas can extern-map
   `.mediaframe.v1` → `::mediaframe`. Off by default — enable with
   `--features buffa`.
+- **`serde`** — optional `serde::{Serialize, Deserialize}` for the whole
+  descriptor vocabulary. Open codec / format enums serialize as their
+  `as_str()` slug, closed FFmpeg-coded enums as their `to_u32()` integer
+  (both round-trips total), `lang::Language` as its BCP-47 string;
+  validated structs (`GeoLocation` / `Fingerprint` / `CoverArt`)
+  deserialize through their checking constructors. Orthogonal to the
+  capability tiers (no-alloc Copy types included). Off by default —
+  enable with `--features serde`.
 - **`PixelSink`** + **`SourceFormat`** sealed traits re-exported at
   the crate root.
 

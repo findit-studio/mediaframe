@@ -14,10 +14,34 @@ use smol_str::SmolStr;
 /// fingerprint cannot be routed; empty `value` is **allowed** (some
 /// algorithms emit an empty fingerprint for silence / sub-second
 /// clips).
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(try_from = "FingerprintShadow")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Fingerprint {
   algorithm: SmolStr,
   value: Bytes,
+}
+
+/// Deserialization shadow for [`Fingerprint`] — routes through
+/// [`Fingerprint::try_new`] so the non-empty-`algorithm` invariant is
+/// enforced on the way in, instead of being bypassed by a field-derived
+/// `Deserialize`.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct FingerprintShadow {
+  algorithm: SmolStr,
+  value: Bytes,
+}
+
+#[cfg(feature = "serde")]
+impl core::convert::TryFrom<FingerprintShadow> for Fingerprint {
+  type Error = FingerprintError;
+  fn try_from(s: FingerprintShadow) -> Result<Self, Self::Error> {
+    Self::try_new(s.algorithm, s.value)
+  }
 }
 
 impl Default for Fingerprint {

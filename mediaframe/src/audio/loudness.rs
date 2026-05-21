@@ -23,6 +23,7 @@
 ///
 /// `f32` storage precludes `Eq`/`Hash` (NaN ≠ NaN); the derives are
 /// limited to `Debug`/`Clone`/`Copy`/`PartialEq`.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Loudness {
   integrated_lufs: f32,

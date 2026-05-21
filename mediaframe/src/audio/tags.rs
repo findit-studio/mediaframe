@@ -17,6 +17,7 @@ use smol_str::SmolStr;
 /// - Numeric fields use `Option<u16>` because `0` is a *valid*
 ///   value (year `0` exists historically; "track 0" sometimes
 ///   appears in test files), so the absent state must be distinct.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tags {
   title: SmolStr,

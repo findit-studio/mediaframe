@@ -19,7 +19,7 @@ default = ["std"]
 # Without `alloc` the codec module is `cfg`-out entirely (see `lib.rs`), so a
 # `--no-default-features` build genuinely has no allocator dependency and the
 # `no-std::no-alloc` category claim holds.
-alloc   = ["dep:smol_str"]
+alloc   = ["dep:smol_str", "dep:icu_locid"]
 std     = ["alloc", "thiserror/default", "smol_str?/std"]
 buffa   = ["dep:buffa", "mediatime/buffa"]
 
@@ -51,6 +51,13 @@ derive_more = { version = "2", default-features = false, features = ["display", 
 mediatime   = { version = "0.1", default-features = false }
 thiserror   = { version = "2", default-features = false }
 half        = { version = "2", default-features = false, optional = true }
+# BCP-47 language-tag parser/validator backing the `lang::Language` wrapper.
+# Optional + gated on the `alloc` feature: `icu_locid` 1.5 itself uses
+# `extern crate alloc` unconditionally, so a true no-alloc build
+# (`--no-default-features`) must not pull it in. The `lang` module is
+# therefore `cfg`-ed on `any(feature = "std", feature = "alloc")`, same as
+# the `codec` module. The 1.95 MSRV is well above icu_locid's 1.67 floor.
+icu_locid   = { version = "1.5", default-features = false, optional = true }
 buffa       = { version = "0.6", default-features = false, optional = true }
 # Used by the `codec` module's `Other(SmolStr)` escape arms. Optional + gated
 # on the `alloc` feature (which `std` implies) so a true no-alloc build

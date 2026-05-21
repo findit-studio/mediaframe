@@ -120,6 +120,38 @@
 //! Every `merge_field` rejects a wrong wire type with
 //! `DecodeError::WireTypeMismatch` and skips unknown fields with
 //! `skip_field_depth`; `clear()` resets to `Default` / `new`.
+//!
+//! ## Capture + language
+//!
+//! ```text
+//! Device      { string make = 1; string model = 2; }
+//! GeoLocation { double lat = 1; double lon = 2; float altitude = 3; }
+//! Language    { string value = 1; }   // canonical BCP-47 tag
+//! ```
+//!
+//! - `Device` uses proto3 zero-elision on both `string` fields (the
+//!   `Default` is two empty strings == proto-zero). Empty == absent,
+//!   matching the `SmolStr`-empty convention shared with the codec
+//!   module.
+//! - `GeoLocation` **always encodes** `lat` (`Fixed64` / `double`)
+//!   and `lon` (`Fixed64` / `double`) — the `Default` `0.0 / 0.0`
+//!   is "Null Island", a real and legal coordinate, so proto3
+//!   zero-elision would be unsound (it would conflate the legal
+//!   `(0, 0)` with an absent field). Same defensive
+//!   `mediatime::Timebase` / `SampleAspectRatio` always-encode
+//!   stance. The optional `altitude` (`Fixed32` / `float`) is
+//!   presence-encoded: field #3 is emitted **only** when `altitude`
+//!   is `Some(_)` (including for an explicit `Some(0.0)` — sea
+//!   level), and field #3's absence on the wire decodes back to
+//!   `None`. No companion presence bit is needed because the
+//!   encoder is the sole writer.
+//! - `Language` encodes its canonical BCP-47 tag as `string` field
+//!   #1. `Language::default()` is the ISO 639-3 `"und"` tag, which
+//!   is non-empty, so the field is always emitted on encode. An
+//!   empty wire string (or a wire string that fails BCP-47 parsing)
+//!   decodes back to `Language::default()` — the in-rust
+//!   "undetermined" sentinel — keeping the decoder total without a
+//!   bespoke `DecodeError` variant.
 
 use core::num::NonZeroU32;
 
@@ -139,6 +171,20 @@ use crate::{
     Dimensions, FieldOrder, FrameRate, Rational, Rect, Rotation, SampleAspectRatio, StereoMode,
   },
   pixel_format::PixelFormat,
+};
+
+// `capture::*` / `lang::*` live behind the `alloc` gate (they need
+// `SmolStr` / `String` for their text surface); their wire impls
+// therefore live in a separate `alloc`-gated sub-module below.
+#[cfg(any(feature = "std", feature = "alloc"))]
+use crate::{
+  capture::{Device, GeoLocation},
+  lang::Language,
+};
+#[cfg(any(feature = "std", feature = "alloc"))]
+use ::buffa::types::{
+  decode_double, decode_float, decode_string, encode_double, encode_float, encode_string,
+  string_encoded_len,
 };
 
 const VARINT: u8 = WireType::Varint as u8;
@@ -1275,6 +1321,265 @@ impl Message for HdrStaticMetadata {
   }
 }
 
+// ============================================================================
+// Capture + language — `alloc`-gated wire impls. See the
+// "## Capture + language" section in the module-level doc for the
+// wire-format spec.
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Device — { string make = 1; string model = 2; }
+// Default is two empty strings == proto-zero, so proto3 zero-elision
+// is sound. Empty string is the in-rust sentinel for "absent".
+// ----------------------------------------------------------------------------
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl DefaultInstance for Device {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<Device> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Device::default()))
+  }
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl Message for Device {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    let mut size = 0u32;
+    // proto3 zero-elision: sound — seed is two empty strings.
+    if !self.make().is_empty() {
+      size += 1 + string_encoded_len(self.make()) as u32;
+    }
+    if !self.model().is_empty() {
+      size += 1 + string_encoded_len(self.model()) as u32;
+    }
+    size
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    // proto3 zero-elision: sound — see `compute_size`.
+    if !self.make().is_empty() {
+      Tag::new(1, WireType::LengthDelimited).encode(buf);
+      encode_string(self.make(), buf);
+    }
+    if !self.model().is_empty() {
+      Tag::new(2, WireType::LengthDelimited).encode(buf);
+      encode_string(self.model(), buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::LengthDelimited {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: LEN,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let s = decode_string(buf)?;
+        self.set_make(s.as_str());
+      }
+      2 => {
+        if tag.wire_type() != WireType::LengthDelimited {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 2,
+            expected: LEN,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let s = decode_string(buf)?;
+        self.set_model(s.as_str());
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = Device::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// GeoLocation — { double lat = 1; double lon = 2; float altitude = 3; }
+//
+// `lat` and `lon` are always encoded: the default `(0.0, 0.0)` is
+// "Null Island" — a real, legal coordinate. Proto3 zero-elision would
+// conflate it with an absent field, which is unsound (same defensive
+// `mediatime::Timebase` stance as `SampleAspectRatio`).
+//
+// `altitude` is presence-encoded: field #3 is written iff
+// `Some(_)`, including for an explicit `Some(0.0)` (sea level); an
+// absent field #3 on the wire decodes back to `None`. No companion
+// presence bit is needed because the encoder is the sole writer.
+// ----------------------------------------------------------------------------
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl DefaultInstance for GeoLocation {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<GeoLocation> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| {
+      buffa::alloc::boxed::Box::new(GeoLocation::try_new(0.0, 0.0, None).expect("0,0 is valid"))
+    })
+  }
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl Message for GeoLocation {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    // lat (Fixed64) + lon (Fixed64), always encoded: 1-byte tag + 8 bytes each.
+    let mut size = (1 + 8) + (1 + 8);
+    if self.altitude().is_some() {
+      // altitude (Fixed32): 1-byte tag + 4 bytes.
+      size += 1 + 4;
+    }
+    size
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    Tag::new(1, WireType::Fixed64).encode(buf);
+    encode_double(self.lat(), buf);
+    Tag::new(2, WireType::Fixed64).encode(buf);
+    encode_double(self.lon(), buf);
+    if let Some(alt) = self.altitude() {
+      Tag::new(3, WireType::Fixed32).encode(buf);
+      encode_float(alt, buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::Fixed64 {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: WireType::Fixed64 as u8,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let v = decode_double(buf)?;
+        let prev = *self;
+        // Range-clamp at the boundary: a malformed wire value
+        // outside [-90, 90] is replaced with the closest valid
+        // extreme so decode is total (mirrors the
+        // `SampleAspectRatio` `den == 0` → `1` defensive clamp).
+        let lat = if v.is_finite() {
+          v.clamp(-90.0, 90.0)
+        } else {
+          0.0
+        };
+        *self =
+          GeoLocation::try_new(lat, prev.lon(), prev.altitude()).expect("clamped lat is in range");
+      }
+      2 => {
+        if tag.wire_type() != WireType::Fixed64 {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 2,
+            expected: WireType::Fixed64 as u8,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let v = decode_double(buf)?;
+        let prev = *self;
+        let lon = if v.is_finite() {
+          v.clamp(-180.0, 180.0)
+        } else {
+          0.0
+        };
+        *self =
+          GeoLocation::try_new(prev.lat(), lon, prev.altitude()).expect("clamped lon is in range");
+      }
+      3 => {
+        if tag.wire_type() != WireType::Fixed32 {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 3,
+            expected: WireType::Fixed32 as u8,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let v = decode_float(buf)?;
+        self.set_altitude(Some(v));
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = GeoLocation::try_new(0.0, 0.0, None).expect("0,0 is valid");
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Language — { string value = 1; }
+//
+// Encodes the canonical BCP-47 string at field #1. proto3
+// zero-elision applies to the empty string; since `Language::default()`
+// is the BCP-47 `"und"` tag (non-empty), the encoder always writes
+// it. On decode, an absent field (empty buffer / unknown-field skip)
+// seeds back to `Default` = `"und"`. A wire value that fails BCP-47
+// parsing is rejected as `DecodeError::Other`.
+// ----------------------------------------------------------------------------
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl DefaultInstance for Language {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<Language> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(Language::default()))
+  }
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl Message for Language {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    let tag = self.to_bcp47();
+    if tag.is_empty() {
+      0
+    } else {
+      1 + string_encoded_len(&tag) as u32
+    }
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    let tag = self.to_bcp47();
+    if !tag.is_empty() {
+      Tag::new(1, WireType::LengthDelimited).encode(buf);
+      encode_string(&tag, buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      1 => {
+        if tag.wire_type() != WireType::LengthDelimited {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: 1,
+            expected: LEN,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let s = decode_string(buf)?;
+        // A wire value that doesn't parse as BCP-47 is mapped to
+        // `Language::default()` (the ISO 639-3 `"und"`
+        // "undetermined" sentinel) rather than failing the decode —
+        // that is the same semantics the type uses in-rust for
+        // "no usable language tag", and keeps the decoder total.
+        // The `DecodeError` enum in buffa 0.6 has no general
+        // "invalid value" arm, so silent coercion to the
+        // already-existing sentinel is the least-bad choice.
+        *self = Language::from_bcp47(&s).unwrap_or_default();
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = Language::default();
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -2086,6 +2391,105 @@ mod tests {
     assert_eq!(
       <DolbyVisionConfig as Message>::decode_from_slice(&ok).unwrap(),
       original
+    );
+  }
+
+  // ---- Capture + language wire round-trips ----
+  //
+  // These types live behind the `alloc` gate; the tests do too.
+
+  #[cfg(any(feature = "std", feature = "alloc"))]
+  #[test]
+  fn device_round_trip_empty_and_populated() {
+    use crate::capture::Device;
+
+    // Default = both empty → zero bytes encoded → decodes back to default.
+    assert!(Device::default().encode_to_vec().is_empty());
+    assert_eq!(Device::decode_from_slice(&[]).unwrap(), Device::default());
+
+    // Populated round-trip.
+    let d = Device::new().with_make("Apple").with_model("iPhone 15 Pro");
+    let b = d.encode_to_vec();
+    assert_eq!(Device::decode_from_slice(&b).unwrap(), d);
+
+    // Make-only / model-only round-trips.
+    let m = Device::new().with_make("Sony");
+    assert_eq!(Device::decode_from_slice(&m.encode_to_vec()).unwrap(), m);
+    let n = Device::new().with_model("ILCE-7M4");
+    assert_eq!(Device::decode_from_slice(&n.encode_to_vec()).unwrap(), n);
+  }
+
+  #[cfg(any(feature = "std", feature = "alloc"))]
+  #[test]
+  fn geo_location_round_trip_null_island_and_populated() {
+    use crate::capture::GeoLocation;
+
+    // Null Island (the default) — always-encoded lat+lon means it does
+    // NOT collapse to zero bytes (defensive non-zero-elision stance).
+    let null = GeoLocation::default();
+    let b = null.encode_to_vec();
+    assert!(!b.is_empty());
+    assert_eq!(GeoLocation::decode_from_slice(&b).unwrap(), null);
+
+    // Paris, no altitude.
+    let paris = GeoLocation::try_new(48.8566, 2.3522, None).unwrap();
+    let b = paris.encode_to_vec();
+    let back = GeoLocation::decode_from_slice(&b).unwrap();
+    assert!((back.lat() - paris.lat()).abs() < 1e-9);
+    assert!((back.lon() - paris.lon()).abs() < 1e-9);
+    assert!(back.altitude().is_none());
+
+    // Paris with explicit Some(0.0) altitude — sea level — must round
+    // trip distinct from None.
+    let sea = GeoLocation::try_new(48.8566, 2.3522, Some(0.0)).unwrap();
+    let b = sea.encode_to_vec();
+    let back = GeoLocation::decode_from_slice(&b).unwrap();
+    assert_eq!(back.altitude(), Some(0.0));
+
+    // São Paulo with +760 m altitude.
+    let sp = GeoLocation::try_new(-23.5505, -46.6333, Some(760.0)).unwrap();
+    let b = sp.encode_to_vec();
+    let back = GeoLocation::decode_from_slice(&b).unwrap();
+    assert!((back.lat() - sp.lat()).abs() < 1e-9);
+    assert!((back.lon() - sp.lon()).abs() < 1e-9);
+    assert_eq!(back.altitude(), Some(760.0));
+  }
+
+  #[cfg(any(feature = "std", feature = "alloc"))]
+  #[test]
+  fn language_round_trip_und_and_populated() {
+    use crate::lang::Language;
+
+    // Default = "und"; non-empty BCP-47 tag, so it IS encoded.
+    let und = Language::default();
+    let b = und.encode_to_vec();
+    assert!(!b.is_empty());
+    assert_eq!(Language::decode_from_slice(&b).unwrap(), und);
+    // An absent field on the wire (empty buffer) re-seeds to default.
+    assert_eq!(Language::decode_from_slice(&[]).unwrap(), und);
+
+    for tag in ["en", "en-US", "zh-Hant-TW"] {
+      let l = Language::from_bcp47(tag).unwrap();
+      let b = l.encode_to_vec();
+      assert_eq!(Language::decode_from_slice(&b).unwrap(), l);
+    }
+  }
+
+  #[cfg(any(feature = "std", feature = "alloc"))]
+  #[test]
+  fn language_wire_garbage_falls_back_to_und() {
+    use crate::lang::Language;
+
+    // Wire string that doesn't parse as BCP-47 silently coerces to
+    // `Language::default()` (= "und") — see the rationale in the
+    // module-level doc.
+    let mut buf: Vec<u8> = Vec::new();
+    Tag::new(1, WireType::LengthDelimited).encode(&mut buf);
+    encode_varint("xx-yy-zz-bogus".len() as u64, &mut buf);
+    buf.extend_from_slice("xx-yy-zz-bogus".as_bytes());
+    assert_eq!(
+      Language::decode_from_slice(&buf).unwrap(),
+      Language::default()
     );
   }
 }

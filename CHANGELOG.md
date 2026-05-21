@@ -12,6 +12,39 @@ Initial `mediaframe` release — this crate is a **rename** of the
 are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
 identity).
 
+### Added
+
+- **`capture`** (new module, alloc-gated) — EXIF / capture-metadata
+  vocabulary.
+  - `Device { make, model }` (private `SmolStr` fields; empty string
+    means absent, never `Option<SmolStr>`; builders / setters /
+    `is_empty`).
+  - `GeoLocation { lat: f64, lon: f64, altitude: Option<f32> }` with
+    range-validating `try_new`, ISO-6709 degrees-only
+    parse/format (`from_iso6709` + `to_iso6709`, `FromStr` +
+    `Display`, hand-rolled <200-line parser — no regex / no chrono).
+    `(0, 0)` "Null Island" is accepted (it is a real, legal
+    coordinate); only out-of-range lat/lon and structurally bad
+    strings are rejected via `GeoLocationError::{LatOutOfRange,
+    LonOutOfRange, Iso6709Malformed}`.
+- **`lang`** (new module, alloc-gated) — `Language`, a validated
+  BCP-47 language tag wrapping `icu_locid` `Language`/`Script`/
+  `Region` subtags (`Copy`, heap-free in-rust representation; the
+  `to_bcp47() -> String` / `Display` surface needs the allocator).
+  `try_new(lang, script, region)` + `from_bcp47` /
+  `Default = "und"` (ISO 639-3 undetermined) + `is_undetermined` +
+  `FromStr`. `LanguageError::{InvalidLanguage, InvalidScript,
+  InvalidRegion, MalformedBcp47}`.
+- **`buffa`** — hand-written `Message` + `DefaultInstance` impls for
+  `Device`, `GeoLocation`, `Language` (all alloc-gated, same as the
+  underlying types). `GeoLocation` always-encodes `lat`/`lon` (the
+  `(0, 0)` "Null Island" default is a real coordinate — proto3
+  zero-elision would be unsound, same defensive stance as
+  `SampleAspectRatio`); `altitude` is presence-encoded (field
+  emitted iff `Some`, including for `Some(0.0)`).
+- **Deps** — adds `icu_locid = "1.5"` (optional, gated on the
+  `alloc` feature; itself `no_std`-friendly).
+
 ### Changes
 
 - **Crate rename** — `videoframe` → `mediaframe`, version reset to

@@ -898,7 +898,7 @@ impl Message for DolbyVisionConfig {
             actual: tag.wire_type() as u8,
           });
         }
-        self.set_rpu_present(decode_uint32(buf)? != 0);
+        self.update_rpu_present(decode_uint32(buf)? != 0);
       }
       4 => {
         if tag.wire_type() != WireType::Varint {
@@ -908,7 +908,7 @@ impl Message for DolbyVisionConfig {
             actual: tag.wire_type() as u8,
           });
         }
-        self.set_el_present(decode_uint32(buf)? != 0);
+        self.update_el_present(decode_uint32(buf)? != 0);
       }
       5 => {
         if tag.wire_type() != WireType::Varint {

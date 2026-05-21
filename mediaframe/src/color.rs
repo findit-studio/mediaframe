@@ -1340,18 +1340,37 @@ impl DolbyVisionConfig {
     self
   }
 
-  /// Sets the RPU-present flag (consuming builder).
+  /// Marks the RPU as present (`rpu_present = true`; consuming
+  /// builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_rpu_present(mut self, v: bool) -> Self {
+  pub const fn with_rpu_present(mut self) -> Self {
+    self.rpu_present = true;
+    self
+  }
+
+  /// Assigns the raw RPU-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_rpu_present(mut self, v: bool) -> Self {
     self.rpu_present = v;
     self
   }
 
-  /// Sets the enhancement-layer-present flag (consuming builder).
+  /// Marks the enhancement layer as present (`el_present = true`;
+  /// consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_el_present(mut self, v: bool) -> Self {
+  pub const fn with_el_present(mut self) -> Self {
+    self.el_present = true;
+    self
+  }
+
+  /// Assigns the raw enhancement-layer-present flag (consuming
+  /// builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_el_present(mut self, v: bool) -> Self {
     self.el_present = v;
     self
   }
@@ -1379,17 +1398,46 @@ impl DolbyVisionConfig {
     self
   }
 
-  /// Sets the RPU-present flag in place.
+  /// Marks the RPU as present (`rpu_present = true`) in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_rpu_present(&mut self, v: bool) -> &mut Self {
+  pub const fn set_rpu_present(&mut self) -> &mut Self {
+    self.rpu_present = true;
+    self
+  }
+
+  /// Assigns the raw RPU-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_rpu_present(&mut self, v: bool) -> &mut Self {
     self.rpu_present = v;
     self
   }
 
-  /// Sets the enhancement-layer-present flag in place.
+  /// Clears the RPU-present flag (`rpu_present = false`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_el_present(&mut self, v: bool) -> &mut Self {
+  pub const fn clear_rpu_present(&mut self) -> &mut Self {
+    self.rpu_present = false;
+    self
+  }
+
+  /// Marks the enhancement layer as present (`el_present = true`) in
+  /// place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_el_present(&mut self) -> &mut Self {
+    self.el_present = true;
+    self
+  }
+
+  /// Assigns the raw enhancement-layer-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_el_present(&mut self, v: bool) -> &mut Self {
     self.el_present = v;
+    self
+  }
+
+  /// Clears the enhancement-layer-present flag (`el_present = false`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_el_present(&mut self) -> &mut Self {
+    self.el_present = false;
     self
   }
 
@@ -1782,8 +1830,8 @@ mod tests {
     let c2 = DolbyVisionConfig::default()
       .with_profile(5)
       .with_level(6)
-      .with_rpu_present(true)
-      .with_el_present(true)
+      .with_rpu_present()
+      .with_el_present()
       .with_bl_signal_compat_id(2);
     assert_eq!(
       (
@@ -1796,12 +1844,27 @@ mod tests {
       (5, 6, true, true, 2)
     );
 
+    // Raw consuming setters (`maybe_*`).
+    let c2b = DolbyVisionConfig::default()
+      .maybe_rpu_present(true)
+      .maybe_el_present(false);
+    assert!(c2b.rpu_present());
+    assert!(!c2b.el_present());
+
     let mut c3 = DolbyVisionConfig::default();
     c3.set_profile(7)
       .set_level(4)
-      .set_rpu_present(true)
-      .set_el_present(false)
+      .set_rpu_present()
+      .set_el_present()
       .set_bl_signal_compat_id(4);
-    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, false, 4));
+    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, true, 4));
+
+    // In-place raw setter (`update_*`) and `clear_*`.
+    c3.update_el_present(false);
+    assert!(!c3.el_present());
+    c3.clear_rpu_present();
+    assert!(!c3.rpu_present());
+    c3.update_rpu_present(true);
+    assert!(c3.rpu_present());
   }
 }

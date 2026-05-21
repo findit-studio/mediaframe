@@ -33,7 +33,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::color::ColorMatrix;
+  use crate::color::Matrix;
 
   // Compile-pass regression for the codex round-1 finding on PR #106
   // (`planar1_bits_be` arm). Switching the Gray9 walker macro from
@@ -47,12 +47,8 @@ mod tests {
   fn gray9_to_explicit_turbofish_one_generic_compiles() {
     #[allow(clippy::type_complexity)]
     fn _check<S: Gray9Sink>() {
-      let _: fn(
-        &crate::frame::Gray9LeFrame<'_>,
-        bool,
-        ColorMatrix,
-        &mut S,
-      ) -> Result<(), S::Error> = gray9_to::<S>;
+      let _: fn(&crate::frame::Gray9LeFrame<'_>, bool, Matrix, &mut S) -> Result<(), S::Error> =
+        gray9_to::<S>;
     }
   }
 }

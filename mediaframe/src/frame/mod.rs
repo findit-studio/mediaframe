@@ -823,10 +823,19 @@ impl FrameRate {
     self
   }
 
-  /// Sets the VFR flag (consuming builder).
+  /// Marks the stream variable-frame-rate (`is_vfr = true`; consuming
+  /// builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_is_vfr(mut self, is_vfr: bool) -> Self {
+  pub const fn with_is_vfr(mut self) -> Self {
+    self.is_vfr = true;
+    self
+  }
+
+  /// Assigns the raw VFR flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_is_vfr(mut self, is_vfr: bool) -> Self {
     self.is_vfr = is_vfr;
     self
   }
@@ -838,10 +847,24 @@ impl FrameRate {
     self
   }
 
-  /// Sets the VFR flag in place.
+  /// Marks the stream variable-frame-rate (`is_vfr = true`) in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_is_vfr(&mut self, is_vfr: bool) -> &mut Self {
+  pub const fn set_is_vfr(&mut self) -> &mut Self {
+    self.is_vfr = true;
+    self
+  }
+
+  /// Assigns the raw VFR flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_is_vfr(&mut self, is_vfr: bool) -> &mut Self {
     self.is_vfr = is_vfr;
+    self
+  }
+
+  /// Clears the VFR flag (`is_vfr = false`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_is_vfr(&mut self) -> &mut Self {
+    self.is_vfr = false;
     self
   }
 }
@@ -1085,7 +1108,7 @@ impl<B> Plane<B> {
 
   /// Borrows the underlying buffer.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn data(&self) -> &B {
+  pub const fn data_ref(&self) -> &B {
     &self.data
   }
 
@@ -1146,12 +1169,12 @@ pub struct VideoFrame<P, B> {
   pixel_format: P,
   plane_count: u8,
   planes: [Plane<B>; 4],
-  color: crate::color::ColorInfo,
+  color: crate::color::Info,
 }
 
 impl<P, B> VideoFrame<P, B> {
   /// Constructs a `VideoFrame`. `visible_rect` defaults to `None`,
-  /// color to `ColorInfo::UNSPECIFIED`.
+  /// color to `Info::UNSPECIFIED`.
   ///
   /// # Panics
   ///
@@ -1176,7 +1199,7 @@ impl<P, B> VideoFrame<P, B> {
       pixel_format,
       plane_count,
       planes,
-      color: crate::color::ColorInfo::UNSPECIFIED,
+      color: crate::color::Info::UNSPECIFIED,
     }
   }
 
@@ -1206,7 +1229,7 @@ impl<P, B> VideoFrame<P, B> {
 
   /// Returns a reference to the pixel-format identifier.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn pixel_format(&self) -> &P {
+  pub const fn pixel_format_ref(&self) -> &P {
     &self.pixel_format
   }
 
@@ -1234,14 +1257,22 @@ impl<P, B> VideoFrame<P, B> {
 
   /// Returns the color metadata.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn color(&self) -> crate::color::ColorInfo {
+  pub const fn color(&self) -> crate::color::Info {
     self.color
   }
 
-  /// Sets the visible rect (consuming builder).
+  /// Sets the visible rect to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_visible_rect(mut self, v: Option<Rect>) -> Self {
+  pub const fn with_visible_rect(mut self, v: Rect) -> Self {
+    self.visible_rect = Some(v);
+    self
+  }
+
+  /// Assigns the raw visible-rect wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_visible_rect(mut self, v: Option<Rect>) -> Self {
     self.visible_rect = v;
     self
   }
@@ -1249,21 +1280,35 @@ impl<P, B> VideoFrame<P, B> {
   /// Sets the color metadata (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_color(mut self, v: crate::color::ColorInfo) -> Self {
+  pub const fn with_color(mut self, v: crate::color::Info) -> Self {
     self.color = v;
     self
   }
 
-  /// Sets the visible rect in place.
+  /// Sets the visible rect to `Some(v)` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_visible_rect(&mut self, v: Option<Rect>) -> &mut Self {
+  pub const fn set_visible_rect(&mut self, v: Rect) -> &mut Self {
+    self.visible_rect = Some(v);
+    self
+  }
+
+  /// Assigns the raw visible-rect wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_visible_rect(&mut self, v: Option<Rect>) -> &mut Self {
     self.visible_rect = v;
+    self
+  }
+
+  /// Clears the visible rect (`None`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_visible_rect(&mut self) -> &mut Self {
+    self.visible_rect = None;
     self
   }
 
   /// Sets the color metadata in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_color(&mut self, v: crate::color::ColorInfo) -> &mut Self {
+  pub const fn set_color(&mut self, v: crate::color::Info) -> &mut Self {
     self.color = v;
     self
   }
@@ -1324,7 +1369,7 @@ impl<F> TimestampedFrame<F> {
 
   /// Borrows the inner frame.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn frame(&self) -> &F {
+  pub const fn frame_ref(&self) -> &F {
     &self.frame
   }
 
@@ -1340,33 +1385,77 @@ impl<F> TimestampedFrame<F> {
     self.frame
   }
 
-  /// Sets the PTS (consuming builder).
+  /// Sets the PTS to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_pts(mut self, v: Option<mediatime::Timestamp>) -> Self {
+  pub const fn with_pts(mut self, v: mediatime::Timestamp) -> Self {
+    self.pts = Some(v);
+    self
+  }
+
+  /// Assigns the raw PTS wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_pts(mut self, v: Option<mediatime::Timestamp>) -> Self {
     self.pts = v;
     self
   }
 
-  /// Sets the duration (consuming builder).
+  /// Sets the duration to `Some(v)` (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_duration(mut self, v: Option<mediatime::Timestamp>) -> Self {
+  pub const fn with_duration(mut self, v: mediatime::Timestamp) -> Self {
+    self.duration = Some(v);
+    self
+  }
+
+  /// Assigns the raw duration wrapper (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_duration(mut self, v: Option<mediatime::Timestamp>) -> Self {
     self.duration = v;
     self
   }
 
-  /// Sets the PTS in place.
+  /// Sets the PTS to `Some(v)` in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_pts(&mut self, v: Option<mediatime::Timestamp>) -> &mut Self {
+  pub const fn set_pts(&mut self, v: mediatime::Timestamp) -> &mut Self {
+    self.pts = Some(v);
+    self
+  }
+
+  /// Assigns the raw PTS wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_pts(&mut self, v: Option<mediatime::Timestamp>) -> &mut Self {
     self.pts = v;
     self
   }
 
-  /// Sets the duration in place.
+  /// Clears the PTS (`None`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_duration(&mut self, v: Option<mediatime::Timestamp>) -> &mut Self {
+  pub const fn clear_pts(&mut self) -> &mut Self {
+    self.pts = None;
+    self
+  }
+
+  /// Sets the duration to `Some(v)` in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_duration(&mut self, v: mediatime::Timestamp) -> &mut Self {
+    self.duration = Some(v);
+    self
+  }
+
+  /// Assigns the raw duration wrapper in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_duration(&mut self, v: Option<mediatime::Timestamp>) -> &mut Self {
     self.duration = v;
+    self
+  }
+
+  /// Clears the duration (`None`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_duration(&mut self) -> &mut Self {
+    self.duration = None;
     self
   }
 }
@@ -1618,7 +1707,7 @@ mod tests_primitives {
   fn plane_holds_owned_buffer() {
     let p: Plane<[u8; 4]> = Plane::new([1, 2, 3, 4], 4);
     assert_eq!(p.stride(), 4);
-    assert_eq!(p.data(), &[1, 2, 3, 4]);
+    assert_eq!(p.data_ref(), &[1, 2, 3, 4]);
     let raw = p.into_data();
     assert_eq!(raw, [1, 2, 3, 4]);
   }
@@ -1628,7 +1717,7 @@ mod tests_primitives {
     let backing = [10u8, 20, 30, 40];
     let p: Plane<&[u8]> = Plane::new(&backing[..], 2);
     assert_eq!(p.stride(), 2);
-    assert_eq!(*p.data(), &[10, 20, 30, 40][..]);
+    assert_eq!(*p.data_ref(), &[10, 20, 30, 40][..]);
   }
 
   #[test]
@@ -1639,7 +1728,7 @@ mod tests_primitives {
 
   // ---------- VideoFrame -------------------------------------------------
 
-  use crate::{color::ColorInfo, pixel_format::PixelFormat};
+  use crate::{color::Info, pixel_format::PixelFormat};
 
   #[test]
   fn video_frame_construction_defaults() {
@@ -1653,10 +1742,10 @@ mod tests_primitives {
     assert_eq!(vf.dimensions(), Dimensions::new(16, 16));
     assert_eq!(vf.width(), 16);
     assert_eq!(vf.height(), 16);
-    assert_eq!(*vf.pixel_format(), PixelFormat::Yuv420p);
+    assert_eq!(*vf.pixel_format_ref(), PixelFormat::Yuv420p);
     assert_eq!(vf.plane_count(), 3);
     assert!(vf.visible_rect().is_none());
-    assert_eq!(vf.color(), ColorInfo::UNSPECIFIED);
+    assert_eq!(vf.color(), Info::UNSPECIFIED);
   }
 
   #[test]
@@ -1669,8 +1758,8 @@ mod tests_primitives {
     ];
     let vf = VideoFrame::new(Dimensions::new(2, 2), PixelFormat::Yuv420p, planes, 2);
     assert_eq!(vf.planes().len(), 2);
-    assert_eq!(*vf.plane(0).unwrap().data(), 1);
-    assert_eq!(*vf.plane(1).unwrap().data(), 2);
+    assert_eq!(*vf.plane(0).unwrap().data_ref(), 1);
+    assert_eq!(*vf.plane(1).unwrap().data_ref(), 2);
     assert!(vf.plane(2).is_none());
     assert!(vf.plane(7).is_none());
   }
@@ -1686,7 +1775,7 @@ mod tests_primitives {
   fn video_frame_with_visible_rect_and_color_chain() {
     let planes: [Plane<()>; 4] = [Plane::new((), 0); 4];
     let vf = VideoFrame::new(Dimensions::new(8, 8), PixelFormat::Yuv420p, planes, 3)
-      .with_visible_rect(Some(Rect::new(0, 0, 6, 6)));
+      .with_visible_rect(Rect::new(0, 0, 6, 6));
     assert_eq!(vf.visible_rect(), Some(Rect::new(0, 0, 6, 6)));
   }
 
@@ -1697,7 +1786,7 @@ mod tests_primitives {
     let tf: TimestampedFrame<&'static str> = TimestampedFrame::new("payload");
     assert!(tf.pts().is_none());
     assert!(tf.duration().is_none());
-    assert_eq!(*tf.frame(), "payload");
+    assert_eq!(*tf.frame_ref(), "payload");
   }
 
   #[test]
@@ -1711,9 +1800,7 @@ mod tests_primitives {
   fn timestamped_frame_pts_builder() {
     let tb = mediatime::Timebase::new(1, core::num::NonZeroU32::new(1000).unwrap());
     let ts = mediatime::Timestamp::new(1000, tb);
-    let tf = TimestampedFrame::new(0u8)
-      .with_pts(Some(ts))
-      .with_duration(Some(ts));
+    let tf = TimestampedFrame::new(0u8).with_pts(ts).with_duration(ts);
     assert_eq!(tf.pts(), Some(ts));
     assert_eq!(tf.duration(), Some(ts));
   }
@@ -1723,7 +1810,7 @@ mod tests_primitives {
     let planes: [Plane<()>; 4] = [Plane::new((), 0); 4];
     let vf = VideoFrame::new(Dimensions::new(4, 4), PixelFormat::Yuv420p, planes, 3);
     let tf = TimestampedFrame::new(vf);
-    assert_eq!(tf.frame().dimensions(), Dimensions::new(4, 4));
+    assert_eq!(tf.frame_ref().dimensions(), Dimensions::new(4, 4));
   }
 
   // ---------- Rational --------------------------------------------------
@@ -1847,13 +1934,21 @@ mod tests_primitives {
     let fr = FrameRate::new(ntsc, false);
     assert_eq!(fr.rate(), ntsc);
     assert!(!fr.is_vfr());
-    let vfr = FrameRate::default().with_rate(ntsc).with_is_vfr(true);
+    let vfr = FrameRate::default().with_rate(ntsc).with_is_vfr();
     assert_eq!(vfr.rate(), ntsc);
     assert!(vfr.is_vfr());
     let mut fr3 = FrameRate::default();
-    fr3.set_rate(Rational::new(25, nz(1))).set_is_vfr(true);
+    fr3.set_rate(Rational::new(25, nz(1))).set_is_vfr();
     assert_eq!(fr3.rate(), Rational::new(25, nz(1)));
     assert!(fr3.is_vfr());
+    // raw-wrapper + clear forms
+    let fr4 = FrameRate::default().maybe_is_vfr(true);
+    assert!(fr4.is_vfr());
+    let mut fr5 = FrameRate::default();
+    fr5.update_is_vfr(true);
+    assert!(fr5.is_vfr());
+    fr5.clear_is_vfr();
+    assert!(!fr5.is_vfr());
   }
 
   // ---------- FieldOrder ------------------------------------------------

@@ -68,7 +68,7 @@ pub type Xyz12Be = Xyz12<true>;
 /// are also derived once at the walker call site (see
 /// `luma_weights_q15_for_gamut`) so the `with_luma` /
 /// `with_luma_u16` sinker accessors can apply the gamut-matched
-/// coefficients without going through the YUV-leaning `ColorMatrix`
+/// coefficients without going through the YUV-leaning `Matrix`
 /// enum (which has no DCI-P3 entry — codex round-2 finding).
 #[derive(Debug, Clone, Copy)]
 pub struct Xyz12Row<'a, const BE: bool = false> {
@@ -116,7 +116,7 @@ impl<'a, const BE: bool> Xyz12Row<'a, BE> {
   /// Each `k` is the corresponding RGB coefficient × 32768, rounded
   /// to nearest, with the constraint `k_r + k_g + k_b ≈ 32768`. Used
   /// by `with_luma` / `with_luma_u16` to derive Y' from gamma-encoded
-  /// RGB without going through the YUV-leaning `ColorMatrix` enum.
+  /// RGB without going through the YUV-leaning `Matrix` enum.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn luma_q15(&self) -> (i32, i32, i32) {
     self.luma_q15
@@ -158,7 +158,7 @@ impl<'a, const BE: bool> Xyz12Row<'a, BE> {
 ///   triple, biasing luma values for saturated content under the
 ///   DCI-P3 path.
 /// - **Rec.2020** (D65) — `Y = 0.2627 R + 0.6780 G + 0.0593 B`
-///   → `(8607, 22217, 1944)`. (Matches `ColorMatrix::Bt2020Ncl`.)
+///   → `(8607, 22217, 1944)`. (Matches `Matrix::Bt2020Ncl`.)
 ///
 /// Returns `None` for [`DcpTargetGamut::Unknown`]: an unknown /
 /// future / corrupt gamut id has no defined luma basis and **must

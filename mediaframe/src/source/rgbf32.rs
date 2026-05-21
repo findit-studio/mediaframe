@@ -56,7 +56,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::{PixelSink, color::ColorMatrix, frame::Rgbf32LeFrame};
+  use crate::{PixelSink, color::Matrix, frame::Rgbf32LeFrame};
   use core::convert::Infallible;
 
   struct CountingSink {
@@ -82,7 +82,7 @@ mod tests {
   #[test]
   fn rgbf32_sink_le_default_compiles_without_const_arg() {
     fn walks_le<S: Rgbf32Sink>(frame: &Rgbf32LeFrame<'_>, sink: &mut S) -> Result<(), S::Error> {
-      rgbf32_to(frame, true, ColorMatrix::Bt709, sink)
+      rgbf32_to(frame, true, Matrix::Bt709, sink)
     }
 
     let buf = std::vec![0.0_f32; 12 * 4];
@@ -103,12 +103,8 @@ mod tests {
   fn rgbf32_to_explicit_turbofish_one_generic_compiles() {
     #[allow(clippy::type_complexity)]
     fn _check<S: Rgbf32Sink>() {
-      let _: fn(
-        &crate::frame::Rgbf32LeFrame<'_>,
-        bool,
-        ColorMatrix,
-        &mut S,
-      ) -> Result<(), S::Error> = rgbf32_to::<S>;
+      let _: fn(&crate::frame::Rgbf32LeFrame<'_>, bool, Matrix, &mut S) -> Result<(), S::Error> =
+        rgbf32_to::<S>;
     }
   }
 }

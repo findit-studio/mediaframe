@@ -14,7 +14,7 @@ use derive_more::{Display, IsVariant};
 ///   `< DOMAIN_EXT_BASE`, xtask-verified against the pinned FFmpeg
 ///   n8.1 `libavutil/pixfmt.h`).
 /// - **mediaframe-domain concepts** FFmpeg does not enumerate (e.g.
-///   the unified [`ColorMatrix::Bt601`]; future RAW camera colour
+///   the unified [`Matrix::Bt601`]; future RAW camera colour
 ///   science) get stable ids with **bit 31 set** (`>= DOMAIN_EXT_BASE`).
 ///   FFmpeg itself reserves `AVCOL_*_EXT_BASE = 256` for its own
 ///   extensions, so this clearly-disjoint high base never collides.
@@ -50,7 +50,7 @@ pub const DOMAIN_EXT_BASE: u32 = 0x8000_0000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum ColorMatrix {
+pub enum Matrix {
   /// Unknown / unrecognised `AVColorSpace` code. The wrapped `u32`
   /// is the original value passed to [`Self::from_u32`] — preserved
   /// so round-tripping unknown codes is lossless.
@@ -102,14 +102,14 @@ pub enum ColorMatrix {
   YCgCoRo,
 }
 
-impl Default for ColorMatrix {
+impl Default for Matrix {
   #[inline]
   fn default() -> Self {
     Self::Unspecified
   }
 }
 
-impl ColorMatrix {
+impl Matrix {
   /// Lowercase FFmpeg-style identifier for this variant
   /// (`AVCOL_SPC_*` slug).
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -224,7 +224,7 @@ impl ColorMatrix {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum ColorPrimaries {
+pub enum Primaries {
   /// Unknown / unrecognised `AVColorPrimaries` code (incl. the
   /// reserved `0`/`3`). The wrapped `u32` is the original value
   /// passed to [`Self::from_u32`] — preserved so round-tripping
@@ -256,14 +256,14 @@ pub enum ColorPrimaries {
   Ebu3213E,
 }
 
-impl Default for ColorPrimaries {
+impl Default for Primaries {
   #[inline]
   fn default() -> Self {
     Self::Unspecified
   }
 }
 
-impl ColorPrimaries {
+impl Primaries {
   /// Lowercase FFmpeg-style identifier for this variant
   /// (`AVCOL_PRI_*` slug).
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -348,7 +348,7 @@ impl ColorPrimaries {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum ColorTransfer {
+pub enum Transfer {
   /// Unknown / unrecognised `AVColorTransferCharacteristic` code
   /// (incl. the reserved `0`/`3`). The wrapped `u32` is the original
   /// value passed to [`Self::from_u32`] — preserved so round-tripping
@@ -390,14 +390,14 @@ pub enum ColorTransfer {
   AribStdB67Hlg,
 }
 
-impl Default for ColorTransfer {
+impl Default for Transfer {
   #[inline]
   fn default() -> Self {
     Self::Unspecified
   }
 }
 
-impl ColorTransfer {
+impl Transfer {
   /// Lowercase FFmpeg-style identifier for this variant
   /// (`AVCOL_TRC_*` slug).
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -493,7 +493,7 @@ impl ColorTransfer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
-pub enum ColorRange {
+pub enum DynamicRange {
   /// Unknown / unrecognised `AVColorRange` code. The wrapped `u32`
   /// is the original value passed to [`Self::from_u32`] — preserved
   /// so round-tripping unknown codes is lossless.
@@ -507,14 +507,14 @@ pub enum ColorRange {
   Full,
 }
 
-impl Default for ColorRange {
+impl Default for DynamicRange {
   #[inline]
   fn default() -> Self {
     Self::Unspecified
   }
 }
 
-impl ColorRange {
+impl DynamicRange {
   /// Lowercase FFmpeg-style identifier for this variant
   /// (`AVCOL_RANGE_*` slug; `tv` / `pc`).
   #[cfg_attr(not(tarpaulin), inline(always))]
@@ -651,40 +651,49 @@ impl ChromaLocation {
 ///
 /// Every backend except R3D and BRAW exposes color metadata natively;
 /// RAW backends populate from clip-level color science and leave
-/// `Unspecified` if absent. `ColorInfo::UNSPECIFIED` is the sensible
+/// `Unspecified` if absent. `Info::UNSPECIFIED` is the sensible
 /// default for RAW backends that don't carry per-frame color data.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ColorInfo {
-  primaries: ColorPrimaries,
-  transfer: ColorTransfer,
-  matrix: ColorMatrix,
-  range: ColorRange,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Info {
+  primaries: Primaries,
+  transfer: Transfer,
+  matrix: Matrix,
+  range: DynamicRange,
   chroma_location: ChromaLocation,
 }
 
-impl ColorInfo {
+impl Default for Info {
+  /// Delegates to [`Info::UNSPECIFIED`] — the canonical all-`Unspecified`
+  /// instance is the single source of truth for the default.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  fn default() -> Self {
+    Self::UNSPECIFIED
+  }
+}
+
+impl Info {
   /// All-`Unspecified` color info (for `Default` / RAW-backend use).
   /// Every field — including `matrix` — stores the FFmpeg
-  /// `UNSPECIFIED` code; this is exactly `#[derive(Default)]` since
-  /// each enum's `Default` is now its `Unspecified` variant. The
+  /// `UNSPECIFIED` code; `Default` delegates to this const, and it
+  /// coincides with each enum's `Default` (its `Unspecified` variant). The
   /// FFmpeg BT.709-vs-BT.601-by-height fallback for an unspecified
   /// matrix is a **consumer** concern applied at read time, not
   /// stored here.
   pub const UNSPECIFIED: Self = Self {
-    primaries: ColorPrimaries::Unspecified,
-    transfer: ColorTransfer::Unspecified,
-    matrix: ColorMatrix::Unspecified,
-    range: ColorRange::Unspecified,
+    primaries: Primaries::Unspecified,
+    transfer: Transfer::Unspecified,
+    matrix: Matrix::Unspecified,
+    range: DynamicRange::Unspecified,
     chroma_location: ChromaLocation::Unspecified,
   };
 
-  /// Constructs a `ColorInfo` from explicit components.
+  /// Constructs a `Info` from explicit components.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new(
-    primaries: ColorPrimaries,
-    transfer: ColorTransfer,
-    matrix: ColorMatrix,
-    range: ColorRange,
+    primaries: Primaries,
+    transfer: Transfer,
+    matrix: Matrix,
+    range: DynamicRange,
     chroma_location: ChromaLocation,
   ) -> Self {
     Self {
@@ -698,25 +707,25 @@ impl ColorInfo {
 
   /// Returns the color primaries.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn primaries(&self) -> ColorPrimaries {
+  pub const fn primaries(&self) -> Primaries {
     self.primaries
   }
 
   /// Returns the transfer characteristics.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn transfer(&self) -> ColorTransfer {
+  pub const fn transfer(&self) -> Transfer {
     self.transfer
   }
 
   /// Returns the YUV→RGB matrix coefficients.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn matrix(&self) -> ColorMatrix {
+  pub const fn matrix(&self) -> Matrix {
     self.matrix
   }
 
   /// Returns the sample range (limited / full).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn range(&self) -> ColorRange {
+  pub const fn range(&self) -> DynamicRange {
     self.range
   }
 
@@ -729,7 +738,7 @@ impl ColorInfo {
   /// Sets the primaries (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_primaries(mut self, v: ColorPrimaries) -> Self {
+  pub const fn with_primaries(mut self, v: Primaries) -> Self {
     self.primaries = v;
     self
   }
@@ -737,7 +746,7 @@ impl ColorInfo {
   /// Sets the transfer (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_transfer(mut self, v: ColorTransfer) -> Self {
+  pub const fn with_transfer(mut self, v: Transfer) -> Self {
     self.transfer = v;
     self
   }
@@ -745,7 +754,7 @@ impl ColorInfo {
   /// Sets the matrix (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_matrix(mut self, v: ColorMatrix) -> Self {
+  pub const fn with_matrix(mut self, v: Matrix) -> Self {
     self.matrix = v;
     self
   }
@@ -753,7 +762,7 @@ impl ColorInfo {
   /// Sets the range (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_range(mut self, v: ColorRange) -> Self {
+  pub const fn with_range(mut self, v: DynamicRange) -> Self {
     self.range = v;
     self
   }
@@ -768,28 +777,28 @@ impl ColorInfo {
 
   /// Sets the primaries in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_primaries(&mut self, v: ColorPrimaries) -> &mut Self {
+  pub const fn set_primaries(&mut self, v: Primaries) -> &mut Self {
     self.primaries = v;
     self
   }
 
   /// Sets the transfer in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_transfer(&mut self, v: ColorTransfer) -> &mut Self {
+  pub const fn set_transfer(&mut self, v: Transfer) -> &mut Self {
     self.transfer = v;
     self
   }
 
   /// Sets the matrix in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_matrix(&mut self, v: ColorMatrix) -> &mut Self {
+  pub const fn set_matrix(&mut self, v: Matrix) -> &mut Self {
     self.matrix = v;
     self
   }
 
   /// Sets the range in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_range(&mut self, v: ColorRange) -> &mut Self {
+  pub const fn set_range(&mut self, v: DynamicRange) -> &mut Self {
     self.range = v;
     self
   }
@@ -907,7 +916,7 @@ impl DcpTargetGamut {
 /// exposed by WebCodecs — it carries no static HDR metadata.
 ///
 /// This is clip / stream level (and frame-level when carried as
-/// frame side data); the per-frame [`ColorInfo`] enums are
+/// frame side data); the per-frame [`Info`] enums are
 /// unchanged.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContentLightLevel {
@@ -1172,7 +1181,7 @@ impl MasteringDisplay {
 /// [`Option`] because a source may carry one, both, or neither
 /// (SDR / WebCodecs sources carry neither).
 ///
-/// This is intentionally *separate* from [`ColorInfo`]: `ColorInfo`
+/// This is intentionally *separate* from [`Info`]: `Info`
 /// stays per-frame closed-form enums only; HDR10 static metadata is
 /// clip / stream level and optional, so it lives in its own type.
 /// (Dynamic HDR — HDR10+ / Dolby Vision RPU — is out of scope here.)
@@ -1248,7 +1257,7 @@ impl HdrStaticMetadata {
 /// an RPU and an enhancement layer are present, and the base-layer
 /// signal compatibility id) — it is **distinct from** the HDR10
 /// static metadata in [`HdrStaticMetadata`] (SMPTE ST 2086 /
-/// CTA-861.3) and from the per-frame [`ColorInfo`] enums. The DoVi
+/// CTA-861.3) and from the per-frame [`Info`] enums. The DoVi
 /// RPU payload itself (dynamic metadata) is out of scope here; only
 /// the configuration record is modelled.
 ///
@@ -1331,18 +1340,37 @@ impl DolbyVisionConfig {
     self
   }
 
-  /// Sets the RPU-present flag (consuming builder).
+  /// Marks the RPU as present (`rpu_present = true`; consuming
+  /// builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_rpu_present(mut self, v: bool) -> Self {
+  pub const fn with_rpu_present(mut self) -> Self {
+    self.rpu_present = true;
+    self
+  }
+
+  /// Assigns the raw RPU-present flag (consuming builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_rpu_present(mut self, v: bool) -> Self {
     self.rpu_present = v;
     self
   }
 
-  /// Sets the enhancement-layer-present flag (consuming builder).
+  /// Marks the enhancement layer as present (`el_present = true`;
+  /// consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn with_el_present(mut self, v: bool) -> Self {
+  pub const fn with_el_present(mut self) -> Self {
+    self.el_present = true;
+    self
+  }
+
+  /// Assigns the raw enhancement-layer-present flag (consuming
+  /// builder).
+  #[must_use]
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn maybe_el_present(mut self, v: bool) -> Self {
     self.el_present = v;
     self
   }
@@ -1370,17 +1398,46 @@ impl DolbyVisionConfig {
     self
   }
 
-  /// Sets the RPU-present flag in place.
+  /// Marks the RPU as present (`rpu_present = true`) in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_rpu_present(&mut self, v: bool) -> &mut Self {
+  pub const fn set_rpu_present(&mut self) -> &mut Self {
+    self.rpu_present = true;
+    self
+  }
+
+  /// Assigns the raw RPU-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_rpu_present(&mut self, v: bool) -> &mut Self {
     self.rpu_present = v;
     self
   }
 
-  /// Sets the enhancement-layer-present flag in place.
+  /// Clears the RPU-present flag (`rpu_present = false`).
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn set_el_present(&mut self, v: bool) -> &mut Self {
+  pub const fn clear_rpu_present(&mut self) -> &mut Self {
+    self.rpu_present = false;
+    self
+  }
+
+  /// Marks the enhancement layer as present (`el_present = true`) in
+  /// place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn set_el_present(&mut self) -> &mut Self {
+    self.el_present = true;
+    self
+  }
+
+  /// Assigns the raw enhancement-layer-present flag in place.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn update_el_present(&mut self, v: bool) -> &mut Self {
     self.el_present = v;
+    self
+  }
+
+  /// Clears the enhancement-layer-present flag (`el_present = false`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn clear_el_present(&mut self) -> &mut Self {
+    self.el_present = false;
     self
   }
 
@@ -1401,16 +1458,10 @@ mod tests {
     // The five FFmpeg colour enums default to their `Unspecified`
     // variant (FFmpeg `UNSPECIFIED` code: 2 for primaries/transfer/
     // matrix, 0 for range/chroma).
-    assert!(matches!(ColorMatrix::default(), ColorMatrix::Unspecified));
-    assert!(matches!(
-      ColorPrimaries::default(),
-      ColorPrimaries::Unspecified
-    ));
-    assert!(matches!(
-      ColorTransfer::default(),
-      ColorTransfer::Unspecified
-    ));
-    assert!(matches!(ColorRange::default(), ColorRange::Unspecified));
+    assert!(matches!(Matrix::default(), Matrix::Unspecified));
+    assert!(matches!(Primaries::default(), Primaries::Unspecified));
+    assert!(matches!(Transfer::default(), Transfer::Unspecified));
+    assert!(matches!(DynamicRange::default(), DynamicRange::Unspecified));
     assert!(matches!(
       ChromaLocation::default(),
       ChromaLocation::Unspecified
@@ -1421,25 +1472,25 @@ mod tests {
 
   #[test]
   fn is_variant_helpers_compile_for_each_enum() {
-    assert!(ColorMatrix::Bt709.is_bt_709());
-    assert!(ColorMatrix::Rgb.is_rgb());
-    assert!(ColorPrimaries::Bt2020.is_bt_2020());
-    assert!(ColorTransfer::SmpteSt2084Pq.is_smpte_st_2084_pq());
-    assert!(ColorRange::Full.is_full());
+    assert!(Matrix::Bt709.is_bt_709());
+    assert!(Matrix::Rgb.is_rgb());
+    assert!(Primaries::Bt2020.is_bt_2020());
+    assert!(Transfer::SmpteSt2084Pq.is_smpte_st_2084_pq());
+    assert!(DynamicRange::Full.is_full());
     assert!(ChromaLocation::Center.is_center());
   }
 
   #[test]
   fn copy_and_eq() {
-    let m1 = ColorMatrix::Bt709;
+    let m1 = Matrix::Bt709;
     let m2 = m1; // Copy
     assert_eq!(m1, m2);
   }
 
   #[test]
   fn color_info_default_is_all_unspecified() {
-    let ci = ColorInfo::default();
-    assert_eq!(ci, ColorInfo::UNSPECIFIED);
+    let ci = Info::default();
+    assert_eq!(ci, Info::UNSPECIFIED);
     assert!(ci.primaries().is_unspecified());
     // Matrix is now stored as `Unspecified` too (the FFmpeg
     // height-fallback is a consumer concern, not stored).
@@ -1451,11 +1502,11 @@ mod tests {
 
   #[test]
   fn color_info_builders_chain() {
-    let ci = ColorInfo::UNSPECIFIED
-      .with_primaries(ColorPrimaries::Bt2020)
-      .with_transfer(ColorTransfer::SmpteSt2084Pq)
-      .with_matrix(ColorMatrix::Bt2020Ncl)
-      .with_range(ColorRange::Limited)
+    let ci = Info::UNSPECIFIED
+      .with_primaries(Primaries::Bt2020)
+      .with_transfer(Transfer::SmpteSt2084Pq)
+      .with_matrix(Matrix::Bt2020Ncl)
+      .with_range(DynamicRange::Limited)
       .with_chroma_location(ChromaLocation::Left);
     assert!(ci.primaries().is_bt_2020());
     assert!(ci.transfer().is_smpte_st_2084_pq());
@@ -1466,11 +1517,11 @@ mod tests {
 
   #[test]
   fn color_info_setters_chain() {
-    let mut ci = ColorInfo::UNSPECIFIED;
-    ci.set_primaries(ColorPrimaries::Bt709)
-      .set_transfer(ColorTransfer::Bt709)
-      .set_matrix(ColorMatrix::Bt709)
-      .set_range(ColorRange::Limited)
+    let mut ci = Info::UNSPECIFIED;
+    ci.set_primaries(Primaries::Bt709)
+      .set_transfer(Transfer::Bt709)
+      .set_matrix(Matrix::Bt709)
+      .set_range(DynamicRange::Limited)
       .set_chroma_location(ChromaLocation::Left);
     assert!(ci.primaries().is_bt_709());
     assert!(ci.range().is_limited());
@@ -1478,11 +1529,11 @@ mod tests {
 
   #[test]
   fn color_info_const_construction() {
-    const CI: ColorInfo = ColorInfo::new(
-      ColorPrimaries::Bt709,
-      ColorTransfer::Bt709,
-      ColorMatrix::Bt709,
-      ColorRange::Limited,
+    const CI: Info = Info::new(
+      Primaries::Bt709,
+      Transfer::Bt709,
+      Matrix::Bt709,
+      DynamicRange::Limited,
       ChromaLocation::Left,
     );
     assert!(CI.matrix().is_bt_709());
@@ -1494,33 +1545,24 @@ mod tests {
     use std::format;
     // Spot-check: every variant's Display goes through `as_str()`.
     for (s, d) in [
-      (
-        ColorMatrix::Bt709.as_str(),
-        format!("{}", ColorMatrix::Bt709),
-      ),
-      (
-        ColorMatrix::Bt2020Ncl.as_str(),
-        format!("{}", ColorMatrix::Bt2020Ncl),
-      ),
-      (
-        ColorMatrix::YCgCo.as_str(),
-        format!("{}", ColorMatrix::YCgCo),
-      ),
+      (Matrix::Bt709.as_str(), format!("{}", Matrix::Bt709)),
+      (Matrix::Bt2020Ncl.as_str(), format!("{}", Matrix::Bt2020Ncl)),
+      (Matrix::YCgCo.as_str(), format!("{}", Matrix::YCgCo)),
     ] {
-      assert_eq!(s, d, "ColorMatrix as_str/Display mismatch");
+      assert_eq!(s, d, "Matrix as_str/Display mismatch");
     }
     // Pre-existing slugs are byte-stable (no churn).
-    assert_eq!(ColorMatrix::Bt2020Ncl.as_str(), "bt2020nc");
-    assert_eq!(ColorMatrix::Smpte240m.as_str(), "smpte240m");
-    assert_eq!(ColorMatrix::YCgCo.as_str(), "ycgco");
-    assert_eq!(ColorPrimaries::SmpteSt428.as_str(), "smpte428");
-    assert_eq!(ColorTransfer::SmpteSt2084Pq.as_str(), "smpte2084");
-    assert_eq!(ColorTransfer::Bt2020_10Bit.as_str(), "bt2020-10");
+    assert_eq!(Matrix::Bt2020Ncl.as_str(), "bt2020nc");
+    assert_eq!(Matrix::Smpte240m.as_str(), "smpte240m");
+    assert_eq!(Matrix::YCgCo.as_str(), "ycgco");
+    assert_eq!(Primaries::SmpteSt428.as_str(), "smpte428");
+    assert_eq!(Transfer::SmpteSt2084Pq.as_str(), "smpte2084");
+    assert_eq!(Transfer::Bt2020_10Bit.as_str(), "bt2020-10");
     // `Gamma22`/`Gamma28` keep the pre-existing gamma slugs.
-    assert_eq!(ColorTransfer::Gamma22.as_str(), "gamma22");
-    assert_eq!(ColorTransfer::Gamma28.as_str(), "gamma28");
-    assert_eq!(ColorRange::Limited.as_str(), "tv");
-    assert_eq!(ColorRange::Full.as_str(), "pc");
+    assert_eq!(Transfer::Gamma22.as_str(), "gamma22");
+    assert_eq!(Transfer::Gamma28.as_str(), "gamma28");
+    assert_eq!(DynamicRange::Limited.as_str(), "tv");
+    assert_eq!(DynamicRange::Full.as_str(), "pc");
     assert_eq!(ChromaLocation::TopLeft.as_str(), "topleft");
   }
 
@@ -1528,95 +1570,95 @@ mod tests {
   fn enum_u32_uses_ffmpeg_codes_and_round_trips() {
     // `to_u32()` returns the real FFmpeg n8.1 code point for the
     // named variants (spot-checks against libavutil/pixfmt.h).
-    assert_eq!(ColorPrimaries::Unspecified.to_u32(), 2);
-    assert_eq!(ColorPrimaries::Bt709.to_u32(), 1);
-    assert_eq!(ColorPrimaries::Ebu3213E.to_u32(), 22);
-    assert_eq!(ColorTransfer::Unspecified.to_u32(), 2);
-    assert_eq!(ColorTransfer::SmpteSt2084Pq.to_u32(), 16);
-    assert_eq!(ColorTransfer::AribStdB67Hlg.to_u32(), 18);
-    assert_eq!(ColorMatrix::Rgb.to_u32(), 0);
-    assert_eq!(ColorMatrix::Unspecified.to_u32(), 2);
-    assert_eq!(ColorMatrix::Ictcp.to_u32(), 14);
-    assert_eq!(ColorRange::Unspecified.to_u32(), 0);
-    assert_eq!(ColorRange::Limited.to_u32(), 1);
-    assert_eq!(ColorRange::Full.to_u32(), 2);
+    assert_eq!(Primaries::Unspecified.to_u32(), 2);
+    assert_eq!(Primaries::Bt709.to_u32(), 1);
+    assert_eq!(Primaries::Ebu3213E.to_u32(), 22);
+    assert_eq!(Transfer::Unspecified.to_u32(), 2);
+    assert_eq!(Transfer::SmpteSt2084Pq.to_u32(), 16);
+    assert_eq!(Transfer::AribStdB67Hlg.to_u32(), 18);
+    assert_eq!(Matrix::Rgb.to_u32(), 0);
+    assert_eq!(Matrix::Unspecified.to_u32(), 2);
+    assert_eq!(Matrix::Ictcp.to_u32(), 14);
+    assert_eq!(DynamicRange::Unspecified.to_u32(), 0);
+    assert_eq!(DynamicRange::Limited.to_u32(), 1);
+    assert_eq!(DynamicRange::Full.to_u32(), 2);
     assert_eq!(ChromaLocation::Unspecified.to_u32(), 0);
 
     // `default()` is the `Unspecified` variant for the five FFmpeg
     // enums (NOT necessarily wire id 0).
-    assert_eq!(ColorMatrix::default(), ColorMatrix::Unspecified);
-    assert_eq!(ColorPrimaries::default(), ColorPrimaries::Unspecified);
-    assert_eq!(ColorTransfer::default(), ColorTransfer::Unspecified);
-    assert_eq!(ColorRange::default(), ColorRange::Unspecified);
+    assert_eq!(Matrix::default(), Matrix::Unspecified);
+    assert_eq!(Primaries::default(), Primaries::Unspecified);
+    assert_eq!(Transfer::default(), Transfer::Unspecified);
+    assert_eq!(DynamicRange::default(), DynamicRange::Unspecified);
     assert_eq!(ChromaLocation::default(), ChromaLocation::Unspecified);
     assert_eq!(DcpTargetGamut::default(), DcpTargetGamut::DciP3);
 
     // Round-trip `from_u32(to_u32()) == v` for EVERY named variant.
     for m in [
-      ColorMatrix::Rgb,
-      ColorMatrix::Bt601,
-      ColorMatrix::Bt709,
-      ColorMatrix::Unspecified,
-      ColorMatrix::Fcc,
-      ColorMatrix::Bt470Bg,
-      ColorMatrix::Smpte170M,
-      ColorMatrix::Smpte240m,
-      ColorMatrix::YCgCo,
-      ColorMatrix::Bt2020Ncl,
-      ColorMatrix::Bt2020Cl,
-      ColorMatrix::Smpte2085,
-      ColorMatrix::ChromaDerivedNcl,
-      ColorMatrix::ChromaDerivedCl,
-      ColorMatrix::Ictcp,
-      ColorMatrix::IptC2,
-      ColorMatrix::YCgCoRe,
-      ColorMatrix::YCgCoRo,
+      Matrix::Rgb,
+      Matrix::Bt601,
+      Matrix::Bt709,
+      Matrix::Unspecified,
+      Matrix::Fcc,
+      Matrix::Bt470Bg,
+      Matrix::Smpte170M,
+      Matrix::Smpte240m,
+      Matrix::YCgCo,
+      Matrix::Bt2020Ncl,
+      Matrix::Bt2020Cl,
+      Matrix::Smpte2085,
+      Matrix::ChromaDerivedNcl,
+      Matrix::ChromaDerivedCl,
+      Matrix::Ictcp,
+      Matrix::IptC2,
+      Matrix::YCgCoRe,
+      Matrix::YCgCoRo,
     ] {
-      assert_eq!(ColorMatrix::from_u32(m.to_u32()), m);
+      assert_eq!(Matrix::from_u32(m.to_u32()), m);
     }
     for p in [
-      ColorPrimaries::Bt709,
-      ColorPrimaries::Unspecified,
-      ColorPrimaries::Bt470M,
-      ColorPrimaries::Bt470Bg,
-      ColorPrimaries::Smpte170M,
-      ColorPrimaries::Smpte240M,
-      ColorPrimaries::Film,
-      ColorPrimaries::Bt2020,
-      ColorPrimaries::SmpteSt428,
-      ColorPrimaries::SmpteRp431,
-      ColorPrimaries::SmpteEg432,
-      ColorPrimaries::Ebu3213E,
+      Primaries::Bt709,
+      Primaries::Unspecified,
+      Primaries::Bt470M,
+      Primaries::Bt470Bg,
+      Primaries::Smpte170M,
+      Primaries::Smpte240M,
+      Primaries::Film,
+      Primaries::Bt2020,
+      Primaries::SmpteSt428,
+      Primaries::SmpteRp431,
+      Primaries::SmpteEg432,
+      Primaries::Ebu3213E,
     ] {
-      assert_eq!(ColorPrimaries::from_u32(p.to_u32()), p);
+      assert_eq!(Primaries::from_u32(p.to_u32()), p);
     }
     for t in [
-      ColorTransfer::Bt709,
-      ColorTransfer::Unspecified,
-      ColorTransfer::Gamma22,
-      ColorTransfer::Gamma28,
-      ColorTransfer::Smpte170M,
-      ColorTransfer::Smpte240M,
-      ColorTransfer::Linear,
-      ColorTransfer::Log100,
-      ColorTransfer::Log316,
-      ColorTransfer::Iec6196624,
-      ColorTransfer::Bt1361Ecg,
-      ColorTransfer::Iec6196621,
-      ColorTransfer::Bt2020_10Bit,
-      ColorTransfer::Bt2020_12Bit,
-      ColorTransfer::SmpteSt2084Pq,
-      ColorTransfer::SmpteSt428,
-      ColorTransfer::AribStdB67Hlg,
+      Transfer::Bt709,
+      Transfer::Unspecified,
+      Transfer::Gamma22,
+      Transfer::Gamma28,
+      Transfer::Smpte170M,
+      Transfer::Smpte240M,
+      Transfer::Linear,
+      Transfer::Log100,
+      Transfer::Log316,
+      Transfer::Iec6196624,
+      Transfer::Bt1361Ecg,
+      Transfer::Iec6196621,
+      Transfer::Bt2020_10Bit,
+      Transfer::Bt2020_12Bit,
+      Transfer::SmpteSt2084Pq,
+      Transfer::SmpteSt428,
+      Transfer::AribStdB67Hlg,
     ] {
-      assert_eq!(ColorTransfer::from_u32(t.to_u32()), t);
+      assert_eq!(Transfer::from_u32(t.to_u32()), t);
     }
     for r in [
-      ColorRange::Unspecified,
-      ColorRange::Limited,
-      ColorRange::Full,
+      DynamicRange::Unspecified,
+      DynamicRange::Limited,
+      DynamicRange::Full,
     ] {
-      assert_eq!(ColorRange::from_u32(r.to_u32()), r);
+      assert_eq!(DynamicRange::from_u32(r.to_u32()), r);
     }
     for c in [
       ChromaLocation::Unspecified,
@@ -1639,14 +1681,14 @@ mod tests {
 
     // Unrecognised codes are now LOSSLESS via `Unknown(n)` (no
     // silent collapse to the default), and round-trip exactly.
-    assert_eq!(ColorMatrix::from_u32(9_999), ColorMatrix::Unknown(9_999));
-    assert_eq!(ColorMatrix::Unknown(9_999).to_u32(), 9_999);
+    assert_eq!(Matrix::from_u32(9_999), Matrix::Unknown(9_999));
+    assert_eq!(Matrix::Unknown(9_999).to_u32(), 9_999);
     // Reserved FFmpeg code 3 is Unknown for every FFmpeg enum.
-    assert_eq!(ColorPrimaries::from_u32(3), ColorPrimaries::Unknown(3));
-    assert_eq!(ColorPrimaries::from_u32(0), ColorPrimaries::Unknown(0));
-    assert_eq!(ColorTransfer::from_u32(3), ColorTransfer::Unknown(3));
-    assert_eq!(ColorRange::from_u32(7), ColorRange::Unknown(7));
-    assert_eq!(ColorRange::Unknown(7).to_u32(), 7);
+    assert_eq!(Primaries::from_u32(3), Primaries::Unknown(3));
+    assert_eq!(Primaries::from_u32(0), Primaries::Unknown(0));
+    assert_eq!(Transfer::from_u32(3), Transfer::Unknown(3));
+    assert_eq!(DynamicRange::from_u32(7), DynamicRange::Unknown(7));
+    assert_eq!(DynamicRange::Unknown(7).to_u32(), 7);
     assert_eq!(ChromaLocation::from_u32(42), ChromaLocation::Unknown(42));
     assert_eq!(
       DcpTargetGamut::from_u32(9_999),
@@ -1658,45 +1700,39 @@ mod tests {
   #[test]
   fn color_matrix_bt601_is_domain_variant() {
     // Released-API slug restored (the public removal is reverted).
-    assert_eq!(ColorMatrix::Bt601.as_str(), "bt601");
+    assert_eq!(Matrix::Bt601.as_str(), "bt601");
     #[cfg(feature = "std")]
     {
       use std::format;
-      assert_eq!(format!("{}", ColorMatrix::Bt601), "bt601");
+      assert_eq!(format!("{}", Matrix::Bt601), "bt601");
     }
 
     // `Bt601` lives in the mediaframe-domain extension band at
     // offset 0, NOT an FFmpeg code; it round-trips losslessly.
-    assert_eq!(ColorMatrix::Bt601.to_u32(), DOMAIN_EXT_BASE);
-    assert_eq!(ColorMatrix::Bt601.to_u32(), 0x8000_0000);
-    assert_eq!(ColorMatrix::from_u32(0x8000_0000), ColorMatrix::Bt601);
-    assert_eq!(
-      ColorMatrix::from_u32(ColorMatrix::Bt601.to_u32()),
-      ColorMatrix::Bt601
-    );
+    assert_eq!(Matrix::Bt601.to_u32(), DOMAIN_EXT_BASE);
+    assert_eq!(Matrix::Bt601.to_u32(), 0x8000_0000);
+    assert_eq!(Matrix::from_u32(0x8000_0000), Matrix::Bt601);
+    assert_eq!(Matrix::from_u32(Matrix::Bt601.to_u32()), Matrix::Bt601);
 
     // Regression: FFmpeg codes 5/6 stay BT.470BG / SMPTE170M and are
     // NEVER decoded as the domain `Bt601` (FFmpeg ingest path never
     // yields a domain variant).
-    assert_eq!(ColorMatrix::from_u32(5), ColorMatrix::Bt470Bg);
-    assert_eq!(ColorMatrix::from_u32(6), ColorMatrix::Smpte170M);
-    assert_ne!(ColorMatrix::from_u32(5), ColorMatrix::Bt601);
-    assert_ne!(ColorMatrix::from_u32(6), ColorMatrix::Bt601);
+    assert_eq!(Matrix::from_u32(5), Matrix::Bt470Bg);
+    assert_eq!(Matrix::from_u32(6), Matrix::Smpte170M);
+    assert_ne!(Matrix::from_u32(5), Matrix::Bt601);
+    assert_ne!(Matrix::from_u32(6), Matrix::Bt601);
 
     // `Bt601` is NOT the default (stays `Unspecified`).
-    assert_eq!(ColorMatrix::default(), ColorMatrix::Unspecified);
-    assert_ne!(ColorMatrix::default(), ColorMatrix::Bt601);
+    assert_eq!(Matrix::default(), Matrix::Unspecified);
+    assert_ne!(Matrix::default(), Matrix::Bt601);
 
     // An unassigned bit-31 id stays lossless `Unknown` and
     // round-trips (domain band is append-only, not exhaustive).
-    assert_eq!(
-      ColorMatrix::from_u32(0x8000_00FF),
-      ColorMatrix::Unknown(0x8000_00FF)
-    );
-    assert_eq!(ColorMatrix::Unknown(0x8000_00FF).to_u32(), 0x8000_00FF);
+    assert_eq!(Matrix::from_u32(0x8000_00FF), Matrix::Unknown(0x8000_00FF));
+    assert_eq!(Matrix::Unknown(0x8000_00FF).to_u32(), 0x8000_00FF);
 
     // `is_variant` helper is generated for the new variant.
-    assert!(ColorMatrix::Bt601.is_bt_601());
+    assert!(Matrix::Bt601.is_bt_601());
   }
 
   #[test]
@@ -1794,8 +1830,8 @@ mod tests {
     let c2 = DolbyVisionConfig::default()
       .with_profile(5)
       .with_level(6)
-      .with_rpu_present(true)
-      .with_el_present(true)
+      .with_rpu_present()
+      .with_el_present()
       .with_bl_signal_compat_id(2);
     assert_eq!(
       (
@@ -1808,12 +1844,27 @@ mod tests {
       (5, 6, true, true, 2)
     );
 
+    // Raw consuming setters (`maybe_*`).
+    let c2b = DolbyVisionConfig::default()
+      .maybe_rpu_present(true)
+      .maybe_el_present(false);
+    assert!(c2b.rpu_present());
+    assert!(!c2b.el_present());
+
     let mut c3 = DolbyVisionConfig::default();
     c3.set_profile(7)
       .set_level(4)
-      .set_rpu_present(true)
-      .set_el_present(false)
+      .set_rpu_present()
+      .set_el_present()
       .set_bl_signal_compat_id(4);
-    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, false, 4));
+    assert_eq!(c3, DolbyVisionConfig::new(7, 4, true, true, 4));
+
+    // In-place raw setter (`update_*`) and `clear_*`.
+    c3.update_el_present(false);
+    assert!(!c3.el_present());
+    c3.clear_rpu_present();
+    assert!(!c3.rpu_present());
+    c3.update_rpu_present(true);
+    assert!(c3.rpu_present());
   }
 }

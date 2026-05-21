@@ -15,13 +15,20 @@ rust-version = "1.95.0"
 
 [features]
 default = ["std"]
-# `alloc` pulls in `smol_str` for the codec module's `Other(SmolStr)` arms.
-# Without `alloc` the codec module is `cfg`-out entirely (see `lib.rs`), so a
-# `--no-default-features` build genuinely has no allocator dependency and the
-# `no-std::no-alloc` category claim holds.
-alloc   = ["dep:smol_str"]
-std     = ["alloc", "thiserror/default", "smol_str?/std"]
-buffa   = ["dep:buffa", "mediatime/buffa"]
+# `alloc` pulls in `smol_str` for the codec / subtitle / audio / container /
+# capture modules' `Other(SmolStr)` arms and `icu_locid` for the `lang::Language`
+# BCP-47 subtag wrapper. Without `alloc` those modules are `cfg`-out entirely
+# (see `lib.rs`), so a `--no-default-features` build genuinely has no allocator
+# dependency and the `no-std::no-alloc` category claim holds. `derive_more`'s
+# `unwrap` / `try_unwrap` features are flipped on here too: they are only
+# consumed by mixed enums (e.g. `SubtitleFormat`) that live under the same
+# `alloc` gate.
+alloc   = ["dep:smol_str", "dep:icu_locid", "dep:bytes", "derive_more/unwrap", "derive_more/try_unwrap"]
+std     = ["alloc", "thiserror/default", "smol_str?/std", "bytes?/std"]
+# `buffa` implies `alloc` because the wire impls for the audio /
+# container `Other(SmolStr)` arms pull in `smol_str` (and `Vec<u8>`
+# for the byte-payload types).
+buffa   = ["dep:buffa", "mediatime/buffa", "alloc"]
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [
@@ -47,10 +54,24 @@ xyz             = ["derive_more/try_unwrap", "derive_more/unwrap"]
 mono            = ["derive_more/try_unwrap", "derive_more/unwrap"]
 
 [dependencies]
+bitflags    = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["display", "is_variant"] }
 mediatime   = { version = "0.1", default-features = false }
 thiserror   = { version = "2", default-features = false }
 half        = { version = "2", default-features = false, optional = true }
+# BCP-47 language-tag parser/validator backing the `lang::Language` wrapper.
+# Optional + gated on the `alloc` feature: `icu_locid` 1.5 itself uses
+# `extern crate alloc` unconditionally, so a true no-alloc build
+# (`--no-default-features`) must not pull it in. The `lang` module is
+# therefore `cfg`-ed on `any(feature = "std", feature = "alloc")`, same as
+# the `codec` module. The 1.95 MSRV is well above icu_locid's 1.67 floor.
+icu_locid   = { version = "1.5", default-features = false, optional = true }
+# Cheap-clone (O(1) refcount), immutable byte payloads for the `audio`
+# cover-art / fingerprint blobs. Optional + gated on `alloc` (it needs the
+# allocator); `default-features = false` keeps it no-std. `Bytes::from(Vec<u8>)`
+# adopts the buffer with no copy, so wire decode (`decode_bytes` -> `Vec<u8>`)
+# converts for free.
+bytes       = { version = "1", default-features = false, optional = true }
 buffa       = { version = "0.6", default-features = false, optional = true }
 # Used by the `codec` module's `Other(SmolStr)` escape arms. Optional + gated
 # on the `alloc` feature (which `std` implies) so a true no-alloc build

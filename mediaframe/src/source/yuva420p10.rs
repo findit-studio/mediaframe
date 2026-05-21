@@ -38,7 +38,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::color::ColorMatrix;
+  use crate::color::Matrix;
 
   // Compile-pass regression for the codex round-1 finding on PR #110
   // (`planar4_bits_be` arm). The macro emits an LE-only `yuva420p10_to`
@@ -52,7 +52,7 @@ mod tests {
       let _: fn(
         &crate::frame::Yuva420p10LeFrame<'_>,
         bool,
-        ColorMatrix,
+        Matrix,
         &mut S,
       ) -> Result<(), S::Error> = yuva420p10_to::<S>;
     }

@@ -93,7 +93,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       $buf: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -103,7 +103,7 @@ macro_rules! walker {
       pub const fn new(
         $buf: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { $buf, row, matrix, full_range }
@@ -120,7 +120,7 @@ macro_rules! walker {
       }
       /// YUV/RGB conversion matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range vs limited-range flag carried through from the
@@ -139,7 +139,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -220,7 +220,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       $buf: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -230,7 +230,7 @@ macro_rules! walker {
       pub const fn new(
         $buf: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { $buf, row, matrix, full_range }
@@ -247,7 +247,7 @@ macro_rules! walker {
       }
       /// YUV/RGB conversion matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range vs limited-range flag carried through from the
@@ -277,7 +277,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame<'_, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -313,7 +313,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame<'_, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -382,7 +382,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       $buf: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -392,7 +392,7 @@ macro_rules! walker {
       pub const fn new(
         $buf: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { $buf, row, matrix, full_range }
@@ -409,7 +409,7 @@ macro_rules! walker {
       }
       /// YUV/RGB conversion matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range vs limited-range flag carried through from the
@@ -434,7 +434,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$crate::frame::$frame_inner<'_, $bits, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -469,7 +469,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$crate::frame::$frame_inner<'_, $bits, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -534,7 +534,7 @@ macro_rules! walker {
       u: &'a [$elem],
       v: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -547,7 +547,7 @@ macro_rules! walker {
         u: &'a [$elem],
         v: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, row, matrix, full_range }
@@ -574,7 +574,7 @@ macro_rules! walker {
       }
       /// Conversion matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -597,7 +597,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame<'_, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -620,7 +620,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame<'_, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -633,7 +633,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe<'_, BITS, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -714,7 +714,7 @@ macro_rules! walker {
       v: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -728,7 +728,7 @@ macro_rules! walker {
         v: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, a, row, matrix, full_range }
@@ -760,7 +760,7 @@ macro_rules! walker {
       }
       /// Conversion matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -781,7 +781,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame<'_, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -804,7 +804,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame<'_, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -817,7 +817,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe<'_, BITS, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -911,7 +911,7 @@ macro_rules! walker {
       y: &'a [$elem],
       $chroma_field: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -922,7 +922,7 @@ macro_rules! walker {
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, $chroma_field, row, matrix, full_range }
@@ -944,7 +944,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -962,7 +962,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1190,7 +1190,7 @@ macro_rules! walker {
       u_half: &'a [$elem],
       v_half: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1203,7 +1203,7 @@ macro_rules! walker {
         u_half: &'a [$elem],
         v_half: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, row, matrix, full_range }
@@ -1230,7 +1230,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1248,7 +1248,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1317,7 +1317,7 @@ macro_rules! walker {
       u_quarter: &'a [$elem],
       v_quarter: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1330,7 +1330,7 @@ macro_rules! walker {
         u_quarter: &'a [$elem],
         v_quarter: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_quarter, v_quarter, row, matrix, full_range }
@@ -1365,7 +1365,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1383,7 +1383,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1449,7 +1449,7 @@ macro_rules! walker {
       u: &'a [$elem],
       v: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1462,7 +1462,7 @@ macro_rules! walker {
         u: &'a [$elem],
         v: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, row, matrix, full_range }
@@ -1489,7 +1489,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1507,7 +1507,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1569,7 +1569,7 @@ macro_rules! walker {
       u_half: &'a [$elem],
       v_half: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1581,7 +1581,7 @@ macro_rules! walker {
         u_half: &'a [$elem],
         v_half: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, row, matrix, full_range }
@@ -1608,7 +1608,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1626,7 +1626,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       $walker_inner::<{ $bits }, S>(src, full_range, matrix, sink)
@@ -1636,7 +1636,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, S: $sink>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1699,7 +1699,7 @@ macro_rules! walker {
       u: &'a [$elem],
       v: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1711,7 +1711,7 @@ macro_rules! walker {
         u: &'a [$elem],
         v: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, row, matrix, full_range }
@@ -1738,7 +1738,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1756,7 +1756,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       $walker_inner::<{ $bits }, S>(src, full_range, matrix, sink)
@@ -1766,7 +1766,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, S: $sink>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1826,7 +1826,7 @@ macro_rules! walker {
       v_half: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1840,7 +1840,7 @@ macro_rules! walker {
         v_half: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, a, row, matrix, full_range }
@@ -1872,7 +1872,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -1890,7 +1890,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -1958,7 +1958,7 @@ macro_rules! walker {
       v: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -1972,7 +1972,7 @@ macro_rules! walker {
         v: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, a, row, matrix, full_range }
@@ -2004,7 +2004,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2022,7 +2022,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -2092,7 +2092,7 @@ macro_rules! walker {
       v_half: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -2105,7 +2105,7 @@ macro_rules! walker {
         v_half: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, a, row, matrix, full_range }
@@ -2137,7 +2137,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2155,7 +2155,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       $walker_inner::<{ $bits }, S>(src, full_range, matrix, sink)
@@ -2165,7 +2165,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, S: $sink>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -2438,7 +2438,7 @@ macro_rules! walker {
       y: &'a [$elem],
       $chroma_field: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -2449,7 +2449,7 @@ macro_rules! walker {
         y: &'a [$elem],
         $chroma_field: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, $chroma_field, row, matrix, full_range }
@@ -2471,7 +2471,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2500,7 +2500,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2535,7 +2535,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2575,7 +2575,7 @@ macro_rules! walker {
       u_half: &'a [$elem],
       v_half: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -2588,7 +2588,7 @@ macro_rules! walker {
         u_half: &'a [$elem],
         v_half: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, row, matrix, full_range }
@@ -2615,7 +2615,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2636,7 +2636,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2680,7 +2680,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2720,7 +2720,7 @@ macro_rules! walker {
       u: &'a [$elem],
       v: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -2733,7 +2733,7 @@ macro_rules! walker {
         u: &'a [$elem],
         v: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, row, matrix, full_range }
@@ -2760,7 +2760,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2781,7 +2781,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2820,7 +2820,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2861,7 +2861,7 @@ macro_rules! walker {
       v: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -2875,7 +2875,7 @@ macro_rules! walker {
         v: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, a, row, matrix, full_range }
@@ -2907,7 +2907,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -2928,7 +2928,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -2973,7 +2973,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3016,7 +3016,7 @@ macro_rules! walker {
       u_half: &'a [$elem],
       v_half: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3029,7 +3029,7 @@ macro_rules! walker {
         u_half: &'a [$elem],
         v_half: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, row, matrix, full_range }
@@ -3056,7 +3056,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3077,7 +3077,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3091,7 +3091,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3104,7 +3104,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3172,7 +3172,7 @@ macro_rules! walker {
       u: &'a [$elem],
       v: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3184,7 +3184,7 @@ macro_rules! walker {
         u: &'a [$elem],
         v: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, row, matrix, full_range }
@@ -3211,7 +3211,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3232,7 +3232,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3246,7 +3246,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3259,7 +3259,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3327,7 +3327,7 @@ macro_rules! walker {
       v_half: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3341,7 +3341,7 @@ macro_rules! walker {
         v_half: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u_half, v_half, a, row, matrix, full_range }
@@ -3373,7 +3373,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3394,7 +3394,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3408,7 +3408,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3421,7 +3421,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3497,7 +3497,7 @@ macro_rules! walker {
       v: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3511,7 +3511,7 @@ macro_rules! walker {
         v: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, a, row, matrix, full_range }
@@ -3543,7 +3543,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3564,7 +3564,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3578,7 +3578,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame_le,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3591,7 +3591,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3662,7 +3662,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       y: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3672,7 +3672,7 @@ macro_rules! walker {
       pub const fn new(
         y: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, row, matrix, full_range }
@@ -3689,7 +3689,7 @@ macro_rules! walker {
       }
       /// Color matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3707,7 +3707,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -3760,7 +3760,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       y: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3769,7 +3769,7 @@ macro_rules! walker {
       pub const fn new(
         y: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, row, matrix, full_range }
@@ -3786,7 +3786,7 @@ macro_rules! walker {
       }
       /// Color matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3804,7 +3804,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       $walker_inner::<{ $bits }, S>(src, full_range, matrix, sink)
@@ -3814,7 +3814,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, S: $sink>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -3879,7 +3879,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       y: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -3889,7 +3889,7 @@ macro_rules! walker {
       pub const fn new(
         y: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, row, matrix, full_range }
@@ -3906,7 +3906,7 @@ macro_rules! walker {
       }
       /// Color matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -3933,7 +3933,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame<'_, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -3967,7 +3967,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame<'_, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -4025,7 +4025,7 @@ macro_rules! walker {
     pub struct $row<'a> {
       y: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -4035,7 +4035,7 @@ macro_rules! walker {
       pub const fn new(
         y: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, row, matrix, full_range }
@@ -4052,7 +4052,7 @@ macro_rules! walker {
       }
       /// Color matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -4079,7 +4079,7 @@ macro_rules! walker {
     pub fn $walker_endian<S, const BE: bool>(
       src: &$frame<'_, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -4102,7 +4102,7 @@ macro_rules! walker {
     pub fn $walker<S>(
       src: &$frame<'_, false>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error>
     where
@@ -4115,7 +4115,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, const BE: bool, S: $sink<BE>>(
       src: &$gframe<'_, BITS, BE>,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;
@@ -4166,7 +4166,7 @@ macro_rules! walker {
       v: &'a [$elem],
       a: &'a [$elem],
       row: usize,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       full_range: bool,
     }
 
@@ -4179,7 +4179,7 @@ macro_rules! walker {
         v: &'a [$elem],
         a: &'a [$elem],
         row: usize,
-        matrix: $crate::color::ColorMatrix,
+        matrix: $crate::color::Matrix,
         full_range: bool,
       ) -> Self {
         Self { y, u, v, a, row, matrix, full_range }
@@ -4211,7 +4211,7 @@ macro_rules! walker {
       }
       /// YUV → RGB matrix carried through from the kernel call.
       #[cfg_attr(not(tarpaulin), inline(always))]
-      pub const fn matrix(&self) -> $crate::color::ColorMatrix {
+      pub const fn matrix(&self) -> $crate::color::Matrix {
         self.matrix
       }
       /// Full-range flag carried through from the kernel call.
@@ -4229,7 +4229,7 @@ macro_rules! walker {
     pub fn $walker<S: $sink>(
       src: &$frame,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       $walker_inner::<{ $bits }, S>(src, full_range, matrix, sink)
@@ -4239,7 +4239,7 @@ macro_rules! walker {
     fn $walker_inner<const BITS: u32, S: $sink>(
       src: &$gframe,
       full_range: bool,
-      matrix: $crate::color::ColorMatrix,
+      matrix: $crate::color::Matrix,
       sink: &mut S,
     ) -> Result<(), S::Error> {
       sink.begin_frame(src.width(), src.height())?;

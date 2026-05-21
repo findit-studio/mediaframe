@@ -12,6 +12,100 @@ Initial `mediaframe` release — this crate is a **rename** of the
 are being **yanked** and superseded by `mediaframe 0.1.0` (fresh crate
 identity).
 
+### Added
+
+- **`audio` module** — first cut of the audio-stream descriptor
+  vocabulary (audio + container cluster of the `0.1.0` stream-vocab
+  expansion):
+  - `audio::ChannelLayout` — `#[non_exhaustive]` closed enum of
+    common FFmpeg `AV_CH_LAYOUT_*` shapes (`Mono`, `Stereo`,
+    `_2_1` through `_7_1` with `*Back` side-vs-back variants,
+    `Hexagonal`, `Octagonal`, `Ambisonic1`/`2`/`3`) plus
+    `Other(SmolStr)` lossless escape; `as_str()` returns the
+    FFmpeg-canonical slug, `FromStr` is total.
+  - `audio::BitRateMode` — closed `Cbr` / `Vbr` / `Abr` trichotomy
+    (default `Cbr`), `to_u32`/`from_u32` for the wire codec.
+  - `audio::SampleFormat` — sample-format vocabulary mirroring
+    FFmpeg `AVSampleFormat` (`U8`/`S16`/`S32`/`S64`/`Flt`/`Dbl`
+    packed + their `*p` planar twins), lossless `Unknown(u32)` +
+    `Other(SmolStr)` escapes, `to_u32`/`from_u32` per FFmpeg
+    `AV_SAMPLE_FMT_*` enum indices, `is_planar()` predicate.
+  - `audio::ContainerFormat` — audio-only container vocab
+    (`Mp3`, `Aac`, `Flac`, `Ogg`, `Opus`, `Wav`, `Aiff`, `Alac`,
+    `Wma`, `Ape`, `Wv`, `Mka`, `M4a`, `Caf`) plus `Other(SmolStr)`.
+  - `audio::Loudness` — EBU R128 / ITU-R BS.1770 measurement
+    value object (`integrated_lufs`, `range_lu`, `true_peak_dbtp`,
+    `sample_peak_dbfs` — all `f32`; no `Eq`/`Hash`).
+  - `audio::Fingerprint` — algorithm-tagged opaque bytes
+    (`{ algorithm: SmolStr, value: bytes::Bytes }` — O(1) clone),
+    `try_new` rejects empty algorithm.
+  - `audio::CoverArt` — embedded picture
+    (`{ mime: SmolStr, data: bytes::Bytes }` — O(1) clone), `try_new`
+    rejects empty mime / empty data.
+  - `audio::Tags` — FFmpeg / Vorbis-Comment / iTunes-atom
+    metadata: title, artist, album_artist, album, composer,
+    genre, comment (`SmolStr`, `""` = absent) + year, track / disc
+    number + total (`Option<u16>`) + language (`Option<SmolStr>`,
+    TODO(lang) — swap to `Option<crate::Language>` after the
+    capture-lang cluster lands).
+- **`container::Format`** — top-level multimedia container
+  vocabulary (`Mov`, `Mp4`, `Mkv`, `Webm`, `Avi`, `Flv`, `MpegTs`,
+  `Ogg`, `Asf`, `Rm`, `Wmv`, `Mxf`, `Gxf`, `Threegp` — `.3gp` digit-
+  prefix-renamed) plus `Other(SmolStr)`; audio-only containers live
+  on [`audio::ContainerFormat`].
+- **`subtitle` module** — `Format` (file / demuxer-tag axis,
+  `#[non_exhaustive]` + `Other(SmolStr)`; named variants for the
+  common text- and image-based formats — `Srt` / `WebVtt` / `Ass` /
+  `Ssa` / `Sub` (MicroDVD) / `Mpl2` / `Lrc` / `Smi` / `Stl` / `Sbv` /
+  `Ttml` / `MovText` / `DvdSub` / `PgsSub` / `HdmvPgs` / `DvbSub` /
+  `XSub`; `as_str` / total `FromStr` round-trip; `is_image_based`
+  helper for mediaschema's `REQUIRES_OCR` derivation) and
+  `TrackOrigin` (closed unit-only enum — `Embedded` /
+  `Sidecar` / `External`; stable `to_u32` / `from_u32` ids
+  `0` / `1` / `2`; `Default == Embedded`). The module is gated on
+  the `alloc` feature for the `Other(SmolStr)` escape.
+- **`disposition::TrackDisposition`** — FFmpeg `AV_DISPOSITION_*`
+  bitflags from `libavformat/avformat.h` n8.1 (`u32` backing).
+  Shared across video / audio / subtitle tracks; ports the
+  placeholder that used to live in `mediaschema::domain::bitflags`.
+  `to_u32` / `from_u32` aliases for `bits` / `from_bits_retain` so
+  unknown bits round-trip losslessly.
+- **`capture` module** (alloc-gated) — EXIF / capture-metadata
+  vocabulary.
+  - `Device { make, model }` (private `SmolStr` fields; empty string
+    means absent, never `Option<SmolStr>`; builders / setters /
+    `is_empty`).
+  - `GeoLocation { lat: f64, lon: f64, altitude: Option<f32> }` with
+    range-validating `try_new`, ISO-6709 degrees-only
+    parse/format (`from_iso6709` + `to_iso6709`, `FromStr` +
+    `Display`, hand-rolled <200-line parser — no regex / no chrono).
+    `(0, 0)` "Null Island" is accepted (it is a real, legal
+    coordinate); only out-of-range lat/lon and structurally bad
+    strings are rejected via `GeoLocationError::{LatOutOfRange,
+    LonOutOfRange, Iso6709Malformed}`.
+- **`lang::Language`** (alloc-gated) — validated BCP-47 language tag
+  wrapping `icu_locid` `Language`/`Script`/`Region` subtags (`Copy`,
+  heap-free in-rust representation; the `to_bcp47() -> String` /
+  `Display` surface needs the allocator). `try_new(lang, script,
+  region)` + `from_bcp47` / `Default = "und"` (ISO 639-3
+  undetermined) + `is_undetermined` + `FromStr`.
+  `LanguageError::{InvalidLanguage, InvalidScript, InvalidRegion,
+  MalformedBcp47}`.
+- **`buffa`** — hand-written `Message` / `DefaultInstance` wire
+  support for every new type (see the `## Audio + container types`,
+  `## Subtitle + disposition`, and `## Capture + language` sub-
+  sections of the `buffa.rs` module doc). `GeoLocation` always-encodes
+  `lat`/`lon` (the `(0, 0)` "Null Island" default is a real
+  coordinate — proto3 zero-elision would be unsound, same defensive
+  stance as `SampleAspectRatio`); `altitude` is presence-encoded
+  (field emitted iff `Some`, including for `Some(0.0)`). The `buffa`
+  feature now implies `alloc` (string-bearing wire codecs pull in
+  `smol_str`).
+- **Deps** — adds `icu_locid = "1.5"` and `bytes = "1"` (both
+  optional, gated on the `alloc` feature; both `no_std`-friendly).
+  `bytes::Bytes` backs the `audio::CoverArt` / `audio::Fingerprint`
+  payloads so large blobs clone in O(1).
+
 ### Changes
 
 - **Crate rename** — `videoframe` → `mediaframe`, version reset to
@@ -30,7 +124,7 @@ identity).
 
 — the following entries are from the crate's `videoframe` history —
 
-## [0.3.1] May 19, 2026
+## videoframe 0.3.1 — May 19, 2026
 
 ### Added
 
@@ -63,7 +157,7 @@ identity).
   the `From` surface (added `From<Rational> for SampleAspectRatio`,
   added `rational()` alongside `as_rational()`) changed.
 
-## [0.3.0] May 19, 2026
+## videoframe 0.3.0 — May 19, 2026
 
 ### Added
 
@@ -75,7 +169,7 @@ identity).
   colour enum, `Rotation`, and `DcpTargetGamut`: unrecognised /
   future / corrupt wire ids round-trip verbatim instead of collapsing
   to a default.
-- **`color`** — `DOMAIN_EXT_BASE` + `ColorMatrix::Bt601`
+- **`color`** — `DOMAIN_EXT_BASE` + `Matrix::Bt601`
   (videoframe-domain superset id, disjoint from FFmpeg/H.273 codes).
 - **`color`/`frame`** — `ContentLightLevel`, `ChromaCoord`,
   `MasteringDisplay`, `HdrStaticMetadata` (SMPTE ST 2086 / FFmpeg
@@ -85,14 +179,14 @@ identity).
 
 ### Breakage
 
-- **`color`** — `ColorPrimaries`/`ColorTransfer`/`ColorMatrix`/
-  `ColorRange`/`ChromaLocation` renumbered to exact FFmpeg n8.1 /
+- **`color`** — `Primaries`/`Transfer`/`Matrix`/
+  `DynamicRange`/`ChromaLocation` renumbered to exact FFmpeg n8.1 /
   ITU-T H.273 code points; `to_u32`/`from_u32` now lossless.
-- **`color::ColorTransfer`** — `Bt470M`/`Bt470Bg` renamed to
+- **`color::Transfer`** — `Bt470M`/`Bt470Bg` renamed to
   `Gamma22`/`Gamma28` (FFmpeg-canonical names for the identical
   transfer code 4/5; slugs / `Display` unchanged).
-- **`color::ColorMatrix`** — `Default` changed `Bt709` →
-  `Unspecified` (FFmpeg `AVCOL_SPC_UNSPECIFIED`); `ColorInfo`
+- **`color::Matrix`** — `Default` changed `Bt709` →
+  `Unspecified` (FFmpeg `AVCOL_SPC_UNSPECIFIED`); `Info`
   default/`UNSPECIFIED` `matrix` likewise.
 - **`color::ChromaCoord`** — `x`/`y` widened `u16` → `u32` so
   out-of-range wire values are preserved losslessly (no saturation).
@@ -103,12 +197,12 @@ identity).
 
 - **`buffa`** — standalone-enum codec elides on the type's `Default`
   (FFmpeg `UNSPECIFIED`), not proto3 wire-zero, so code `0` (e.g.
-  `ColorMatrix::Rgb`) is no longer conflated with "absent".
+  `Matrix::Rgb`) is no longer conflated with "absent".
 - **`source::xyz12`** — `xyz12_to` requires a concrete
   `DcpTargetGamut`; passing `Unknown(_)` panics with a descriptive
   message instead of silently decoding as DCI-P3.
 
-## [0.2.0] May 12, 2026
+## videoframe 0.2.0 — May 12, 2026
 
 ### Added
 
@@ -122,7 +216,7 @@ identity).
 
 - Make all error enums follows tuple enum errors
 
-## [0.1.0] May 11, 2026
+## videoframe 0.1.0 — May 11, 2026
 
 This is the first release line. Nothing has been published to
 crates.io yet; everything below describes the shape of the
@@ -130,9 +224,9 @@ forthcoming `0.1.0`.
 
 ### Added
 
-- **`color`** — ITU-T H.273 enums (`ColorMatrix`, `ColorPrimaries`,
-  `ColorTransfer`, `ColorRange`, `ChromaLocation`) bundled into
-  `ColorInfo`. Plus `DcpTargetGamut` for DCI-XYZ target-gamut
+- **`color`** — ITU-T H.273 enums (`Matrix`, `Primaries`,
+  `Transfer`, `DynamicRange`, `ChromaLocation`) bundled into
+  `Info`. Plus `DcpTargetGamut` for DCI-XYZ target-gamut
   selection. Each enum exposes `pub const fn as_str() -> &'static
   str` returning the FFmpeg-style wire slug, and a
   `derive_more::Display` impl routes through `as_str()` so the two
@@ -147,7 +241,7 @@ forthcoming `0.1.0`.
   structural primitives (always available).
 - **`frame::VideoFrame<P, B>`** — runtime-tagged frame: dimensions,
   pixel format `P`, up to 4 `Plane<B>`, optional visible-rect crop,
-  `ColorInfo`. **No timestamp**, no backend extras — pure pixel
+  `Info`. **No timestamp**, no backend extras — pure pixel
   data. Generic over `P` (typically `PixelFormat`) and `B` (buffer
   type — `&'a [u8]` / `Vec<u8>` / `Bytes` / refcounted FFmpeg buffer).
 - **`frame::TimestampedFrame<F>`** — orthogonal time-carrying wrapper

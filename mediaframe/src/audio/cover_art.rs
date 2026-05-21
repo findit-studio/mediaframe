@@ -13,35 +13,44 @@ use smol_str::SmolStr;
 /// large image clones in O(1) (refcount bump) rather than a deep copy.
 /// Both must be non-empty (an empty mime or empty payload is not a
 /// meaningful cover-art attachment); use [`CoverArt::try_new`].
-#[cfg_attr(
-  feature = "serde",
-  derive(serde::Serialize, serde::Deserialize),
-  serde(try_from = "CoverArtShadow")
-)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CoverArt {
   mime: SmolStr,
   data: Bytes,
 }
 
-/// Deserialization shadow for [`CoverArt`] — routes through
-/// [`CoverArt::try_new`] so the non-empty `mime` / `data` invariants are
-/// enforced on the way in, instead of being bypassed by a field-derived
-/// `Deserialize`.
+// Optional `serde` impls grouped in one gated `const` block: a single
+// `#[cfg]` covers both directions, and the validate-on-deserialize shadow
+// stays private to the block (no module-namespace pollution).
 #[cfg(feature = "serde")]
-#[derive(serde::Deserialize)]
-struct CoverArtShadow {
-  mime: SmolStr,
-  data: Bytes,
-}
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+const _: () = {
+  use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
-#[cfg(feature = "serde")]
-impl core::convert::TryFrom<CoverArtShadow> for CoverArt {
-  type Error = CoverArtError;
-  fn try_from(s: CoverArtShadow) -> Result<Self, Self::Error> {
-    Self::try_new(s.mime, s.data)
+  impl Serialize for CoverArt {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      let mut st = ser.serialize_struct("CoverArt", 2)?;
+      st.serialize_field("mime", &self.mime)?;
+      st.serialize_field("data", &self.data)?;
+      st.end()
+    }
   }
-}
+
+  // Routes deserialize through `try_new` so the non-empty `mime` / `data`
+  // invariants hold instead of being bypassed by a field derive.
+  #[derive(Deserialize)]
+  struct Shadow {
+    mime: SmolStr,
+    data: Bytes,
+  }
+
+  impl<'de> Deserialize<'de> for CoverArt {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      let s = Shadow::deserialize(de)?;
+      CoverArt::try_new(s.mime, s.data).map_err(serde::de::Error::custom)
+    }
+  }
+};
 
 impl Default for CoverArt {
   /// Synthetic `Default` — `mime: "application/octet-stream"`,

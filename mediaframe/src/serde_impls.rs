@@ -122,7 +122,7 @@ serde_via_code!(crate::audio::BitRateMode);
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use crate::{
-    audio::{ChannelLayout, Fingerprint, Tags},
+    audio::{ChannelLayout, CoverArt, Fingerprint, Tags},
     capture::GeoLocation,
     codec::VideoCodec,
     color::{self, Matrix},
@@ -198,5 +198,10 @@ mod tests {
     round_trip(&fp);
     // Empty algorithm violates the invariant and must be rejected.
     assert!(serde_json::from_str::<Fingerprint>(r#"{"algorithm":"","value":[1,2,3]}"#).is_err());
+
+    let art = CoverArt::try_new("image/png", &b"\x89PNG"[..]).unwrap();
+    round_trip(&art);
+    // Empty mime violates the invariant and must be rejected.
+    assert!(serde_json::from_str::<CoverArt>(r#"{"mime":"","data":[1]}"#).is_err());
   }
 }

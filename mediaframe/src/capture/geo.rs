@@ -15,11 +15,6 @@ use smol_str::SmolStr;
 /// parse from an ISO 6709 string via [`Self::from_iso6709`] /
 /// `parse::<GeoLocation>()` (the [`core::str::FromStr`] impl).
 /// Serialise back via [`Self::to_iso6709`] / [`core::fmt::Display`].
-#[cfg_attr(
-  feature = "serde",
-  derive(serde::Serialize, serde::Deserialize),
-  serde(try_from = "GeoLocationShadow")
-)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GeoLocation {
   lat: f64,
@@ -27,26 +22,42 @@ pub struct GeoLocation {
   altitude: Option<f32>,
 }
 
-/// Deserialization shadow for [`GeoLocation`] — routes through
-/// [`GeoLocation::try_new`] so out-of-range coordinates are rejected and
-/// a non-finite altitude is normalised to `None`, instead of being
-/// materialised directly by a field-derived `Deserialize`.
+// Optional `serde` impls grouped in one gated `const` block: a single
+// `#[cfg]` covers both directions, and the validate-on-deserialize shadow
+// stays private to the block (no module-namespace pollution).
 #[cfg(feature = "serde")]
-#[derive(serde::Deserialize)]
-struct GeoLocationShadow {
-  lat: f64,
-  lon: f64,
-  #[serde(default)]
-  altitude: Option<f32>,
-}
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+const _: () = {
+  use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
-#[cfg(feature = "serde")]
-impl core::convert::TryFrom<GeoLocationShadow> for GeoLocation {
-  type Error = GeoLocationError;
-  fn try_from(s: GeoLocationShadow) -> Result<Self, Self::Error> {
-    Self::try_new(s.lat, s.lon, s.altitude)
+  impl Serialize for GeoLocation {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      let mut st = ser.serialize_struct("GeoLocation", 3)?;
+      st.serialize_field("lat", &self.lat)?;
+      st.serialize_field("lon", &self.lon)?;
+      st.serialize_field("altitude", &self.altitude)?;
+      st.end()
+    }
   }
-}
+
+  // Routes deserialize through `try_new` so out-of-range coordinates are
+  // rejected and a non-finite altitude is normalised, instead of being
+  // materialised directly by a field derive.
+  #[derive(Deserialize)]
+  struct Shadow {
+    lat: f64,
+    lon: f64,
+    #[serde(default)]
+    altitude: Option<f32>,
+  }
+
+  impl<'de> Deserialize<'de> for GeoLocation {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      let s = Shadow::deserialize(de)?;
+      GeoLocation::try_new(s.lat, s.lon, s.altitude).map_err(serde::de::Error::custom)
+    }
+  }
+};
 
 impl Default for GeoLocation {
   /// `(0.0, 0.0, None)` — "Null Island" with unknown altitude. This

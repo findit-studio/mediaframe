@@ -21,7 +21,10 @@ default = ["std"]
 # `no-std::no-alloc` category claim holds.
 alloc   = ["dep:smol_str"]
 std     = ["alloc", "thiserror/default", "smol_str?/std"]
-buffa   = ["dep:buffa", "mediatime/buffa"]
+# `buffa` implies `alloc` because the wire impls for the audio /
+# container `Other(SmolStr)` arms pull in `smol_str` (and `Vec<u8>`
+# for the byte-payload types).
+buffa   = ["dep:buffa", "mediatime/buffa", "alloc"]
 
 # Umbrella — enables every per-family sub-feature below.
 frame = [

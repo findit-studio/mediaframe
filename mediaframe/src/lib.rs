@@ -38,8 +38,19 @@ pub mod color;
 /// escape arm.
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub mod container;
+/// FFmpeg `AV_DISPOSITION_*` bitflags shared across all track types
+/// (video / audio / subtitle).
+pub mod disposition;
 pub mod frame;
 pub mod pixel_format;
 pub mod source;
+/// Subtitle-stream descriptor vocabulary — file / demuxer format
+/// ([`subtitle::SubtitleFormat`]) and track-origin axis
+/// ([`subtitle::SubtitleTrackOrigin`]). Requires the `alloc`
+/// feature (`std` includes it) for the [`subtitle::SubtitleFormat`]'s
+/// `Other(SmolStr)` escape arm.
+#[cfg(any(feature = "std", feature = "alloc"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
+pub mod subtitle;
 
 pub use source::{PixelSink, SourceFormat};

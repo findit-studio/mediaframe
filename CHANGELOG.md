@@ -53,11 +53,28 @@ identity).
   `Ogg`, `Asf`, `Rm`, `Wmv`, `Mxf`, `Gxf`, `Threegp` — `.3gp` digit-
   prefix-renamed) plus `Other(SmolStr)`; audio-only containers live
   on [`audio::AudioContainerFormat`].
-- **`buffa`** — hand-written `Message`/`DefaultInstance` wire
+- **`subtitle` module** — `SubtitleFormat` (file / demuxer-tag axis,
+  `#[non_exhaustive]` + `Other(SmolStr)`; named variants for the
+  common text- and image-based formats — `Srt` / `WebVtt` / `Ass` /
+  `Ssa` / `Sub` (MicroDVD) / `Mpl2` / `Lrc` / `Smi` / `Stl` / `Sbv` /
+  `Ttml` / `MovText` / `DvdSub` / `PgsSub` / `HdmvPgs` / `DvbSub` /
+  `XSub`; `as_str` / total `FromStr` round-trip; `is_image_based`
+  helper for mediaschema's `REQUIRES_OCR` derivation) and
+  `SubtitleTrackOrigin` (closed unit-only enum — `Embedded` /
+  `Sidecar` / `External`; stable `to_u32` / `from_u32` ids
+  `0` / `1` / `2`; `Default == Embedded`). The module is gated on
+  the `alloc` feature for the `Other(SmolStr)` escape.
+- **`disposition::TrackDisposition`** — FFmpeg `AV_DISPOSITION_*`
+  bitflags from `libavformat/avformat.h` n8.1 (`u32` backing).
+  Shared across video / audio / subtitle tracks; ports the
+  placeholder that used to live in `mediaschema::domain::bitflags`.
+  `to_u32` / `from_u32` aliases for `bits` / `from_bits_retain` so
+  unknown bits round-trip losslessly.
+- **`buffa`** — hand-written `Message` / `DefaultInstance` wire
   support for every new type (see the `## Audio + container types`
-  sub-section of the `buffa.rs` module doc). The `buffa` feature
-  now implies `alloc` (string-bearing wire codecs pull in
-  `smol_str`).
+  and `## Subtitle + disposition` sub-sections of the `buffa.rs`
+  module doc). The `buffa` feature now implies `alloc` (string-bearing
+  wire codecs pull in `smol_str`).
 
 ### Changes
 

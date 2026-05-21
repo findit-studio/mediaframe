@@ -2,19 +2,21 @@
 //! ID3v2 `APIC` frames / MP4 `covr` atoms / Vorbis `METADATA_BLOCK_PICTURE` /
 //! FLAC `PICTURE` blocks.
 
+use bytes::Bytes;
 use smol_str::SmolStr;
 
 /// Embedded cover-art image for an audio stream.
 ///
 /// `mime` is the IANA media-type string for the picture payload
 /// (`"image/jpeg"`, `"image/png"`, …); `data` is the raw encoded
-/// image bytes — opaque to this crate. Both must be non-empty (an
-/// empty mime or empty payload is not a meaningful cover-art
-/// attachment); use [`CoverArt::try_new`].
+/// image bytes — opaque to this crate, held as [`bytes::Bytes`] so a
+/// large image clones in O(1) (refcount bump) rather than a deep copy.
+/// Both must be non-empty (an empty mime or empty payload is not a
+/// meaningful cover-art attachment); use [`CoverArt::try_new`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CoverArt {
   mime: SmolStr,
-  data: std::vec::Vec<u8>,
+  data: Bytes,
 }
 
 impl Default for CoverArt {
@@ -27,7 +29,7 @@ impl Default for CoverArt {
   fn default() -> Self {
     Self {
       mime: SmolStr::new_static("application/octet-stream"),
-      data: std::vec![0u8],
+      data: Bytes::from_static(&[0u8]),
     }
   }
 }
@@ -49,10 +51,7 @@ impl CoverArt {
   /// Constructs an `CoverArt` from a mime type and raw bytes.
   /// Rejects empty `mime` with [`CoverArtError::EmptyMime`] and
   /// empty `data` with [`CoverArtError::EmptyData`].
-  pub fn try_new(
-    mime: impl Into<SmolStr>,
-    data: impl Into<std::vec::Vec<u8>>,
-  ) -> Result<Self, CoverArtError> {
+  pub fn try_new(mime: impl Into<SmolStr>, data: impl Into<Bytes>) -> Result<Self, CoverArtError> {
     let mime = mime.into();
     if mime.is_empty() {
       return Err(CoverArtError::EmptyMime);
@@ -73,8 +72,15 @@ impl CoverArt {
 
   /// Returns the raw encoded image bytes.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn data(&self) -> &[u8] {
-    self.data.as_slice()
+  pub fn data(&self) -> &[u8] {
+    self.data.as_ref()
+  }
+
+  /// Returns the image payload as a cheaply-cloneable [`bytes::Bytes`]
+  /// handle (O(1) refcount bump, no copy).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn data_bytes(&self) -> Bytes {
+    self.data.clone()
   }
 }
 

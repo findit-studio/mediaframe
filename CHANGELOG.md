@@ -37,11 +37,11 @@ identity).
     value object (`integrated_lufs`, `range_lu`, `true_peak_dbtp`,
     `sample_peak_dbfs` — all `f32`; no `Eq`/`Hash`).
   - `audio::Fingerprint` — algorithm-tagged opaque bytes
-    (`{ algorithm: SmolStr, value: Vec<u8> }`), `try_new` rejects
-    empty algorithm.
+    (`{ algorithm: SmolStr, value: bytes::Bytes }` — O(1) clone),
+    `try_new` rejects empty algorithm.
   - `audio::CoverArt` — embedded picture
-    (`{ mime: SmolStr, data: Vec<u8> }`), `try_new` rejects empty
-    mime / empty data.
+    (`{ mime: SmolStr, data: bytes::Bytes }` — O(1) clone), `try_new`
+    rejects empty mime / empty data.
   - `audio::Tags` — FFmpeg / Vorbis-Comment / iTunes-atom
     metadata: title, artist, album_artist, album, composer,
     genre, comment (`SmolStr`, `""` = absent) + year, track / disc
@@ -101,8 +101,10 @@ identity).
   (field emitted iff `Some`, including for `Some(0.0)`). The `buffa`
   feature now implies `alloc` (string-bearing wire codecs pull in
   `smol_str`).
-- **Deps** — adds `icu_locid = "1.5"` (optional, gated on the
-  `alloc` feature; itself `no_std`-friendly).
+- **Deps** — adds `icu_locid = "1.5"` and `bytes = "1"` (both
+  optional, gated on the `alloc` feature; both `no_std`-friendly).
+  `bytes::Bytes` backs the `audio::CoverArt` / `audio::Fingerprint`
+  payloads so large blobs clone in O(1).
 
 ### Changes
 

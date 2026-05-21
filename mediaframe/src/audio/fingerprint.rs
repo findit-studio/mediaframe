@@ -1,5 +1,6 @@
 //! Audio fingerprint — algorithm-tagged raw bytes.
 
+use bytes::Bytes;
 use smol_str::SmolStr;
 
 /// Audio fingerprint value object — a free-text algorithm label
@@ -8,14 +9,15 @@ use smol_str::SmolStr;
 ///
 /// The byte layout is opaque to this crate; the `algorithm` label is
 /// the routing key that lets a downstream consumer interpret the
-/// bytes correctly. Empty `algorithm` is rejected because an
-/// unlabelled fingerprint cannot be routed; empty `value` is
-/// **allowed** (some algorithms emit an empty fingerprint for
-/// silence / sub-second clips).
+/// bytes correctly. The payload is held as [`bytes::Bytes`] (O(1)
+/// clone). Empty `algorithm` is rejected because an unlabelled
+/// fingerprint cannot be routed; empty `value` is **allowed** (some
+/// algorithms emit an empty fingerprint for silence / sub-second
+/// clips).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Fingerprint {
   algorithm: SmolStr,
-  value: std::vec::Vec<u8>,
+  value: Bytes,
 }
 
 impl Default for Fingerprint {
@@ -28,7 +30,7 @@ impl Default for Fingerprint {
   fn default() -> Self {
     Self {
       algorithm: SmolStr::new_inline("default"),
-      value: std::vec::Vec::new(),
+      value: Bytes::new(),
     }
   }
 }
@@ -52,7 +54,7 @@ impl Fingerprint {
   /// short clips).
   pub fn try_new(
     algorithm: impl Into<SmolStr>,
-    value: impl Into<std::vec::Vec<u8>>,
+    value: impl Into<Bytes>,
   ) -> Result<Self, FingerprintError> {
     let algorithm = algorithm.into();
     if algorithm.is_empty() {
@@ -72,8 +74,15 @@ impl Fingerprint {
 
   /// Returns the raw fingerprint bytes.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub const fn value(&self) -> &[u8] {
-    self.value.as_slice()
+  pub fn value(&self) -> &[u8] {
+    self.value.as_ref()
+  }
+
+  /// Returns the fingerprint payload as a cheaply-cloneable
+  /// [`bytes::Bytes`] handle (O(1) refcount bump, no copy).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub fn value_bytes(&self) -> Bytes {
+    self.value.clone()
   }
 }
 

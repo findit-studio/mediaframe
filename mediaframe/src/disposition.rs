@@ -35,7 +35,7 @@ bitflags! {
     #[cfg_attr(
       feature = "quickcheck",
       derive(::quickcheck_richderive::Arbitrary),
-      quickcheck(with = "crate::quickcheck_helpers::coded::track_disposition")
+      quickcheck(arbitrary = "crate::quickcheck_helpers::coded::track_disposition")
     )]
     pub struct TrackDisposition: u32 {
         /// `AV_DISPOSITION_DEFAULT` — the default track of its kind.

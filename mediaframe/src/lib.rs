@@ -66,7 +66,7 @@ pub mod frame;
 pub mod lang;
 pub mod pixel_format;
 /// `fn(&mut quickcheck::Gen) -> T` helpers consumed by the per-type
-/// `#[quickcheck(with = "…")]` attributes on each descriptor's
+/// `#[quickcheck(arbitrary = "…")]` attributes on each descriptor's
 /// `quickcheck-richderive::Arbitrary` derive. The derive emits the actual
 /// `impl quickcheck::Arbitrary for T` blocks; this module owns the bodies.
 /// Same surface as [`arbitrary_impls`] (39 descriptor-vocabulary types) but

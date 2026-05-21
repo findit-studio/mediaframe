@@ -304,7 +304,7 @@ impl UnsupportedBits {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::dimensions")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dimensions")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Dimensions {
@@ -384,7 +384,7 @@ impl core::fmt::Display for Dimensions {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::rect")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rect")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rect {
@@ -507,7 +507,7 @@ impl Rect {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::rotation")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rotation")
 )]
 pub enum Rotation {
   /// Unknown / unrecognised rotation wire value. The wrapped `u32`
@@ -590,7 +590,7 @@ impl Rotation {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::sample_aspect_ratio")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::sample_aspect_ratio")
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SampleAspectRatio(Rational);
@@ -717,7 +717,7 @@ impl From<Rational> for SampleAspectRatio {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::rational")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rational")
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rational {
@@ -821,7 +821,7 @@ impl core::fmt::Display for Rational {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::frame_rate")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::frame_rate")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FrameRate {
@@ -924,7 +924,7 @@ impl FrameRate {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::field_order")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::field_order")
 )]
 pub enum FieldOrder {
   /// Unknown / unrecognised field-order wire value. The wrapped
@@ -1026,7 +1026,7 @@ impl FieldOrder {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::stereo_mode")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::stereo_mode")
 )]
 pub enum StereoMode {
   /// Unknown / unrecognised wire value. The wrapped `u32` is the

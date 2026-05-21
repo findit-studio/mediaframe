@@ -1,5 +1,5 @@
 //! `fn(g: &mut quickcheck::Gen) -> T` helpers — one per descriptor type —
-//! referenced via container-level `#[quickcheck(with = "…")]` on each type's
+//! referenced via container-level `#[quickcheck(arbitrary = "…")]` on each type's
 //! `quickcheck_richderive::Arbitrary` derive.
 //!
 //! Split across three cluster files for parallel ownership (same axis as

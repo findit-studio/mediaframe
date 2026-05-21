@@ -18,7 +18,7 @@ use derive_more::{Display, IsVariant};
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::bit_rate_mode")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::bit_rate_mode")
 )]
 pub enum BitRateMode {
   /// Constant bit rate (`"cbr"`).

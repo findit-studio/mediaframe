@@ -53,7 +53,7 @@ pub const DOMAIN_EXT_BASE: u32 = 0x8000_0000;
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::matrix")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::matrix")
 )]
 pub enum Matrix {
   /// Unknown / unrecognised `AVColorSpace` code. The wrapped `u32`
@@ -232,7 +232,7 @@ impl Matrix {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::primaries")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::primaries")
 )]
 pub enum Primaries {
   /// Unknown / unrecognised `AVColorPrimaries` code (incl. the
@@ -361,7 +361,7 @@ impl Primaries {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::transfer")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::transfer")
 )]
 pub enum Transfer {
   /// Unknown / unrecognised `AVColorTransferCharacteristic` code
@@ -511,7 +511,7 @@ impl Transfer {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::dynamic_range")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dynamic_range")
 )]
 pub enum DynamicRange {
   /// Unknown / unrecognised `AVColorRange` code. The wrapped `u32`
@@ -590,7 +590,7 @@ impl DynamicRange {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::chroma_location")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::chroma_location")
 )]
 pub enum ChromaLocation {
   /// Unknown / unrecognised `AVChromaLocation` code. The wrapped
@@ -682,7 +682,7 @@ impl ChromaLocation {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::info")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::info")
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Info {
@@ -877,7 +877,7 @@ impl Info {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::dcp_target_gamut")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dcp_target_gamut")
 )]
 pub enum DcpTargetGamut {
   /// Unknown / unrecognised wire id. The wrapped `u32` is the
@@ -958,7 +958,7 @@ impl DcpTargetGamut {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::content_light_level")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::content_light_level")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContentLightLevel {
@@ -1033,7 +1033,7 @@ impl ContentLightLevel {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::chroma_coord")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::chroma_coord")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChromaCoord {
@@ -1114,7 +1114,7 @@ impl ChromaCoord {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::mastering_display")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::mastering_display")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MasteringDisplay {
@@ -1243,7 +1243,7 @@ impl MasteringDisplay {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::hdr_static_metadata")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::hdr_static_metadata")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HdrStaticMetadata {
@@ -1327,7 +1327,7 @@ impl HdrStaticMetadata {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::dolby_vision_config")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dolby_vision_config")
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DolbyVisionConfig {

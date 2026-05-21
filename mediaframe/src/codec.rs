@@ -23,7 +23,7 @@ use smol_str::SmolStr;
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::strings::video_codec")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::video_codec")
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
@@ -1181,7 +1181,7 @@ impl FromStr for VideoCodec {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::strings::audio_codec")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::audio_codec")
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
@@ -2099,7 +2099,7 @@ impl FromStr for AudioCodec {
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::strings::subtitle_codec")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::subtitle_codec")
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]

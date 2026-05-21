@@ -18,7 +18,7 @@ use smol_str::SmolStr;
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::composite::geo_location")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::composite::geo_location")
 )]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GeoLocation {

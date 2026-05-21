@@ -20,7 +20,7 @@ use derive_more::{Display, IsVariant};
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::track_origin")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::track_origin")
 )]
 pub enum TrackOrigin {
   /// Stream multiplexed into the container alongside the video /

@@ -32,7 +32,7 @@ use smol_str::SmolStr;
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::composite::capture_device")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::composite::capture_device")
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Device {

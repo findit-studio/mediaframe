@@ -89,7 +89,9 @@ arbitrary   = { version = "1", default-features = false, optional = true }
 # quickcheck::Arbitrary` (rich attribute surface — `with`/`shrink`/`bound`/
 # `box`/`default`/`skip`). The `quickcheck` feature gates both.
 quickcheck            = { version = "1", optional = true }
-quickcheck-richderive = { version = "0.1", optional = true }
+# Temporary git dep on the unreleased serde-style branch. Flip to
+# `{ version = "0.2", optional = true }` once 0.2.0 is published.
+quickcheck-richderive = { git = "https://github.com/al8n/quickcheck-richderive", branch = "feat/serde-style-attrs", optional = true }
 
 [dev-dependencies]
 # Concrete serde formats for the `serde` round-trip tests (std-only).

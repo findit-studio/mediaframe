@@ -48,7 +48,7 @@ use derive_more::{Display, IsVariant};
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
-  quickcheck(with = "crate::quickcheck_helpers::coded::pixel_format")
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::pixel_format")
 )]
 pub enum PixelFormat {
   /// Unknown / unset format. The wrapped `u32` is the original

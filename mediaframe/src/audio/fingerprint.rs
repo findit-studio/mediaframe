@@ -14,6 +14,11 @@ use smol_str::SmolStr;
 /// fingerprint cannot be routed; empty `value` is **allowed** (some
 /// algorithms emit an empty fingerprint for silence / sub-second
 /// clips).
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(with = "crate::quickcheck_helpers::composite::fingerprint")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Fingerprint {
   algorithm: SmolStr,

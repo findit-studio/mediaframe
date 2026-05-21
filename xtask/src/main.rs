@@ -28,7 +28,7 @@
 //!     variant's id is `< DOMAIN_EXT_BASE` — the FFmpeg ingest path
 //!     never yields a mediaframe-domain variant). A missing code
 //!     fails CI. mediaframe-domain variants (id `>= DOMAIN_EXT_BASE`,
-//!     e.g. `ColorMatrix::Bt601`, which H.273 / FFmpeg does not
+//!     e.g. `Matrix::Bt601`, which H.273 / FFmpeg does not
 //!     enumerate) are exempt from FFmpeg coverage and additionally
 //!     asserted disjoint from the vendored FFmpeg colour codes.
 //!
@@ -87,14 +87,10 @@ const CODEC_ENUMS: &[(&str, &str)] = &[
 /// `AVCOL_*` / `AVCHROMA_*` prefix to strip and the mediaframe
 /// enum name whose `to_u32()` match maps it.
 const COLOR_ENUMS: &[(&str, &str, &str)] = &[
-  ("AVColorPrimaries", "AVCOL_PRI_", "ColorPrimaries"),
-  (
-    "AVColorTransferCharacteristic",
-    "AVCOL_TRC_",
-    "ColorTransfer",
-  ),
-  ("AVColorSpace", "AVCOL_SPC_", "ColorMatrix"),
-  ("AVColorRange", "AVCOL_RANGE_", "ColorRange"),
+  ("AVColorPrimaries", "AVCOL_PRI_", "Primaries"),
+  ("AVColorTransferCharacteristic", "AVCOL_TRC_", "Transfer"),
+  ("AVColorSpace", "AVCOL_SPC_", "Matrix"),
+  ("AVColorRange", "AVCOL_RANGE_", "DynamicRange"),
   ("AVChromaLocation", "AVCHROMA_LOC_", "ChromaLocation"),
 ];
 
@@ -333,15 +329,15 @@ fn check_color(root: &Path) -> bool {
     }
   }
 
-  // Domain invariant (b): `ColorMatrix::Bt601` is a mediaframe-domain
+  // Domain invariant (b): `Matrix::Bt601` is a mediaframe-domain
   // concept — its id must be `>= DOMAIN_EXT_BASE` AND absent from the
   // vendored FFmpeg colour table (no domain/FFmpeg collision).
   let empty = BTreeMap::new();
-  let cm_named = mediaframe.get("ColorMatrix").unwrap_or(&empty);
+  let cm_named = mediaframe.get("Matrix").unwrap_or(&empty);
   match cm_named.get("Bt601") {
     None => {
       eprintln!(
-        "FAIL: ColorMatrix::Bt601 not found in {COLOR_RS} to_u32() — \
+        "FAIL: Matrix::Bt601 not found in {COLOR_RS} to_u32() — \
                  it is a required mediaframe-domain variant."
       );
       ok = false;
@@ -349,18 +345,18 @@ fn check_color(root: &Path) -> bool {
     Some(nc) => {
       if nc.value < domain_base {
         eprintln!(
-          "FAIL: ColorMatrix::Bt601.to_u32() = {} must be >= \
+          "FAIL: Matrix::Bt601.to_u32() = {} must be >= \
                    DOMAIN_EXT_BASE ({domain_base}) — it is a \
                    mediaframe-domain concept, not an FFmpeg code.",
           nc.value
         );
         ok = false;
       }
-      let cm_ff = ffmpeg.get("ColorMatrix").cloned().unwrap_or_default();
+      let cm_ff = ffmpeg.get("Matrix").cloned().unwrap_or_default();
       if cm_ff.contains_key(&nc.value) {
         eprintln!(
-          "FAIL: ColorMatrix::Bt601 id {} collides with a vendored \
-                   FFmpeg ColorMatrix code — domain ids must be disjoint.",
+          "FAIL: Matrix::Bt601 id {} collides with a vendored \
+                   FFmpeg color-matrix code — domain ids must be disjoint.",
           nc.value
         );
         ok = false;
@@ -373,7 +369,7 @@ fn check_color(root: &Path) -> bool {
       "OK: every FFmpeg {FFMPEG_TAG} color code ({total_codes} across \
              {} enums) is covered by mediaframe; mediaframe-domain \
              variants (id >= DOMAIN_EXT_BASE = {domain_base}, e.g. \
-             ColorMatrix::Bt601) are exempt from FFmpeg coverage and \
+             Matrix::Bt601) are exempt from FFmpeg coverage and \
              verified disjoint.",
       COLOR_ENUMS.len()
     );

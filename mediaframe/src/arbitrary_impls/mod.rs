@@ -57,3 +57,94 @@ macro_rules! arb_open_string_enum {
 }
 #[allow(unused_imports)]
 pub(crate) use arb_open_string_enum;
+
+#[cfg(test)]
+mod tests {
+  use ::arbitrary::{Arbitrary, Unstructured};
+
+  // Fixed byte buffer drives a deterministic stream of `Arbitrary` decodes
+  // across N rounds. We don't care that the values are "random" — we care
+  // that the impls don't panic, that validated types come out valid, and
+  // that closed enums round-trip through their code.
+  fn drive<F: FnMut(&mut Unstructured<'_>)>(seed: u64, rounds: usize, mut body: F) {
+    // Mix the seed into a 4 KiB buffer so each round gets fresh bytes.
+    let mut bytes = ::std::vec![0u8; 4096];
+    for (i, b) in bytes.iter_mut().enumerate() {
+      *b = ((seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ i as u64) & 0xff) as u8;
+    }
+    let mut u = Unstructured::new(&bytes);
+    for _ in 0..rounds {
+      body(&mut u);
+    }
+  }
+
+  #[test]
+  fn geo_location_invariant_lat_lon_in_range() {
+    drive(0xA11CE, 256, |u| {
+      let g = crate::capture::GeoLocation::arbitrary(u).unwrap();
+      assert!(
+        (-90.0..=90.0).contains(&g.lat()),
+        "lat out of range: {}",
+        g.lat()
+      );
+      assert!(
+        (-180.0..=180.0).contains(&g.lon()),
+        "lon out of range: {}",
+        g.lon()
+      );
+      if let Some(alt) = g.altitude() {
+        assert!(
+          alt.is_finite(),
+          "altitude must be finite when Some, got {alt}"
+        );
+      }
+    });
+  }
+
+  #[test]
+  fn fingerprint_invariant_algorithm_non_empty() {
+    drive(0xB0B, 256, |u| {
+      let fp = crate::audio::Fingerprint::arbitrary(u).unwrap();
+      assert!(!fp.algorithm().is_empty(), "algorithm must be non-empty");
+    });
+  }
+
+  #[test]
+  fn cover_art_invariant_mime_and_data_non_empty() {
+    drive(0xC0FFEE, 256, |u| {
+      let c = crate::audio::CoverArt::arbitrary(u).unwrap();
+      assert!(!c.mime().is_empty(), "mime must be non-empty");
+      assert!(!c.data().is_empty(), "data must be non-empty");
+    });
+  }
+
+  #[test]
+  fn smoke_yields_values_for_representative_types() {
+    drive(0xD1CE, 64, |u| {
+      let _ = crate::codec::VideoCodec::arbitrary(u).unwrap();
+      let _ = crate::color::Info::arbitrary(u).unwrap();
+      let _ = crate::frame::FrameRate::arbitrary(u).unwrap();
+      let _ = crate::lang::Language::arbitrary(u).unwrap();
+      let _ = crate::disposition::TrackDisposition::arbitrary(u).unwrap();
+    });
+  }
+
+  // For coded enums, `from_u32(to_u32(x)) == x` is the lossless-roundtrip
+  // contract. Verifies cluster B's macro applies the right code path.
+  #[test]
+  fn coded_enums_roundtrip_through_code() {
+    drive(0xE11E, 128, |u| {
+      let m = crate::color::Matrix::arbitrary(u).unwrap();
+      assert_eq!(crate::color::Matrix::from_u32(m.to_u32()), m);
+      let p = crate::pixel_format::PixelFormat::arbitrary(u).unwrap();
+      assert_eq!(crate::pixel_format::PixelFormat::from_u32(p.to_u32()), p);
+      let r = crate::frame::Rotation::arbitrary(u).unwrap();
+      assert_eq!(crate::frame::Rotation::from_u32(r.to_u32()), r);
+      let d = crate::disposition::TrackDisposition::arbitrary(u).unwrap();
+      assert_eq!(
+        crate::disposition::TrackDisposition::from_u32(d.to_u32()),
+        d
+      );
+    });
+  }
+}

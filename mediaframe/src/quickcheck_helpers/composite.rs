@@ -60,11 +60,11 @@ pub(crate) fn cover_art(g: &mut ::quickcheck::Gen) -> crate::audio::CoverArt {
   crate::audio::CoverArt::try_new(mime, data).expect("mime + data non-empty by construction")
 }
 
-/// `audio::Tags` — `new()` + every builder setter: the seven string fields
-/// (title/artist/album_artist/album/composer/genre/comment), the five
-/// `Option<u16>` numeric fields (year/track_number/track_total/disc_number/
-/// disc_total), and `language` (Codex round-4 finding — it was previously
-/// omitted, so every generated `Tags` had `language == None`).
+/// `audio::Tags` — `new()` + every builder setter: the seven `SmolStr`
+/// string fields, the five bare-`u16` numeric fields (`0` = absent —
+/// generated freely incl. `0`, since the type + buffa codec agree), and
+/// `language` (`Option<Language>`, from the curated BCP-47 `language`
+/// helper).
 pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
   crate::audio::Tags::new()
     .with_title(::smol_str::SmolStr::from(
@@ -88,18 +88,15 @@ pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
     .with_comment(::smol_str::SmolStr::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .maybe_year(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    .maybe_track_number(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    .maybe_track_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    .maybe_disc_number(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    .maybe_disc_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    // `language` — empty strings normalize to `None`: buffa writes field 13
-    // only for a non-empty language and decodes empty back to `None`, so
-    // `Some("")` would not survive a wire round-trip (Codex round-8 finding).
-    // Yields only `None` or `Some(non-empty)`.
+    .with_year(<u16 as Arbitrary>::arbitrary(g))
+    .with_track_number(<u16 as Arbitrary>::arbitrary(g))
+    .with_track_total(<u16 as Arbitrary>::arbitrary(g))
+    .with_disc_number(<u16 as Arbitrary>::arbitrary(g))
+    .with_disc_total(<u16 as Arbitrary>::arbitrary(g))
+    // `language` is `Option<Language>` — 50/50 `None` / `Some(<curated
+    // BCP-47 tag>)`, reusing this module's `language` helper.
     .maybe_language(if bool::arbitrary(g) {
-      let s = <::std::string::String as Arbitrary>::arbitrary(g);
-      (!s.is_empty()).then(|| ::smol_str::SmolStr::from(s))
+      Some(language(g))
     } else {
       None
     })

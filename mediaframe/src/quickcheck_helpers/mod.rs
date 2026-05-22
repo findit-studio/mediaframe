@@ -215,29 +215,23 @@ mod tests {
     });
   }
 
-  // `Tags.language` was omitted from the generator (Codex round-4 finding) —
-  // every generated `Tags` had `language == None`. Both the absent (`None`)
-  // and present (`Some(_)`) states must be reachable.
+  // `Tags.language` (`Option<Language>`) was omitted from the generator
+  // (Codex round-4 finding) — every generated `Tags` had `language == None`.
+  // Both the absent (`None`) and present (`Some(_)`) states must be
+  // reachable. `Language` has no empty value, so `Some` is unconditionally
+  // wire-canonical.
   #[test]
   fn reachability_tags_language_hits_none_and_some() {
     let mut saw_none = false;
-    let mut saw_some_nonempty = false;
+    let mut saw_some = false;
     drive(64, 1024, |g| {
       match crate::audio::Tags::arbitrary(g).language() {
         None => saw_none = true,
-        // `Some("")` would buffa-normalize to `None` on the wire — the
-        // generator must never produce it (Codex round-8 finding).
-        Some(s) => {
-          assert!(!s.is_empty(), "Tags.language generated `Some(\"\")`");
-          saw_some_nonempty = true;
-        }
+        Some(_) => saw_some = true,
       }
     });
     assert!(saw_none, "Tags.language never generated `None`");
-    assert!(
-      saw_some_nonempty,
-      "Tags.language never generated a non-empty `Some(_)`"
-    );
+    assert!(saw_some, "Tags.language never generated `Some(_)`");
   }
 
   // Arbitrary-generated values must survive a serde round-trip unchanged

@@ -75,9 +75,9 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::CoverArt {
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
     // Every builder field: the seven `SmolStr` strings (empty = absent), the
-    // five `Option<u16>` numerics (`None` ≠ `Some(0)`), and `language`
-    // (`Option<SmolStr>` — Codex round-7 finding: it was previously omitted,
-    // so the serialized buffa field 13 was outside the fuzzing surface).
+    // five bare-`u16` numerics (`0` = absent — generated freely, including
+    // `0`, since type + buffa codec now agree), and `language`
+    // (`Option<Language>`, from the curated BCP-47 generator).
     let t = crate::audio::Tags::new()
       .with_title(::smol_str::SmolStr::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
@@ -100,21 +100,18 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
       .with_comment(::smol_str::SmolStr::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .maybe_year(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      .maybe_track_number(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      .maybe_track_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      .maybe_disc_number(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      .maybe_disc_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      // `language` — empty strings are normalized to `None`: buffa writes
-      // field 13 only for a non-empty language and decodes empty back to
-      // `None`, so `Some("")` would not survive a wire round-trip (Codex
-      // round-8 finding). The generator therefore yields only `None` or
-      // `Some(non-empty)`.
-      .maybe_language(
-        <::core::option::Option<::std::string::String> as ::arbitrary::Arbitrary>::arbitrary(u)?
-          .filter(|s| !s.is_empty())
-          .map(::smol_str::SmolStr::from),
-      );
+      .with_year(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      .with_track_number(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      .with_track_total(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      .with_disc_number(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      .with_disc_total(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      // `language` is `Option<Language>` — 50/50 `None` / `Some(<curated
+      // BCP-47 tag>)`, reusing the `Language` arbitrary impl in this module.
+      .maybe_language(if <bool as ::arbitrary::Arbitrary>::arbitrary(u)? {
+        Some(<crate::lang::Language as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      } else {
+        None
+      });
     Ok(t)
   }
 }

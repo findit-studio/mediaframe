@@ -243,11 +243,9 @@ mod tests {
   // `arb_via_named_variants!` now picks uniformly from the named set.
   #[test]
   fn reachability_small_closed_coded_enums_hit_all_named() {
-    // `BTreeSet`, not `HashSet` — under `--no-default-features --features
-    // arbitrary` the crate is no-std (`arbitrary` pulls only `alloc`), where
-    // `::std` aliases to `alloc` and `alloc` has no `HashSet` (Codex round-5
-    // finding). `BitRateMode` / `TrackOrigin` aren't `Ord`, so key the set on
-    // their `to_u32()` code.
+    // Sets keyed on the `to_u32()` code — `BitRateMode` / `TrackOrigin`
+    // aren't `Ord` (nor `Hash`-keyed here), and a `u32`-keyed `BTreeSet`
+    // needs no hasher.
     use ::std::collections::BTreeSet;
     let mut br: BTreeSet<u32> = BTreeSet::new();
     let mut to: BTreeSet<u32> = BTreeSet::new();
@@ -306,9 +304,6 @@ mod tests {
         SampleFormat::Unknown(_) => saw_unknown = true,
         SampleFormat::Other(_) => saw_other = true,
         other => {
-          // `String::from`, not `.to_string()` — `ToString` is not in the
-          // no-std prelude (this test compiles under `--features arbitrary`,
-          // which is alloc-only).
           named.insert(::std::string::String::from(other.as_str()));
         }
       }

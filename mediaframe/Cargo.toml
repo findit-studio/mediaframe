@@ -29,9 +29,12 @@ buffa   = ["dep:buffa", "mediatime/buffa", "alloc"]
 # FFmpeg-coded enums as their `to_u32()` integer.
 serde   = ["dep:serde", "smol_str?/serde", "bytes?/serde"]
 # Optional `arbitrary::Arbitrary` for the descriptor vocabulary (fuzzing /
-# property tests). Heap-tier (needs alloc for the String/Vec/byte generation),
-# so it pulls `alloc`.
-arbitrary  = ["alloc", "dep:arbitrary"]
+# property tests). Std-only — the `arbitrary` crate itself is std-based (it
+# exposes no `alloc`/`no_std` feature and its crate root uses `std`), so this
+# feature can only ever serve host-side fuzzing, never an embedded / no-std
+# target. It pulls `std` (which includes `alloc` for the String/Vec/byte
+# generation) to make that contract honest.
+arbitrary  = ["std", "dep:arbitrary"]
 
 frame = [
   "yuv-planar", "yuv-semi-planar", "yuva", "yuv-packed", "yuv-444-packed",

@@ -414,4 +414,24 @@ mod tests {
       assert_eq!(back, ld, "Loudness lost identity via serde: {json}");
     });
   }
+
+  // `Tags.language` (`Option<SmolStr>`, serialized as buffa field 13) was
+  // omitted from the `Tags` generator (Codex round-7 finding) — every
+  // generated `Tags` had `language == None`. Both the absent (`None`) and
+  // present (`Some(_)`) states must be reachable.
+  #[test]
+  fn reachability_tags_language_hits_none_and_some() {
+    let mut saw_none = false;
+    let mut saw_some = false;
+    drive_per_round(
+      0x7A65_1A_u64,
+      1024,
+      |u| match crate::audio::Tags::arbitrary(u).unwrap().language() {
+        None => saw_none = true,
+        Some(_) => saw_some = true,
+      },
+    );
+    assert!(saw_none, "Tags.language never generated `None`");
+    assert!(saw_some, "Tags.language never generated `Some(_)`");
+  }
 }

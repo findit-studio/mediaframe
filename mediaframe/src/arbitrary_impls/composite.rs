@@ -74,8 +74,10 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::CoverArt {
 
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
-    // Representative subset covering both string fields (SmolStr, empty =
-    // absent) and numeric fields (`Option<u16>`, `None` ≠ `Some(0)`).
+    // Every builder field: the seven `SmolStr` strings (empty = absent), the
+    // five `Option<u16>` numerics (`None` ≠ `Some(0)`), and `language`
+    // (`Option<SmolStr>` — Codex round-7 finding: it was previously omitted,
+    // so the serialized buffa field 13 was outside the fuzzing surface).
     let t = crate::audio::Tags::new()
       .with_title(::smol_str::SmolStr::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
@@ -102,7 +104,11 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
       .maybe_track_number(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
       .maybe_track_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
       .maybe_disc_number(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
-      .maybe_disc_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?);
+      .maybe_disc_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      .maybe_language(
+        <::core::option::Option<::std::string::String> as ::arbitrary::Arbitrary>::arbitrary(u)?
+          .map(::smol_str::SmolStr::from),
+      );
     Ok(t)
   }
 }

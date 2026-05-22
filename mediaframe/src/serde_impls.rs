@@ -59,9 +59,10 @@ macro_rules! serde_via_str {
   };
 }
 
-/// Implements `Serialize` / `Deserialize` for a *closed* FFmpeg-coded
-/// enum via its `to_u32()` / `from_u32()` round-trip. Total in both
-/// directions — an unrecognised code rides the enum's `Unknown` arm.
+/// Implements `Serialize` / `Deserialize` for a *closed* FFmpeg-coded enum
+/// **whose `from_u32` is lossless** — i.e. it has an `Unknown(u32)` escape
+/// arm so any code round-trips losslessly. Use this for enums where every
+/// `u32` is meaningful wire data.
 macro_rules! serde_via_code {
   ($t:path) => {
     impl serde::Serialize for $t {
@@ -81,6 +82,97 @@ macro_rules! serde_via_code {
     }
   };
 }
+
+/// Implements `Serialize` / `Deserialize` for a **strictly-closed**
+/// FFmpeg-coded enum — one with NO `Unknown(u32)` escape arm — via its
+/// `to_u32()` / `try_from_u32()` pair. Adversarial / corrupt codes outside
+/// the enumerated set are rejected as serde errors instead of silently
+/// canonicalising to the default variant (which `from_u32` would do).
+macro_rules! serde_via_code_strict {
+  ($t:path) => {
+    impl serde::Serialize for $t {
+      #[inline]
+      fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_u32(self.to_u32())
+      }
+    }
+
+    impl<'de> serde::Deserialize<'de> for $t {
+      #[inline]
+      fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let v = <u32 as serde::Deserialize>::deserialize(de)?;
+        <$t>::try_from_u32(v).ok_or_else(|| {
+          serde::de::Error::custom(::std::format!(
+            "{}: unknown wire code {}",
+            stringify!($t),
+            v
+          ))
+        })
+      }
+    }
+  };
+}
+
+/// Bespoke serde for [`SampleFormat`](crate::audio::SampleFormat) — it has
+/// *both* `Unknown(u32)` (lossless numeric escape) **and** `Other(SmolStr)`
+/// (lossless string escape). The generic `serde_via_str!` would route
+/// `Unknown(12345)` through `as_str()` → `"unknown"` → `Other("unknown")`,
+/// destroying the original code; the generic `serde_via_code!` would lose
+/// the `Other` string variants. This impl preserves both:
+///
+///   - **Serialize**: `Unknown(v)` → numeric `v`; every other variant
+///     (named slugs + `Other`) → string slug.
+///   - **Deserialize**: accept either a u32 (→ `from_u32`, preserving
+///     `Unknown`) or a string (→ `from_str`, preserving `Other` and named
+///     variants).
+#[cfg(any(feature = "std", feature = "alloc"))]
+const _: () = {
+  use crate::audio::SampleFormat;
+  use core::{fmt, str::FromStr};
+
+  impl serde::Serialize for SampleFormat {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      match self {
+        SampleFormat::Unknown(v) => ser.serialize_u32(*v),
+        other => ser.serialize_str(other.as_str()),
+      }
+    }
+  }
+
+  impl<'de> serde::Deserialize<'de> for SampleFormat {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      struct V;
+      impl serde::de::Visitor<'_> for V {
+        type Value = SampleFormat;
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+          f.write_str("a SampleFormat slug string or a u32 FFmpeg code")
+        }
+        fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+          // `FromStr` is `Infallible`; non-named slugs ride `Other(SmolStr)`.
+          SampleFormat::from_str(v).map_err(serde::de::Error::custom)
+        }
+        // Numeric inputs route through `from_u32` so `Unknown(v)` survives.
+        // Cover the integer width spread serde drivers actually produce —
+        // unsigned and signed, since some formats (e.g. ron, toml) prefer
+        // signed by default — and clamp/forward into u32.
+        fn visit_u32<E: serde::de::Error>(self, v: u32) -> Result<Self::Value, E> {
+          Ok(SampleFormat::from_u32(v))
+        }
+        fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
+          u32::try_from(v)
+            .map(SampleFormat::from_u32)
+            .map_err(|_| serde::de::Error::custom("SampleFormat u32 code overflow"))
+        }
+        fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
+          u32::try_from(v)
+            .map(SampleFormat::from_u32)
+            .map_err(|_| serde::de::Error::custom("SampleFormat u32 code out of range"))
+        }
+      }
+      de.deserialize_any(V)
+    }
+  }
+};
 
 // ── Closed FFmpeg-coded enums (available at every capability tier) ──
 serde_via_code!(crate::color::Matrix);
@@ -108,16 +200,21 @@ serde_via_str!(crate::container::Format);
 serde_via_str!(crate::subtitle::Format);
 #[cfg(any(feature = "std", feature = "alloc"))]
 serde_via_str!(crate::audio::ChannelLayout);
-#[cfg(any(feature = "std", feature = "alloc"))]
-serde_via_str!(crate::audio::SampleFormat);
+// `SampleFormat` has BOTH `Unknown(u32)` and `Other(SmolStr)` — the bespoke
+// impl below (immediately after the macros) covers it; do NOT route it
+// through `serde_via_str!` (would silently drop `Unknown(v)` codes through
+// `as_str()` → `"unknown"` → `Other("unknown")`).
 #[cfg(any(feature = "std", feature = "alloc"))]
 serde_via_str!(crate::audio::ContainerFormat);
 
-// ── Closed coded enums that live in heap-tier modules ──
+// ── Strictly-closed coded enums (no `Unknown` escape) ──
+// Use `serde_via_code_strict!` — adversarial / unknown wire codes are
+// rejected as serde errors, not silently canonicalised to the default
+// (which `from_u32` would do for `TrackOrigin::from_u32(999) == Embedded`).
 #[cfg(any(feature = "std", feature = "alloc"))]
-serde_via_code!(crate::subtitle::TrackOrigin);
+serde_via_code_strict!(crate::subtitle::TrackOrigin);
 #[cfg(any(feature = "std", feature = "alloc"))]
-serde_via_code!(crate::audio::BitRateMode);
+serde_via_code_strict!(crate::audio::BitRateMode);
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
@@ -203,5 +300,64 @@ mod tests {
     round_trip(&art);
     // Empty mime violates the invariant and must be rejected.
     assert!(serde_json::from_str::<CoverArt>(r#"{"mime":"","data":[1]}"#).is_err());
+  }
+
+  // ── Codex round 1 findings ──
+
+  /// `SampleFormat` has both `Unknown(u32)` (lossless numeric escape) and
+  /// `Other(SmolStr)` (lossless string escape). Every round-trip must
+  /// preserve which arm a value came from — earlier the type rode the pure
+  /// string path, so `Unknown(12345)` → `"unknown"` → `Other("unknown")`
+  /// silently destroyed the FFmpeg code.
+  #[test]
+  fn sample_format_preserves_unknown_u32() {
+    use crate::audio::SampleFormat;
+    // Named variant — slug.
+    assert_eq!(
+      serde_json::to_string(&SampleFormat::S16).unwrap(),
+      "\"s16\""
+    );
+    round_trip(&SampleFormat::S16);
+    // `Other` slug variant — string.
+    let other = SampleFormat::Other(smol_str::SmolStr::new("custom"));
+    assert_eq!(serde_json::to_string(&other).unwrap(), "\"custom\"");
+    round_trip(&other);
+    // `Unknown(v)` — numeric, MUST stay `Unknown(v)` after round-trip.
+    for v in [12_345u32, 0xDEAD_BEEFu32, u32::MAX] {
+      let fmt = SampleFormat::Unknown(v);
+      assert_eq!(serde_json::to_string(&fmt).unwrap(), v.to_string());
+      let back: SampleFormat = serde_json::from_str(&v.to_string()).unwrap();
+      assert_eq!(back, fmt, "lost Unknown({v}) on round-trip");
+    }
+    // A pure numeric input that happens to match a named variant's code
+    // *does* canonicalise to the named arm — that's `from_u32`'s contract.
+    let from_named_code: SampleFormat = serde_json::from_str("1").unwrap();
+    assert_eq!(from_named_code, SampleFormat::S16);
+  }
+
+  /// Strictly-closed coded enums (no `Unknown` arm) must REJECT unknown
+  /// wire codes instead of silently mapping them to the default. Previously
+  /// `from_u32(999)` quietly returned `Embedded` / `Cbr`, so corrupt input
+  /// looked like valid data on the consumer side.
+  #[test]
+  fn closed_coded_enums_reject_unknown_codes() {
+    use crate::{audio::BitRateMode, subtitle::TrackOrigin};
+
+    for o in [
+      TrackOrigin::Embedded,
+      TrackOrigin::Sidecar,
+      TrackOrigin::External,
+    ] {
+      round_trip(&o);
+    }
+    for m in [BitRateMode::Cbr, BitRateMode::Vbr, BitRateMode::Abr] {
+      round_trip(&m);
+    }
+
+    // Out-of-range codes are rejected — not canonicalised to the default.
+    assert!(serde_json::from_str::<TrackOrigin>("999").is_err());
+    assert!(serde_json::from_str::<TrackOrigin>("3").is_err());
+    assert!(serde_json::from_str::<BitRateMode>("999").is_err());
+    assert!(serde_json::from_str::<BitRateMode>("3").is_err());
   }
 }

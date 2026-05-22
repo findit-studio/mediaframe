@@ -77,10 +77,14 @@ can all speak to without agreeing on anything heavier.
   `--features buffa`.
 - **`serde`** — optional `serde::{Serialize, Deserialize}` for the whole
   descriptor vocabulary. Open codec / format enums serialize as their
-  `as_str()` slug, closed FFmpeg-coded enums as their `to_u32()` integer
-  (both round-trips total), `lang::Language` as its BCP-47 string;
-  validated structs (`GeoLocation` / `Fingerprint` / `CoverArt`)
-  deserialize through their checking constructors. Orthogonal to the
+  `as_str()` slug (unknown → `Other`); FFmpeg-coded enums with an
+  `Unknown(u32)` arm serialize as `to_u32()` and round-trip totally;
+  **strictly-closed coded enums** (`subtitle::TrackOrigin`,
+  `audio::BitRateMode`) also serialize as `to_u32()` but **reject** unknown
+  wire codes as serde errors rather than collapsing them to the default;
+  `lang::Language` as its BCP-47 string; validated structs (`GeoLocation` /
+  `Fingerprint` / `CoverArt`) deserialize through their checking
+  constructors. Orthogonal to the
   capability tiers (no-alloc Copy types included). Off by default —
   enable with `--features serde`.
 - **`PixelSink`** + **`SourceFormat`** sealed traits re-exported at

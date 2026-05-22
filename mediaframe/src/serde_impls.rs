@@ -8,18 +8,34 @@
 //! - **Open** codec / format enums (those with an `Other(SmolStr)` escape
 //!   arm and a total [`FromStr`](core::str::FromStr)) serialize as their
 //!   canonical `as_str()` slug — e.g. `VideoCodec::H264` ⇄ `"h264"`,
-//!   `Other("x265")` ⇄ `"x265"` (no `{"Other": …}` wrapper).
-//! - **Closed** FFmpeg-coded enums (those with `to_u32()` / `from_u32()`
-//!   and no `FromStr`) serialize as their `u32` code — e.g.
-//!   `color::Matrix::Bt709` ⇄ `1`.
+//!   `Other("x265")` ⇄ `"x265"` (no `{"Other": …}` wrapper). Round-trip
+//!   total: an unrecognised slug rides the `Other` arm.
+//! - **Closed FFmpeg-coded enums with a lossless `Unknown(u32)` escape**
+//!   (color enums, pixel-format, frame coded enums, `TrackDisposition`
+//!   bitflags) serialize as their `u32` code — e.g. `color::Matrix::Bt709`
+//!   ⇄ `1`. Round-trip total: an unrecognised code rides the `Unknown`
+//!   arm.
+//! - **Strictly-closed coded enums (no `Unknown` arm)** —
+//!   [`crate::subtitle::TrackOrigin`] and [`crate::audio::BitRateMode`] —
+//!   serialize as their `u32` code but **reject** unknown wire codes as
+//!   serde errors instead of silently collapsing them to the default
+//!   variant (which `from_u32` would do). This is intentional: a corrupt
+//!   or out-of-range value on the wire must fail loudly rather than
+//!   masquerade as `Embedded` / `Cbr`. The check is backed by each type's
+//!   `try_from_u32(v: u32) -> Option<Self>` method.
+//! - **[`crate::audio::SampleFormat`]** — has BOTH `Unknown(u32)` and
+//!   `Other(SmolStr)` escape arms. Bespoke impl preserves both: on
+//!   self-describing formats (JSON/YAML/etc.) it emits a bare value
+//!   (number for `Unknown`, string for named / `Other`); on
+//!   non-self-describing binary formats (bincode/postcard) it routes
+//!   through an explicit `{Code(u32), Slug(Cow<str>)}` tagged enum.
 //!
-//! Both round-trips are total: an unrecognised slug rides the `Other`
-//! arm, an unrecognised code the `Unknown` arm. The plain data structs
-//! (`color::Info`, `frame::Dimensions`, `audio::Tags`, …) derive serde
-//! at their definition site; the validated structs
-//! (`capture::GeoLocation`, `audio::Fingerprint`, `audio::CoverArt`)
-//! route deserialize through their checking constructors there too.
-//! `lang::Language` carries a bespoke BCP-47 string impl in its module.
+//! The plain data structs (`color::Info`, `frame::Dimensions`,
+//! `audio::Tags`, …) derive serde at their definition site; the
+//! validated structs (`capture::GeoLocation`, `audio::Fingerprint`,
+//! `audio::CoverArt`) route deserialize through their checking
+//! constructors there too. `lang::Language` carries a bespoke BCP-47
+//! string impl in its module.
 
 /// Implements `Serialize` / `Deserialize` for an *open* enum via its
 /// canonical string slug (`as_str()` to serialize, [`FromStr`] to parse).

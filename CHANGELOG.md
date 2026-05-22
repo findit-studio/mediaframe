@@ -17,13 +17,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `audio::{ChannelLayout, SampleFormat, ContainerFormat}`) serialize as
     their canonical `as_str()` slug — `VideoCodec::H264` ⇄ `"h264"`,
     `Other("x265")` ⇄ `"x265"` (no `{"Other": …}` wrapper).
-  - **Closed** FFmpeg-coded enums (`color::{Matrix, Primaries, Transfer,
-    DynamicRange, ChromaLocation, DcpTargetGamut}`,
-    `pixel_format::PixelFormat`, `frame::{Rotation, FieldOrder, StereoMode}`,
-    `subtitle::TrackOrigin`, `audio::BitRateMode`) and
+  - **Closed FFmpeg-coded enums with a lossless `Unknown(u32)` escape**
+    (`color::{Matrix, Primaries, Transfer, DynamicRange, ChromaLocation,
+    DcpTargetGamut}`, `pixel_format::PixelFormat`,
+    `frame::{Rotation, FieldOrder, StereoMode}`) and
     `disposition::TrackDisposition` serialize as their `to_u32()` integer.
-    Both round-trips are total (unknown slug → `Other`, unknown code →
-    `Unknown`).
+    Round-trip is total — unknown codes deserialize to `Unknown(v)` /
+    unknown slugs to `Other`.
+  - **Strictly-closed coded enums (no `Unknown` arm)** —
+    `subtitle::TrackOrigin` (`Embedded`/`Sidecar`/`External`) and
+    `audio::BitRateMode` (`Cbr`/`Vbr`/`Abr`) — serialize as their `to_u32()`
+    integer but **reject unrecognised wire codes** as serde errors instead
+    of silently collapsing them to the default variant. Both expose a
+    `try_from_u32(v: u32) -> Option<Self>` method backing this behavior.
   - **Plain structs** (`color::Info` and its HDR/mastering sub-structs,
     `frame::{Dimensions, Rect, Rational, SampleAspectRatio, FrameRate}`,
     `audio::{Loudness, Tags, Device}`… ) derive serde directly.

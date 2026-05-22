@@ -30,8 +30,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     DcpTargetGamut}`, `pixel_format::PixelFormat`,
     `frame::{Rotation, FieldOrder, StereoMode}`) and
     `disposition::TrackDisposition` serialize as their `to_u32()` integer.
-    Round-trip is total — unknown codes deserialize to `Unknown(v)` /
-    unknown slugs to `Other`.
+    Round-trip is total: an unrecognised *code* deserializes to `Unknown(v)`.
+    These accept only integers — there is no slug form.
   - **Strictly-closed coded enums (no `Unknown` arm)** —
     `subtitle::TrackOrigin` (`Embedded`/`Sidecar`/`External`) and
     `audio::BitRateMode` (`Cbr`/`Vbr`/`Abr`) — serialize as their `to_u32()`

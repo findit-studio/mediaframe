@@ -76,17 +76,25 @@ can all speak to without agreeing on anything heavier.
   `.mediaframe.v1` → `::mediaframe`. Off by default — enable with
   `--features buffa`.
 - **`serde`** — optional `serde::{Serialize, Deserialize}` for the whole
-  descriptor vocabulary. Open codec / format enums serialize as their
-  `as_str()` slug (unknown → `Other`); FFmpeg-coded enums with an
-  `Unknown(u32)` arm serialize as `to_u32()` and round-trip totally;
-  **strictly-closed coded enums** (`subtitle::TrackOrigin`,
-  `audio::BitRateMode`) also serialize as `to_u32()` but **reject** unknown
-  wire codes as serde errors rather than collapsing them to the default;
-  `lang::Language` as its BCP-47 string; validated structs (`GeoLocation` /
-  `Fingerprint` / `CoverArt`) deserialize through their checking
-  constructors. Orthogonal to the
-  capability tiers (no-alloc Copy types included). Off by default —
-  enable with `--features serde`.
+  descriptor vocabulary. Wire shape by type:
+  - Open codec / format enums (`codec::*`, `container::Format`,
+    `subtitle::Format`, `audio::{ChannelLayout, ContainerFormat}`) — the
+    `as_str()` slug, unknown slugs ride `Other`.
+  - FFmpeg-coded enums with an `Unknown(u32)` arm (colour, pixel-format,
+    frame coded enums, `TrackDisposition`) — the `to_u32()` integer;
+    unknown *codes* round-trip via `Unknown` (no slug form).
+  - Strictly-closed coded enums (`subtitle::TrackOrigin`,
+    `audio::BitRateMode`) — the `to_u32()` integer, but unknown codes are
+    **rejected** as serde errors rather than collapsing to the default.
+  - `audio::SampleFormat` (both `Unknown(u32)` and `Other(SmolStr)`) —
+    bespoke: human-readable formats emit a string for named/`Other` and a
+    number for `Unknown`; binary formats use a tagged `{Code, Slug}` wire.
+  - `lang::Language` — its BCP-47 string. Validated structs (`GeoLocation`
+    / `Fingerprint` / `CoverArt`) deserialize through their checking
+    constructors.
+
+  Orthogonal to the capability tiers (no-alloc Copy types included). Off
+  by default — enable with `--features serde`.
 - **`PixelSink`** + **`SourceFormat`** sealed traits re-exported at
   the crate root.
 

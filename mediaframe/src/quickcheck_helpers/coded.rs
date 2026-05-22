@@ -100,15 +100,30 @@ arb_via_code! {
 // range (Codex round-2 finding); `qc_via_code_weighted_range!` 50/50-splits
 // an in-range pick against a broad `Unknown` exercise. `max_named` = the
 // highest code emitted by each type's `to_u32`:
-//   - Matrix      — Self::YCgCoRo      => 17
 //   - Primaries   — Self::Ebu3213E     => 22
 //   - Transfer    — Self::AribStdB67Hlg => 18
 //   - PixelFormat — 270 named codes spanning 0..=947 (FFmpeg AVPixelFormat)
+// `Matrix` is hand-written below — it has an out-of-range domain variant.
 qc_via_code_weighted_range! {
-  matrix       => crate::color::Matrix,            max_named = 17;
   primaries    => crate::color::Primaries,         max_named = 22;
   transfer     => crate::color::Transfer,          max_named = 18;
   pixel_format => crate::pixel_format::PixelFormat, max_named = 947;
+}
+
+/// `Matrix` is the only coded enum with a **mediaframe-domain** variant:
+/// `Bt601` sits at `DOMAIN_EXT_BASE` (`0x8000_0000`), far outside the
+/// H.273 `0..=17` range (Codex round-3 finding — the plain range-weighted
+/// helper reaches `Bt601` only via the full-`u32` fallback, ~1-in-8.6-
+/// billion). 3-way: in-range H.273 code / the domain-ext code / full-range
+/// `u32` (broad `Unknown` exercise).
+#[inline]
+pub(crate) fn matrix(g: &mut Gen) -> crate::color::Matrix {
+  let code = match *g.choose(&[0u8, 1, 2]).expect("non-empty arm-tag slice") {
+    0 => u32::arbitrary(g) % 18,        // H.273 named range 0..=17
+    1 => crate::color::DOMAIN_EXT_BASE, // domain variant: Matrix::Bt601
+    _ => u32::arbitrary(g),
+  };
+  crate::color::Matrix::from_u32(code)
 }
 
 // Strictly-closed (no `Unknown` arm) — pick uniformly from named variants.

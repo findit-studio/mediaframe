@@ -14,10 +14,10 @@
 // cases) — the goal is "this is a real value a real file would carry",
 // since the `Other` branch already covers everything else.
 //
-// `audio::SampleFormat` carries both `Unknown(u32)` and `Other(SmolStr)`.
-// The closed-coded `from_u32` path is exercised by other coded types in
-// cluster B; here we drive it through `FromStr`, so the macro applies as
-// for any other open string enum.
+// `audio::SampleFormat` carries BOTH `Unknown(u32)` and `Other(SmolStr)`,
+// so the open-string-enum macro (which only exercises slugs + `Other`)
+// leaves `Unknown(_)` unreachable. It gets a bespoke 3-way generator
+// further down (Codex round-1 finding).
 
 super::arb_open_string_enum!(
   crate::codec::VideoCodec,
@@ -50,11 +50,29 @@ super::arb_open_string_enum!(
 );
 
 super::arb_open_string_enum!(
-  crate::audio::SampleFormat,
-  ["s16", "s32", "flt", "s16p", "fltp", "u8"]
-);
-
-super::arb_open_string_enum!(
   crate::audio::ContainerFormat,
   ["mp3", "aac", "flac", "wav", "m4a", "opus"]
 );
+
+// Bespoke 3-way for `SampleFormat`: it has BOTH `Unknown(u32)` AND
+// `Other(SmolStr)`. The shared open-string-enum macro only exercises
+// curated slugs + `Other`; the `Unknown(_)` numeric-escape arm is
+// otherwise unreachable. Dispatch evenly across (named slug /
+// `Unknown(u32)` via `from_u32` / `Other(SmolStr)` via arbitrary
+// String).
+impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::SampleFormat {
+  fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
+    const SLUGS: &[&str] = &["s16", "s32", "flt", "s16p", "fltp", "u8"];
+    match u.int_in_range(0..=2u8)? {
+      0 => Ok(
+        <crate::audio::SampleFormat as ::core::str::FromStr>::from_str(u.choose(SLUGS)?).unwrap(),
+      ),
+      1 => Ok(crate::audio::SampleFormat::from_u32(
+        <u32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
+      )),
+      _ => Ok(crate::audio::SampleFormat::Other(
+        ::smol_str::SmolStr::from(<::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?),
+      )),
+    }
+  }
+}

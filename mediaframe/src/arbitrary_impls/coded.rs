@@ -1,23 +1,52 @@
 // Cluster B — closed FFmpeg-coded enums w/ lossless `from_u32`, colour /
 // pixel-format / frame geometry / disposition structs, frame coded enums.
 
-use super::arb_via_code;
+use super::{arb_via_code, arb_via_code_weighted, arb_via_named_variants};
 
+// Large coded enums: uniform `u32` exercises plenty of named variants
+// (typical FFmpeg `AV*` numeric ranges are dense and tight). The
+// `Unknown(_)` / `Reserved(_)` arm catches the rest losslessly. Bitflags
+// (`TrackDisposition`) likewise produce reasonable flag combinations from
+// uniform `u32`.
 arb_via_code!(
   crate::color::Matrix,
   crate::color::Primaries,
   crate::color::Transfer,
-  crate::color::DynamicRange,
-  crate::color::ChromaLocation,
-  crate::color::DcpTargetGamut,
   crate::pixel_format::PixelFormat,
-  crate::frame::Rotation,
-  crate::frame::FieldOrder,
-  crate::frame::StereoMode,
-  crate::subtitle::TrackOrigin,
-  crate::audio::BitRateMode,
   crate::disposition::TrackDisposition,
 );
+
+// Closed coded enums WITH an `Unknown(u32)` arm and < 10 named variants:
+// 50/50 weighted between named picks and arbitrary u32 (Codex round-1
+// finding — uniform u32 alone almost never lands on the small named
+// numeric range).
+arb_via_code_weighted!(crate::color::DynamicRange, [Unspecified, Limited, Full]);
+arb_via_code_weighted!(
+  crate::color::ChromaLocation,
+  [Unspecified, Left, Center, TopLeft, Top, BottomLeft, Bottom]
+);
+arb_via_code_weighted!(crate::color::DcpTargetGamut, [DciP3, Rec709, Rec2020]);
+arb_via_code_weighted!(crate::frame::Rotation, [D0, D90, D180, D270]);
+arb_via_code_weighted!(crate::frame::FieldOrder, [Progressive, Tt, Bb, Tb, Bt]);
+arb_via_code_weighted!(
+  crate::frame::StereoMode,
+  [
+    Mono,
+    SideBySide,
+    TopBottom,
+    FrameSequence,
+    Checkerboard,
+    SideBySideQuincunx,
+    Lines,
+    Columns,
+  ]
+);
+
+// Strictly closed coded enums (NO `Unknown(u32)` arm — unrecognised
+// codes collapse to the default on `from_u32`). Uniform u32 would skew
+// to the default; pick uniformly from the named variants instead.
+arb_via_named_variants!(crate::audio::BitRateMode, [Cbr, Vbr, Abr]);
+arb_via_named_variants!(crate::subtitle::TrackOrigin, [Embedded, Sidecar, External]);
 
 // ─── colour structs ──────────────────────────────────────────────────────────
 

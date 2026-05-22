@@ -422,16 +422,24 @@ mod tests {
   #[test]
   fn reachability_tags_language_hits_none_and_some() {
     let mut saw_none = false;
-    let mut saw_some = false;
+    let mut saw_some_nonempty = false;
     drive_per_round(
       0x7A65_1A_u64,
       1024,
       |u| match crate::audio::Tags::arbitrary(u).unwrap().language() {
         None => saw_none = true,
-        Some(_) => saw_some = true,
+        // `Some("")` would buffa-normalize to `None` on the wire — the
+        // generator must never produce it (Codex round-8 finding).
+        Some(s) => {
+          assert!(!s.is_empty(), "Tags.language generated `Some(\"\")`");
+          saw_some_nonempty = true;
+        }
       },
     );
     assert!(saw_none, "Tags.language never generated `None`");
-    assert!(saw_some, "Tags.language never generated `Some(_)`");
+    assert!(
+      saw_some_nonempty,
+      "Tags.language never generated a non-empty `Some(_)`"
+    );
   }
 }

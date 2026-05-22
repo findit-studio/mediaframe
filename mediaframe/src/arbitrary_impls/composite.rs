@@ -105,8 +105,14 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
       .maybe_track_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
       .maybe_disc_number(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
       .maybe_disc_total(<::core::option::Option<u16> as ::arbitrary::Arbitrary>::arbitrary(u)?)
+      // `language` — empty strings are normalized to `None`: buffa writes
+      // field 13 only for a non-empty language and decodes empty back to
+      // `None`, so `Some("")` would not survive a wire round-trip (Codex
+      // round-8 finding). The generator therefore yields only `None` or
+      // `Some(non-empty)`.
       .maybe_language(
         <::core::option::Option<::std::string::String> as ::arbitrary::Arbitrary>::arbitrary(u)?
+          .filter(|s| !s.is_empty())
           .map(::smol_str::SmolStr::from),
       );
     Ok(t)

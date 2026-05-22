@@ -110,22 +110,28 @@ macro_rules! arb_via_code_weighted_range {
 pub(crate) use arb_via_code_weighted_range;
 
 /// `impl arbitrary::Arbitrary for $Ty` for open string enums: 50/50 picks a
-/// curated slug (round-trips through total `FromStr`) or builds an
-/// `Other(SmolStr::from(<arbitrary String>))`. Constructing `Self::Other` is
-/// allowed because this module is *inside* the crate (non_exhaustive applies
-/// at the API surface, not in-crate).
+/// curated slug or an arbitrary string — **both routed through `FromStr`**.
+///
+/// `FromStr` is the canonicalising constructor: a named slug yields the
+/// named variant, only a non-named slug yields `Other`. Going through it
+/// (rather than `Other(SmolStr::from(s))` directly) guarantees every
+/// generated value is canonical / round-trippable — a string that happens
+/// to equal a named slug becomes that named variant, never a malformed
+/// `Other("h264")` that serde would canonicalise to `H264` on the round
+/// trip (Codex round-4 finding). An arbitrary string is virtually never a
+/// named slug, so the `Other` arm stays well-covered.
 #[allow(unused_macros)]
 macro_rules! arb_open_string_enum {
   ($ty:path, [$($slug:literal),+ $(,)?]) => {
     impl<'a> ::arbitrary::Arbitrary<'a> for $ty {
       fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
         const SAMPLES: &[&str] = &[$($slug),+];
+        // `FromStr` for these enums is `Infallible`.
         if <bool as ::arbitrary::Arbitrary>::arbitrary(u)? {
-          // `FromStr` for these enums is `Infallible`.
           Ok(<$ty as ::core::str::FromStr>::from_str(u.choose(SAMPLES)?).unwrap())
         } else {
           let s = <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?;
-          Ok(<$ty>::Other(::smol_str::SmolStr::from(s)))
+          Ok(<$ty as ::core::str::FromStr>::from_str(&s).unwrap())
         }
       }
     }
@@ -373,6 +379,29 @@ mod tests {
         crate::disposition::TrackDisposition::from_u32(d.to_u32()),
         d
       );
+    });
+  }
+
+  // Arbitrary-generated values must survive a serde round-trip unchanged
+  // (Codex round-4 finding). Every `arbitrary` impl here generates only
+  // *canonical* values — `Unknown(v)` whose `v` is canonical, named
+  // variants, and `Other` slugs that are genuinely non-named — so the
+  // bespoke `SampleFormat` serde and the slug serde for the open enums
+  // both preserve identity. A generator that produced `Other("s16")` or
+  // `Unknown(<named code>)` would fail this.
+  #[cfg(feature = "serde")]
+  #[test]
+  fn arbitrary_values_survive_serde_round_trip() {
+    drive_per_round(0x5E2DE_u64, 4096, |u| {
+      let sf = crate::audio::SampleFormat::arbitrary(u).unwrap();
+      let json = serde_json::to_string(&sf).unwrap();
+      let back: crate::audio::SampleFormat = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, sf, "SampleFormat lost identity via serde: {json}");
+
+      let vc = crate::codec::VideoCodec::arbitrary(u).unwrap();
+      let json = serde_json::to_string(&vc).unwrap();
+      let back: crate::codec::VideoCodec = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, vc, "VideoCodec lost identity via serde: {json}");
     });
   }
 }

@@ -57,11 +57,20 @@ super::arb_open_string_enum!(
 // Bespoke 3-way for `SampleFormat`: it has BOTH `Unknown(u32)` AND
 // `Other(SmolStr)`. The shared open-string-enum macro only exercises
 // curated slugs + `Other`; the `Unknown(_)` numeric-escape arm is
-// otherwise unreachable. Dispatch evenly across (named slug /
-// `Unknown(u32)` via `from_u32` / `Other(SmolStr)` via arbitrary
-// String).
+// otherwise unreachable. Dispatch evenly across (named slug / `Unknown(u32)`
+// via `from_u32` / `Other` via an arbitrary string).
+//
+// EVERY branch produces a CANONICAL value (Codex round-4 finding): all
+// string construction goes through `FromStr`, never `Other(_)` directly.
+// `from_str` maps a named slug to the named variant and only a *non-named*
+// slug to `Other` — so we can never emit a malformed `Other("s16")` that
+// serde would canonicalise to `S16` on the round trip. `from_u32` is
+// likewise canonical (a named code → the named variant). An arbitrary
+// string is virtually never one of the 12 named slugs, so the `Other` arm
+// stays well-covered.
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::SampleFormat {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
+    use ::core::str::FromStr;
     // All 12 named slugs — a 6-slug subset (Codex round-2 finding) left
     // the planar / double / 64-bit variants reachable only by the rare
     // numeric branch drawing their exact `0..=11` code.
@@ -69,15 +78,19 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::SampleFormat {
       "u8", "s16", "s32", "flt", "dbl", "u8p", "s16p", "s32p", "fltp", "dblp", "s64", "s64p",
     ];
     match u.int_in_range(0..=2u8)? {
-      0 => Ok(
-        <crate::audio::SampleFormat as ::core::str::FromStr>::from_str(u.choose(SLUGS)?).unwrap(),
-      ),
+      // Named — curated slug through `FromStr` (`Infallible`).
+      0 => Ok(crate::audio::SampleFormat::from_str(u.choose(SLUGS)?).unwrap()),
+      // `Unknown(u32)` (or a named variant if the code is canonical).
       1 => Ok(crate::audio::SampleFormat::from_u32(
         <u32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
       )),
-      _ => Ok(crate::audio::SampleFormat::Other(
-        ::smol_str::SmolStr::from(<::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?),
-      )),
+      // `Other` — arbitrary string through `FromStr`, so a string that
+      // happens to equal a named slug canonicalises instead of becoming
+      // a non-round-trippable `Other(named_slug)`.
+      _ => {
+        let s = <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?;
+        Ok(crate::audio::SampleFormat::from_str(&s).unwrap())
+      }
     }
   }
 }

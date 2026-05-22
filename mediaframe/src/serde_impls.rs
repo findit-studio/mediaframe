@@ -118,58 +118,89 @@ macro_rules! serde_via_code_strict {
 /// (lossless string escape). The generic `serde_via_str!` would route
 /// `Unknown(12345)` through `as_str()` → `"unknown"` → `Other("unknown")`,
 /// destroying the original code; the generic `serde_via_code!` would lose
-/// the `Other` string variants. This impl preserves both:
+/// the `Other` string variants.
 ///
-///   - **Serialize**: `Unknown(v)` → numeric `v`; every other variant
-///     (named slugs + `Other`) → string slug.
-///   - **Deserialize**: accept either a u32 (→ `from_u32`, preserving
-///     `Unknown`) or a string (→ `from_str`, preserving `Other` and named
-///     variants).
+/// **Wire shape — branches on `Serializer::is_human_readable()`:**
+///
+/// - **Self-describing (JSON / YAML / RON / TOML / etc.)** — bare value:
+///   `Unknown(v)` → number; named slug + `Other` → string. The visitor
+///   uses `deserialize_any` to choose the arm at decode time.
+/// - **Non-self-describing (bincode / postcard / etc.)** — explicit
+///   2-variant tagged enum (`{Code(u32), Slug(String)}`), since
+///   `deserialize_any` is not supported on these formats. Wire bytes are
+///   compact and the variant tag drives reconstruction unambiguously.
 #[cfg(any(feature = "std", feature = "alloc"))]
 const _: () = {
   use crate::audio::SampleFormat;
   use core::{fmt, str::FromStr};
 
+  // Tagged representation used only on non-self-describing formats. The
+  // derive picks a compact discriminant + payload; downstream binary serde
+  // drivers know exactly how to round-trip it without `deserialize_any`.
+  #[derive(serde::Serialize, serde::Deserialize)]
+  enum BinaryWire<'a> {
+    Code(u32),
+    Slug(::std::borrow::Cow<'a, str>),
+  }
+
   impl serde::Serialize for SampleFormat {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-      match self {
-        SampleFormat::Unknown(v) => ser.serialize_u32(*v),
-        other => ser.serialize_str(other.as_str()),
+      if ser.is_human_readable() {
+        // Bare value — current human-readable shape.
+        match self {
+          SampleFormat::Unknown(v) => ser.serialize_u32(*v),
+          other => ser.serialize_str(other.as_str()),
+        }
+      } else {
+        // Tagged wire for binary formats.
+        match self {
+          SampleFormat::Unknown(v) => BinaryWire::Code(*v).serialize(ser),
+          other => BinaryWire::Slug(::std::borrow::Cow::Borrowed(other.as_str())).serialize(ser),
+        }
       }
     }
   }
 
   impl<'de> serde::Deserialize<'de> for SampleFormat {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-      struct V;
-      impl serde::de::Visitor<'_> for V {
-        type Value = SampleFormat;
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-          f.write_str("a SampleFormat slug string or a u32 FFmpeg code")
+      if de.is_human_readable() {
+        // Self-describing: accept either a u32 OR a string via `deserialize_any`.
+        struct V;
+        impl serde::de::Visitor<'_> for V {
+          type Value = SampleFormat;
+          fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a SampleFormat slug string or a u32 FFmpeg code")
+          }
+          fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            // `FromStr` is `Infallible`; non-named slugs ride `Other(SmolStr)`.
+            SampleFormat::from_str(v).map_err(serde::de::Error::custom)
+          }
+          // Numeric inputs route through `from_u32` so `Unknown(v)` survives.
+          // Cover the integer width spread serde drivers actually produce.
+          fn visit_u32<E: serde::de::Error>(self, v: u32) -> Result<Self::Value, E> {
+            Ok(SampleFormat::from_u32(v))
+          }
+          fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            u32::try_from(v)
+              .map(SampleFormat::from_u32)
+              .map_err(|_| serde::de::Error::custom("SampleFormat u32 code overflow"))
+          }
+          fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            u32::try_from(v)
+              .map(SampleFormat::from_u32)
+              .map_err(|_| serde::de::Error::custom("SampleFormat u32 code out of range"))
+          }
         }
-        fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-          // `FromStr` is `Infallible`; non-named slugs ride `Other(SmolStr)`.
-          SampleFormat::from_str(v).map_err(serde::de::Error::custom)
-        }
-        // Numeric inputs route through `from_u32` so `Unknown(v)` survives.
-        // Cover the integer width spread serde drivers actually produce —
-        // unsigned and signed, since some formats (e.g. ron, toml) prefer
-        // signed by default — and clamp/forward into u32.
-        fn visit_u32<E: serde::de::Error>(self, v: u32) -> Result<Self::Value, E> {
-          Ok(SampleFormat::from_u32(v))
-        }
-        fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-          u32::try_from(v)
-            .map(SampleFormat::from_u32)
-            .map_err(|_| serde::de::Error::custom("SampleFormat u32 code overflow"))
-        }
-        fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-          u32::try_from(v)
-            .map(SampleFormat::from_u32)
-            .map_err(|_| serde::de::Error::custom("SampleFormat u32 code out of range"))
-        }
+        de.deserialize_any(V)
+      } else {
+        // Non-self-describing: drive the tagged wire enum, then convert.
+        let w = BinaryWire::deserialize(de)?;
+        Ok(match w {
+          BinaryWire::Code(v) => SampleFormat::from_u32(v),
+          // `FromStr` is `Infallible` for `SampleFormat`.
+          BinaryWire::Slug(s) => SampleFormat::from_str(&s).unwrap(),
+        })
       }
-      de.deserialize_any(V)
     }
   }
 };
@@ -359,5 +390,64 @@ mod tests {
     assert!(serde_json::from_str::<TrackOrigin>("3").is_err());
     assert!(serde_json::from_str::<BitRateMode>("999").is_err());
     assert!(serde_json::from_str::<BitRateMode>("3").is_err());
+  }
+
+  // ── Codex round 2 findings ──
+
+  /// `SampleFormat`'s `deserialize_any` path only works on self-describing
+  /// formats. Non-self-describing binary formats (bincode/postcard) need
+  /// an explicit tagged wire; the impl branches on `is_human_readable()`
+  /// and serializes through a 2-variant `BinaryWire` enum. This test
+  /// exercises the binary branch via postcard.
+  #[test]
+  fn sample_format_postcard_binary_roundtrip() {
+    use crate::audio::SampleFormat;
+
+    fn binary_round_trip(v: &SampleFormat) -> SampleFormat {
+      let bytes = postcard::to_allocvec(v).expect("postcard serialize");
+      postcard::from_bytes::<SampleFormat>(&bytes).expect("postcard deserialize")
+    }
+
+    // Named — `Slug` arm of the wire.
+    assert_eq!(binary_round_trip(&SampleFormat::S16), SampleFormat::S16);
+    // `Other` slug — also `Slug` arm.
+    let other = SampleFormat::Other(smol_str::SmolStr::new("custom"));
+    assert_eq!(binary_round_trip(&other), other);
+    // `Unknown(v)` — `Code` arm; the u32 must survive losslessly.
+    for v in [12_345u32, 0xDEAD_BEEFu32, u32::MAX] {
+      let fmt = SampleFormat::Unknown(v);
+      let back = binary_round_trip(&fmt);
+      assert_eq!(back, fmt, "lost Unknown({v}) on postcard round-trip");
+    }
+  }
+
+  /// Default-backed metadata structs must accept sparse JSON — missing
+  /// fields default rather than failing — so older / partial records
+  /// remain readable as the schema evolves. `serde(default)` at the
+  /// container level routes missing fields through `Default`.
+  #[test]
+  fn sparse_json_uses_serde_default_on_default_backed_structs() {
+    use crate::{
+      audio::{Loudness, Tags},
+      capture::Device,
+    };
+
+    // Tags: only `title` present; the rest fall back to absent sentinels.
+    let t: Tags = serde_json::from_str(r#"{"title":"hello"}"#).unwrap();
+    let expected = Tags::new().with_title(smol_str::SmolStr::new("hello"));
+    assert_eq!(t, expected);
+
+    // Tags: completely empty object → fully-default value (no missing-field error).
+    let empty: Tags = serde_json::from_str("{}").unwrap();
+    assert_eq!(empty, Tags::default());
+
+    // Device: only `make` present.
+    let d: Device = serde_json::from_str(r#"{"make":"Apple"}"#).unwrap();
+    let expected = Device::new().with_make(smol_str::SmolStr::new("Apple"));
+    assert_eq!(d, expected);
+
+    // Loudness: partial measurement.
+    let l: Loudness = serde_json::from_str(r#"{"integrated_lufs":-23.0}"#).unwrap();
+    assert_eq!(l, Loudness::new(-23.0, 0.0, 0.0, 0.0));
   }
 }

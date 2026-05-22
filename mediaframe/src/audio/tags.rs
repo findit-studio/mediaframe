@@ -17,7 +17,14 @@ use smol_str::SmolStr;
 /// - Numeric fields use `Option<u16>` because `0` is a *valid*
 ///   value (year `0` exists historically; "track 0" sometimes
 ///   appears in test files), so the absent state must be distinct.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// `serde(default)` keeps sparse / older-schema JSON deserializable: missing
+// fields fall back to the type-level `Default` impl (`Tags::new()` — all
+// fields absent / empty), matching the absent-vs-empty convention above.
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(default)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tags {
   title: SmolStr,

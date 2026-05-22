@@ -23,7 +23,14 @@
 ///
 /// `f32` storage precludes `Eq`/`Hash` (NaN ≠ NaN); the derives are
 /// limited to `Debug`/`Clone`/`Copy`/`PartialEq`.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// `serde(default)` keeps sparse / older-schema JSON deserializable: missing
+// fields fall back to the type-level `Default` impl — the all-zero
+// "silent / fresh measurement" sentinel.
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(default)
+)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Loudness {
   integrated_lufs: f32,

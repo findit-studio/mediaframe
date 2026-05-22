@@ -95,8 +95,22 @@ can all speak to without agreeing on anything heavier.
 
   Orthogonal to the capability tiers (no-alloc Copy types included). Off
   by default — enable with `--features serde`.
+- **`arbitrary`** — optional `arbitrary::Arbitrary` for the descriptor
+  vocabulary (fuzzing / property tests), hand-written through each type's
+  public constructors so `try_new`-validated types come out valid and
+  open `Other(_)` arms are exercised. Generated values are wire-canonical
+  (every value survives a serde round-trip). Std-only — the `arbitrary`
+  crate itself is std-based — so this serves host-side fuzzing, not an
+  embedded target. Off by default — enable with `--features arbitrary`.
+- **`quickcheck`** — optional native `quickcheck::Arbitrary` for the same
+  surface, via the [`quickcheck-richderive`] derive (each type carries
+  `#[quickcheck(arbitrary = "…")]` pointing at a `fn(&mut Gen) -> Self`
+  helper). Independent of `arbitrary`. Std-only. Off by default — enable
+  with `--features quickcheck`.
 - **`PixelSink`** + **`SourceFormat`** sealed traits re-exported at
   the crate root.
+
+[`quickcheck-richderive`]: https://crates.io/crates/quickcheck-richderive
 
 ## Installation
 

@@ -104,6 +104,11 @@ macro_rules! serde_via_code {
 /// `to_u32()` / `try_from_u32()` pair. Adversarial / corrupt codes outside
 /// the enumerated set are rejected as serde errors instead of silently
 /// canonicalising to the default variant (which `from_u32` would do).
+// Both invocations (`TrackOrigin` / `BitRateMode`) are heap-tier — gated on
+// `any(feature = "std", feature = "alloc")`. Under bare `--features serde`
+// (no-alloc tier) they are cfg'd out and the macro is unused; the `allow`
+// silences the resulting `unused_macros` lint, exactly as for `serde_via_str!`.
+#[allow(unused_macros)]
 macro_rules! serde_via_code_strict {
   ($t:path) => {
     impl serde::Serialize for $t {

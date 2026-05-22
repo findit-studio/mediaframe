@@ -471,4 +471,37 @@ mod tests {
     let l: Loudness = serde_json::from_str(r#"{"integrated_lufs":-23.0}"#).unwrap();
     assert_eq!(l, Loudness::new(-23.0, 0.0, 0.0, 0.0));
   }
+
+  /// golden-rule §9: an absent `Option` field serializes to an *omitted
+  /// key*, never `null`. Verified for every `Option`-bearing serde type.
+  #[test]
+  fn absent_option_fields_are_omitted_not_null() {
+    use crate::{audio::Tags, capture::GeoLocation, color::HdrStaticMetadata};
+
+    // `Tags.language` absent.
+    let j = serde_json::to_string(&Tags::default()).unwrap();
+    assert!(!j.contains("null"), "Tags emitted `null`: {j}");
+    assert!(
+      !j.contains("language"),
+      "Tags emitted absent `language`: {j}"
+    );
+
+    // `HdrStaticMetadata` — both `mastering` / `content_light` absent.
+    let j = serde_json::to_string(&HdrStaticMetadata::default()).unwrap();
+    assert_eq!(
+      j, "{}",
+      "empty HdrStaticMetadata should serialize to `{{}}`"
+    );
+
+    // `GeoLocation.altitude` absent (hand-written `Serialize`).
+    let g = GeoLocation::try_new(0.0, 0.0, None).unwrap();
+    let j = serde_json::to_string(&g).unwrap();
+    assert!(!j.contains("null"), "GeoLocation emitted `null`: {j}");
+    assert!(
+      !j.contains("altitude"),
+      "GeoLocation emitted absent `altitude`: {j}"
+    );
+    // …and present `altitude` still round-trips.
+    round_trip(&GeoLocation::try_new(0.0, 0.0, Some(12.5)).unwrap());
+  }
 }

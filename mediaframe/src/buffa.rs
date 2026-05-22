@@ -1906,35 +1906,25 @@ impl Message for Tags {
     if !self.comment().is_empty() {
       size += 1 + string_encoded_len(self.comment()) as u32;
     }
-    if let Some(v) = self.year()
-      && v != 0
-    {
-      size += 1 + uint32_encoded_len(v as u32) as u32;
+    // Numeric fields are bare `u16` with `0` = absent — proto3 zero-elision
+    // applies directly (no `Option` to unwrap).
+    if self.year() != 0 {
+      size += 1 + uint32_encoded_len(self.year() as u32) as u32;
     }
-    if let Some(v) = self.track_number()
-      && v != 0
-    {
-      size += 1 + uint32_encoded_len(v as u32) as u32;
+    if self.track_number() != 0 {
+      size += 1 + uint32_encoded_len(self.track_number() as u32) as u32;
     }
-    if let Some(v) = self.track_total()
-      && v != 0
-    {
-      size += 1 + uint32_encoded_len(v as u32) as u32;
+    if self.track_total() != 0 {
+      size += 1 + uint32_encoded_len(self.track_total() as u32) as u32;
     }
-    if let Some(v) = self.disc_number()
-      && v != 0
-    {
-      size += 1 + uint32_encoded_len(v as u32) as u32;
+    if self.disc_number() != 0 {
+      size += 1 + uint32_encoded_len(self.disc_number() as u32) as u32;
     }
-    if let Some(v) = self.disc_total()
-      && v != 0
-    {
-      size += 1 + uint32_encoded_len(v as u32) as u32;
+    if self.disc_total() != 0 {
+      size += 1 + uint32_encoded_len(self.disc_total() as u32) as u32;
     }
-    if let Some(s) = self.language()
-      && !s.is_empty()
-    {
-      size += 1 + string_encoded_len(s) as u32;
+    if let Some(lang) = self.language() {
+      size += 1 + string_encoded_len(&lang.to_bcp47()) as u32;
     }
     size
   }
@@ -1968,41 +1958,29 @@ impl Message for Tags {
       Tag::new(7, WireType::LengthDelimited).encode(buf);
       encode_string(self.comment(), buf);
     }
-    if let Some(v) = self.year()
-      && v != 0
-    {
+    if self.year() != 0 {
       Tag::new(8, WireType::Varint).encode(buf);
-      encode_uint32(v as u32, buf);
+      encode_uint32(self.year() as u32, buf);
     }
-    if let Some(v) = self.track_number()
-      && v != 0
-    {
+    if self.track_number() != 0 {
       Tag::new(9, WireType::Varint).encode(buf);
-      encode_uint32(v as u32, buf);
+      encode_uint32(self.track_number() as u32, buf);
     }
-    if let Some(v) = self.track_total()
-      && v != 0
-    {
+    if self.track_total() != 0 {
       Tag::new(10, WireType::Varint).encode(buf);
-      encode_uint32(v as u32, buf);
+      encode_uint32(self.track_total() as u32, buf);
     }
-    if let Some(v) = self.disc_number()
-      && v != 0
-    {
+    if self.disc_number() != 0 {
       Tag::new(11, WireType::Varint).encode(buf);
-      encode_uint32(v as u32, buf);
+      encode_uint32(self.disc_number() as u32, buf);
     }
-    if let Some(v) = self.disc_total()
-      && v != 0
-    {
+    if self.disc_total() != 0 {
       Tag::new(12, WireType::Varint).encode(buf);
-      encode_uint32(v as u32, buf);
+      encode_uint32(self.disc_total() as u32, buf);
     }
-    if let Some(s) = self.language()
-      && !s.is_empty()
-    {
+    if let Some(lang) = self.language() {
       Tag::new(13, WireType::LengthDelimited).encode(buf);
-      encode_string(s, buf);
+      encode_string(&lang.to_bcp47(), buf);
     }
   }
 
@@ -2042,7 +2020,16 @@ impl Message for Tags {
             self.set_comment(s);
           }
           13 => {
-            self.update_language(if s.is_empty() { None } else { Some(s) });
+            // An empty field-13 string means "no language tag" (`None`);
+            // a non-empty value parses as BCP-47, coercing an unparseable
+            // tag to `Language::default()` (`und`) — the same lenient
+            // semantics the standalone `Language` codec uses (buffa 0.6's
+            // `DecodeError` has no general "invalid value" arm).
+            self.update_language(if s.is_empty() {
+              None
+            } else {
+              Some(Language::from_bcp47(&s).unwrap_or_default())
+            });
           }
           _ => unreachable!(),
         }
@@ -2055,23 +2042,24 @@ impl Message for Tags {
             actual: tag.wire_type() as u8,
           });
         }
+        // Numeric fields are bare `u16` with `0` = absent — a decoded `0`
+        // (or an elided, never-written field) is simply `0`.
         let v = decode_uint32(buf)? as u16;
-        let opt = if v == 0 { None } else { Some(v) };
         match n {
           8 => {
-            self.update_year(opt);
+            self.set_year(v);
           }
           9 => {
-            self.update_track_number(opt);
+            self.set_track_number(v);
           }
           10 => {
-            self.update_track_total(opt);
+            self.set_track_total(v);
           }
           11 => {
-            self.update_disc_number(opt);
+            self.set_disc_number(v);
           }
           12 => {
-            self.update_disc_total(opt);
+            self.set_disc_total(v);
           }
           _ => unreachable!(),
         }
@@ -3477,13 +3465,19 @@ mod tests {
       .with_year(1999)
       .with_track_number(3)
       .with_track_total(12)
-      .with_language("en-US");
+      .with_language(crate::lang::Language::from_bcp47("en-US").unwrap());
     let b = t.encode_to_vec();
     assert_eq!(Tags::decode_from_slice(&b).unwrap(), t);
     // Default round-trips.
     let t0 = Tags::default();
     assert!(t0.encode_to_vec().is_empty());
     assert_eq!(Tags::decode_from_slice(&[]).unwrap(), t0);
+    // A numeric `0` is the absent sentinel — `with_year(0)` is identical to
+    // never-set, encodes to nothing, and decodes back identically (proto3
+    // zero-elision; type + codec now agree).
+    let z = Tags::new().with_year(0).with_track_number(0);
+    assert_eq!(z, Tags::default());
+    assert_eq!(Tags::decode_from_slice(&z.encode_to_vec()).unwrap(), z);
   }
 
   // ---- Capture + language wire round-trips ----

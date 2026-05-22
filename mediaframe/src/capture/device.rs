@@ -29,6 +29,11 @@ use smol_str::SmolStr;
   derive(serde::Serialize, serde::Deserialize),
   serde(default)
 )]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::composite::capture_device")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Device {
   make: SmolStr,

@@ -32,6 +32,11 @@ bitflags! {
     /// **Default convention**: `Default::default()` returns the
     /// empty flag set (no disposition hints).
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(
+      feature = "quickcheck",
+      derive(::quickcheck_richderive::Arbitrary),
+      quickcheck(arbitrary = "crate::quickcheck_helpers::coded::track_disposition")
+    )]
     pub struct TrackDisposition: u32 {
         /// `AV_DISPOSITION_DEFAULT` — the default track of its kind.
         const DEFAULT          = 0x0000_0001;

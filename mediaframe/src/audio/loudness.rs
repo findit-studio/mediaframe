@@ -31,6 +31,11 @@
   derive(serde::Serialize, serde::Deserialize),
   serde(default)
 )]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::composite::loudness")
+)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Loudness {
   integrated_lufs: f32,

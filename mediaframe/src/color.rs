@@ -50,6 +50,11 @@ pub const DOMAIN_EXT_BASE: u32 = 0x8000_0000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::matrix")
+)]
 pub enum Matrix {
   /// Unknown / unrecognised `AVColorSpace` code. The wrapped `u32`
   /// is the original value passed to [`Self::from_u32`] — preserved
@@ -224,6 +229,11 @@ impl Matrix {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::primaries")
+)]
 pub enum Primaries {
   /// Unknown / unrecognised `AVColorPrimaries` code (incl. the
   /// reserved `0`/`3`). The wrapped `u32` is the original value
@@ -348,6 +358,11 @@ impl Primaries {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::transfer")
+)]
 pub enum Transfer {
   /// Unknown / unrecognised `AVColorTransferCharacteristic` code
   /// (incl. the reserved `0`/`3`). The wrapped `u32` is the original
@@ -493,6 +508,11 @@ impl Transfer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dynamic_range")
+)]
 pub enum DynamicRange {
   /// Unknown / unrecognised `AVColorRange` code. The wrapped `u32`
   /// is the original value passed to [`Self::from_u32`] — preserved
@@ -567,6 +587,11 @@ impl DynamicRange {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::chroma_location")
+)]
 pub enum ChromaLocation {
   /// Unknown / unrecognised `AVChromaLocation` code. The wrapped
   /// `u32` is the original value passed to [`Self::from_u32`] —
@@ -654,6 +679,11 @@ impl ChromaLocation {
 /// `Unspecified` if absent. `Info::UNSPECIFIED` is the sensible
 /// default for RAW backends that don't carry per-frame color data.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::info")
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Info {
   primaries: Primaries,
@@ -844,6 +874,11 @@ impl Info {
 /// (Codex adversarial-review F8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant)]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dcp_target_gamut")
+)]
 pub enum DcpTargetGamut {
   /// Unknown / unrecognised wire id. The wrapped `u32` is the
   /// original value passed to [`Self::from_u32`] — preserved so
@@ -920,6 +955,11 @@ impl DcpTargetGamut {
 /// frame side data); the per-frame [`Info`] enums are
 /// unchanged.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::content_light_level")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContentLightLevel {
   max_cll: u32,
@@ -990,6 +1030,11 @@ impl ContentLightLevel {
 /// adversarial-review F3). Validity is a separate concern from
 /// preservation — see [`HdrStaticMetadata`].
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::chroma_coord")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChromaCoord {
   x: u32,
@@ -1066,6 +1111,11 @@ impl ChromaCoord {
 ///   cd/m²** (floating value = `raw / 10000.0`), matching FFmpeg's
 ///   `n/10000` `AVRational` luminance encoding.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::mastering_display")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MasteringDisplay {
   display_primaries: [ChromaCoord; 3],
@@ -1189,10 +1239,24 @@ impl MasteringDisplay {
 /// stays per-frame closed-form enums only; HDR10 static metadata is
 /// clip / stream level and optional, so it lives in its own type.
 /// (Dynamic HDR — HDR10+ / Dolby Vision RPU — is out of scope here.)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// golden-rule §9: both fields are `Option` — skip-serialize when `None`
+// (never emit `null`); `serde(default)` (whole struct has a meaningful
+// all-`None` `Default`) restores an omitted field on deserialize.
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(default)
+)]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::hdr_static_metadata")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HdrStaticMetadata {
+  #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
   mastering: Option<MasteringDisplay>,
+  #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
   content_light: Option<ContentLightLevel>,
 }
 
@@ -1269,6 +1333,11 @@ impl HdrStaticMetadata {
 /// All fields default to `0` (`#[derive(Default)]`), matching an
 /// absent / unset configuration.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dolby_vision_config")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DolbyVisionConfig {
   profile: u8,

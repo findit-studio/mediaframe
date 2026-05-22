@@ -301,6 +301,11 @@ impl UnsupportedBits {
 /// resolution; the `u32` choice here keeps the public API plug-
 /// compatible with both adapter typings.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::dimensions")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Dimensions {
   width: u32,
@@ -376,6 +381,11 @@ impl core::fmt::Display for Dimensions {
 /// Used for `VideoFrame::visible_rect` (FFmpeg crop /
 /// WebCodecs `visibleRect` / ProRes RAW `CleanAperture`).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rect")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rect {
   x: u32,
@@ -494,6 +504,11 @@ impl Rect {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rotation")
+)]
 pub enum Rotation {
   /// Unknown / unrecognised rotation wire value. The wrapped `u32`
   /// is the original value passed to [`Self::from_u32`] — preserved
@@ -572,6 +587,11 @@ impl Rotation {
 /// are private; the entire public method API (and the `buffa` wire
 /// format) is unchanged, delegating to the inner `Rational`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::sample_aspect_ratio")
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SampleAspectRatio(Rational);
 
@@ -694,6 +714,11 @@ impl From<Rational> for SampleAspectRatio {
 /// valid representable state (e.g. an "unknown" FFmpeg `AVRational`
 /// `0/1`) — see [`Self::is_zero`].
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::rational")
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rational {
   num: u32,
@@ -793,6 +818,11 @@ impl core::fmt::Display for Rational {
 /// The [`Default`] is `{ rate: Rational::default() (1/1),
 /// is_vfr: false }`.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::frame_rate")
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FrameRate {
   rate: Rational,
@@ -891,6 +921,11 @@ impl FrameRate {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::field_order")
+)]
 pub enum FieldOrder {
   /// Unknown / unrecognised field-order wire value. The wrapped
   /// `u32` is the original value passed to [`Self::from_u32`] —
@@ -988,6 +1023,11 @@ impl FieldOrder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::coded::stereo_mode")
+)]
 pub enum StereoMode {
   /// Unknown / unrecognised wire value. The wrapped `u32` is the
   /// original value passed to [`Self::from_u32`] — preserved so the

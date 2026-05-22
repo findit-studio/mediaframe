@@ -20,6 +20,11 @@ use smol_str::SmolStr;
 /** Video codec family — every codec FFmpeg n8.1 knows under media type `video`.
 
 `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::video_codec")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
@@ -1173,6 +1178,11 @@ impl FromStr for VideoCodec {
 /** Audio codec family — every codec FFmpeg n8.1 knows under media type `audio`.
 
 `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::audio_codec")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]
@@ -2086,6 +2096,11 @@ impl FromStr for AudioCodec {
 /** Subtitle codec family — every codec FFmpeg n8.1 knows under media type `subtitle`.
 
 `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::subtitle_codec")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
 #[display("{}", self.as_str())]
 #[non_exhaustive]

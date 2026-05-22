@@ -18,6 +18,15 @@ extern crate alloc as std;
 #[allow(unused_extern_crates)]
 extern crate std;
 
+/// Hand-written [`arbitrary::Arbitrary`] impls for the descriptor vocabulary
+/// (codecs, container/subtitle/audio formats, capture, language, colour, pixel
+/// format, frame geometry/orientation, disposition). All generation goes through
+/// the types' public constructors so private fields stay encapsulated and
+/// `try_new` validated types come out valid by construction. Mirrors the
+/// surface covered by [`serde`](serde_impls) — the same descriptor set the
+/// storage / wire layers serialize.
+#[cfg(feature = "arbitrary")]
+mod arbitrary_impls;
 /// Audio-stream descriptor vocabulary — channel layout, sample /
 /// container format, bit-rate mode, EBU R128 loudness, fingerprint,
 /// embedded metadata tags + cover art. Requires the `alloc` feature
@@ -56,6 +65,14 @@ pub mod frame;
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
 pub mod lang;
 pub mod pixel_format;
+/// `fn(&mut quickcheck::Gen) -> T` helpers consumed by the per-type
+/// `#[quickcheck(arbitrary = "…")]` attributes on each descriptor's
+/// `quickcheck-richderive::Arbitrary` derive. The derive emits the actual
+/// `impl quickcheck::Arbitrary for T` blocks; this module owns the bodies.
+/// Same surface as [`arbitrary_impls`] (39 descriptor-vocabulary types) but
+/// the two are independent — quickcheck does **not** bridge through arbitrary.
+#[cfg(feature = "quickcheck")]
+pub mod quickcheck_helpers;
 /// Centralised `serde` impls for the descriptor enums (the structs derive
 /// serde at their definition sites). Open codec/format enums serialize as
 /// their `as_str()` slug; closed FFmpeg-coded enums as their `to_u32()`

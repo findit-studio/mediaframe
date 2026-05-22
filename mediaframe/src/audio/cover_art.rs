@@ -13,6 +13,11 @@ use smol_str::SmolStr;
 /// large image clones in O(1) (refcount bump) rather than a deep copy.
 /// Both must be non-empty (an empty mime or empty payload is not a
 /// meaningful cover-art attachment); use [`CoverArt::try_new`].
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::composite::cover_art")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CoverArt {
   mime: SmolStr,

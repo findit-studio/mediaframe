@@ -28,6 +28,20 @@ buffa   = ["dep:buffa", "mediatime/buffa", "alloc"]
 # codec/format enums serialize as their `as_str()` slug, closed
 # FFmpeg-coded enums as their `to_u32()` integer.
 serde   = ["dep:serde", "smol_str?/serde", "bytes?/serde"]
+# Optional `arbitrary::Arbitrary` for the descriptor vocabulary (fuzzing /
+# property tests). Std-only — the `arbitrary` crate itself is std-based (it
+# exposes no `alloc`/`no_std` feature and its crate root uses `std`), so this
+# feature can only ever serve host-side fuzzing, never an embedded / no-std
+# target. It pulls `std` (which includes `alloc` for the String/Vec/byte
+# generation) to make that contract honest.
+arbitrary  = ["std", "dep:arbitrary"]
+# Native `quickcheck::Arbitrary` for the descriptor vocabulary via the
+# `quickcheck-richderive` derive (container-level `with = "..."` on each type
+# points at a `fn(&mut Gen) -> Self` helper in `mediaframe::quickcheck_helpers`,
+# so validated `try_new` types stay valid by construction and open
+# `Other(SmolStr)` arms get exercised). Std-only because `quickcheck` itself
+# requires std; no dependency on the `arbitrary` feature.
+quickcheck = ["std", "dep:quickcheck", "dep:quickcheck-richderive"]
 
 frame = [
   "yuv-planar", "yuv-semi-planar", "yuva", "yuv-packed", "yuv-444-packed",
@@ -66,6 +80,16 @@ smol_str    = { version = "0.3", default-features = false, optional = true }
 # serde feature is needed — string handling goes through borrowed-`&str`
 # visitors and `smol_str` / `bytes` carry their own serde impls.
 serde       = { version = "1", default-features = false, optional = true, features = ["derive"] }
+# `arbitrary` 1.x is a std-based crate (no `alloc`/`no_std` feature, crate
+# root uses `std`); `default-features = false` is a no-op kept for form. The
+# mediaframe `arbitrary` feature pulls `std` — see its comment above.
+arbitrary   = { version = "1", default-features = false, optional = true }
+# `quickcheck` is std-only (no `default-features = false` knob);
+# `quickcheck-richderive` is the proc-macro that emits native `impl
+# quickcheck::Arbitrary` (rich attribute surface — `with`/`shrink`/`bound`/
+# `box`/`default`/`skip`). The `quickcheck` feature gates both.
+quickcheck            = { version = "1", optional = true }
+quickcheck-richderive = { version = "0.2", optional = true }
 
 [dev-dependencies]
 # Concrete serde formats for the `serde` round-trip tests (std-only).

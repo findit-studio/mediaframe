@@ -22,6 +22,11 @@ use smol_str::SmolStr;
 /// [`Self::Other`] arm is the lossless escape for formats not yet
 /// enumerated here. `as_str` returns the FFmpeg-canonical slug; the
 /// total [`FromStr`] impl is its inverse.
+#[cfg_attr(
+  feature = "quickcheck",
+  derive(::quickcheck_richderive::Arbitrary),
+  quickcheck(arbitrary = "crate::quickcheck_helpers::strings::subtitle_format")
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant, Unwrap, TryUnwrap)]
 #[display("{}", self.as_str())]
 #[unwrap(ref, ref_mut)]

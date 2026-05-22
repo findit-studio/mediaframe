@@ -1,20 +1,27 @@
 // Cluster B — closed FFmpeg-coded enums w/ lossless `from_u32`, colour /
 // pixel-format / frame geometry / disposition structs, frame coded enums.
 
-use super::{arb_via_code, arb_via_code_weighted, arb_via_named_variants};
+use super::{
+  arb_via_code, arb_via_code_weighted, arb_via_code_weighted_range, arb_via_named_variants,
+};
 
-// Large coded enums: uniform `u32` exercises plenty of named variants
-// (typical FFmpeg `AV*` numeric ranges are dense and tight). The
-// `Unknown(_)` / `Reserved(_)` arm catches the rest losslessly. Bitflags
-// (`TrackDisposition`) likewise produce reasonable flag combinations from
-// uniform `u32`.
-arb_via_code!(
-  crate::color::Matrix,
-  crate::color::Primaries,
-  crate::color::Transfer,
-  crate::pixel_format::PixelFormat,
-  crate::disposition::TrackDisposition,
-);
+// Bitflags: uniform `u32` produces reasonable flag combinations directly,
+// and every bit pattern is meaningful — keep `TrackDisposition` on raw u32.
+arb_via_code!(crate::disposition::TrackDisposition);
+
+// Large coded enums with an `Unknown(u32)` arm whose named codes cluster
+// in a low-integer range. Uniform `u32` alone almost never reaches the
+// named range (Codex round-2 finding); `arb_via_code_weighted_range!`
+// 50/50-splits an in-range pick against a broad `Unknown` exercise.
+// `max_named` = the highest code emitted by each type's `to_u32`:
+//   - Matrix       — Self::YCgCoRo => 17
+//   - Primaries    — Self::Ebu3213E => 22
+//   - Transfer     — Self::AribStdB67Hlg => 18
+//   - PixelFormat  — 270 named codes spanning 0..=947 (FFmpeg AVPixelFormat)
+arb_via_code_weighted_range!(crate::color::Matrix, max_named = 17);
+arb_via_code_weighted_range!(crate::color::Primaries, max_named = 22);
+arb_via_code_weighted_range!(crate::color::Transfer, max_named = 18);
+arb_via_code_weighted_range!(crate::pixel_format::PixelFormat, max_named = 947);
 
 // Closed coded enums WITH an `Unknown(u32)` arm and < 10 named variants:
 // 50/50 weighted between named picks and arbitrary u32 (Codex round-1

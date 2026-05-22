@@ -62,7 +62,12 @@ super::arb_open_string_enum!(
 // String).
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::SampleFormat {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
-    const SLUGS: &[&str] = &["s16", "s32", "flt", "s16p", "fltp", "u8"];
+    // All 12 named slugs — a 6-slug subset (Codex round-2 finding) left
+    // the planar / double / 64-bit variants reachable only by the rare
+    // numeric branch drawing their exact `0..=11` code.
+    const SLUGS: &[&str] = &[
+      "u8", "s16", "s32", "flt", "dbl", "u8p", "s16p", "s32p", "fltp", "dblp", "s64", "s64p",
+    ];
     match u.int_in_range(0..=2u8)? {
       0 => Ok(
         <crate::audio::SampleFormat as ::core::str::FromStr>::from_str(u.choose(SLUGS)?).unwrap(),

@@ -82,6 +82,33 @@ macro_rules! arb_via_code_weighted {
 #[allow(unused_imports)]
 pub(crate) use arb_via_code_weighted;
 
+/// `impl arbitrary::Arbitrary for $Ty` for closed coded enums WITH an
+/// `Unknown(u32)` arm whose named codes span a contiguous-ish low-integer
+/// range (typical of FFmpeg `AV*` coded enums — colour, pixel-format —
+/// where listing every named variant in a macro would be unwieldy). 50/50
+/// between an in-`0..=max_named` `u32` pick (most of which land on named
+/// variants; gaps fall on `Unknown`, fine for fuzz coverage) and an
+/// arbitrary full-range `u32` (broad `Unknown` exercise). `arb_via_code!`
+/// alone almost never reaches the named range for these — e.g.
+/// `PixelFormat`'s 270 named codes span `0..=947` out of the full `u32`.
+#[allow(unused_macros)]
+macro_rules! arb_via_code_weighted_range {
+  ($ty:path, max_named = $max:expr) => {
+    impl<'a> ::arbitrary::Arbitrary<'a> for $ty {
+      fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
+        let code = if <bool as ::arbitrary::Arbitrary>::arbitrary(u)? {
+          u.int_in_range(0u32..=$max)?
+        } else {
+          <u32 as ::arbitrary::Arbitrary>::arbitrary(u)?
+        };
+        Ok(<$ty>::from_u32(code))
+      }
+    }
+  };
+}
+#[allow(unused_imports)]
+pub(crate) use arb_via_code_weighted_range;
+
 /// `impl arbitrary::Arbitrary for $Ty` for open string enums: 50/50 picks a
 /// curated slug (round-trips through total `FromStr`) or builds an
 /// `Other(SmolStr::from(<arbitrary String>))`. Constructing `Self::Other` is
@@ -252,22 +279,74 @@ mod tests {
   // `Other(SmolStr)`. The previous open-string-enum macro routed only
   // through slugs / `Other`, leaving `Unknown(_)` unreachable. The
   // bespoke 3-way generator MUST hit all three arms.
+  // Every one of `SampleFormat`'s 12 named variants must be reachable —
+  // plus the `Unknown(_)` and `Other(_)` escape arms. A weaker
+  // "some named appears" check (Codex round-2 finding) would pass even
+  // if half the slug list were missing.
   #[test]
-  fn reachability_sample_format_reaches_all_three_arms() {
+  fn reachability_sample_format_all_named_plus_arms() {
     use crate::audio::SampleFormat;
-    let mut saw_named = false;
+    use ::std::collections::HashSet;
+    let mut named: HashSet<::std::string::String> = HashSet::new();
     let mut saw_unknown = false;
     let mut saw_other = false;
-    drive_per_round(0x3F0_FEED_u64, 2048, |u| {
+    drive_per_round(0x3F0_FEED_u64, 4096, |u| {
       match SampleFormat::arbitrary(u).unwrap() {
         SampleFormat::Unknown(_) => saw_unknown = true,
         SampleFormat::Other(_) => saw_other = true,
-        _ => saw_named = true,
+        other => {
+          named.insert(other.as_str().to_string());
+        }
       }
     });
+    assert_eq!(
+      named.len(),
+      12,
+      "missing named SampleFormat variants; observed: {named:?}"
+    );
+    assert!(saw_unknown, "SampleFormat: never observed `Unknown(_)`");
+    assert!(saw_other, "SampleFormat: never observed `Other(_)`");
+  }
+
+  // The range-weighted large coded enums must actually reach a broad set
+  // of named codes — `arb_via_code!` (uniform `u32`) hit the named range
+  // for `Matrix` / `Primaries` essentially never (Codex round-2 finding).
+  #[test]
+  fn reachability_range_weighted_enums_hit_named_codes() {
+    use ::std::collections::HashSet;
+    let mut matrix: HashSet<u32> = HashSet::new();
+    let mut primaries: HashSet<u32> = HashSet::new();
+    let mut transfer: HashSet<u32> = HashSet::new();
+    let mut pixel: HashSet<u32> = HashSet::new();
+    drive_per_round(0x4A_C0DE5_u64, 8192, |u| {
+      matrix.insert(crate::color::Matrix::arbitrary(u).unwrap().to_u32());
+      primaries.insert(crate::color::Primaries::arbitrary(u).unwrap().to_u32());
+      transfer.insert(crate::color::Transfer::arbitrary(u).unwrap().to_u32());
+      pixel.insert(
+        crate::pixel_format::PixelFormat::arbitrary(u)
+          .unwrap()
+          .to_u32(),
+      );
+    });
+    // Count distinct codes within each type's named range.
+    let in_range = |s: &HashSet<u32>, max: u32| s.iter().filter(|&&c| c <= max).count();
     assert!(
-      saw_named && saw_unknown && saw_other,
-      "SampleFormat arms: named={saw_named} unknown={saw_unknown} other={saw_other}"
+      in_range(&matrix, 17) >= 10,
+      "Matrix named-range coverage too low: {matrix:?}"
+    );
+    assert!(
+      in_range(&primaries, 22) >= 8,
+      "Primaries named-range coverage too low: {primaries:?}"
+    );
+    assert!(
+      in_range(&transfer, 18) >= 10,
+      "Transfer named-range coverage too low: {transfer:?}"
+    );
+    // PixelFormat: 270 named codes spread over 0..=947 — a generous floor.
+    assert!(
+      in_range(&pixel, 947) >= 40,
+      "PixelFormat named-range coverage too low: {} distinct",
+      in_range(&pixel, 947)
     );
   }
 

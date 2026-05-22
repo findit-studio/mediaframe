@@ -19,6 +19,39 @@ pub struct CoverArt {
   data: Bytes,
 }
 
+// Optional `serde` impls grouped in one gated `const` block: a single
+// `#[cfg]` covers both directions, and the validate-on-deserialize shadow
+// stays private to the block (no module-namespace pollution).
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+const _: () = {
+  use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
+
+  impl Serialize for CoverArt {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      let mut st = ser.serialize_struct("CoverArt", 2)?;
+      st.serialize_field("mime", &self.mime)?;
+      st.serialize_field("data", &self.data)?;
+      st.end()
+    }
+  }
+
+  // Routes deserialize through `try_new` so the non-empty `mime` / `data`
+  // invariants hold instead of being bypassed by a field derive.
+  #[derive(Deserialize)]
+  struct Shadow {
+    mime: SmolStr,
+    data: Bytes,
+  }
+
+  impl<'de> Deserialize<'de> for CoverArt {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      let s = Shadow::deserialize(de)?;
+      CoverArt::try_new(s.mime, s.data).map_err(serde::de::Error::custom)
+    }
+  }
+};
+
 impl Default for CoverArt {
   /// Synthetic `Default` — `mime: "application/octet-stream"`,
   /// `data: [0u8]`. The public constructor [`Self::try_new`] still

@@ -20,6 +20,39 @@ pub struct Fingerprint {
   value: Bytes,
 }
 
+// Optional `serde` impls grouped in one gated `const` block: a single
+// `#[cfg]` covers both directions, and the validate-on-deserialize shadow
+// stays private to the block (no module-namespace pollution).
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+const _: () = {
+  use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
+
+  impl Serialize for Fingerprint {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      let mut st = ser.serialize_struct("Fingerprint", 2)?;
+      st.serialize_field("algorithm", &self.algorithm)?;
+      st.serialize_field("value", &self.value)?;
+      st.end()
+    }
+  }
+
+  // Routes deserialize through `try_new` so the non-empty-`algorithm`
+  // invariant holds instead of being bypassed by a field derive.
+  #[derive(Deserialize)]
+  struct Shadow {
+    algorithm: SmolStr,
+    value: Bytes,
+  }
+
+  impl<'de> Deserialize<'de> for Fingerprint {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      let s = Shadow::deserialize(de)?;
+      Fingerprint::try_new(s.algorithm, s.value).map_err(serde::de::Error::custom)
+    }
+  }
+};
+
 impl Default for Fingerprint {
   /// Synthetic `Default` — `algorithm: "default"`, `value: []`. The
   /// public constructor [`Self::try_new`] still rejects empty

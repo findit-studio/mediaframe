@@ -72,6 +72,20 @@ impl TrackOrigin {
       _ => Self::Embedded,
     }
   }
+
+  /// Strict counterpart to [`Self::from_u32`]: returns `None` for any code
+  /// outside the enumerated set, instead of silently mapping it to the
+  /// default. Used by the strict deserialize path so adversarial / corrupt
+  /// wire values fail loudly rather than masquerading as `Embedded`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_from_u32(v: u32) -> Option<Self> {
+    match v {
+      0 => Some(Self::Embedded),
+      1 => Some(Self::Sidecar),
+      2 => Some(Self::External),
+      _ => None,
+    }
+  }
 }
 
 #[cfg(test)]

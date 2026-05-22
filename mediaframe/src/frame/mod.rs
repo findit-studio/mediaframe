@@ -300,6 +300,7 @@ impl UnsupportedBits {
 /// packing some adjacent crates use) covers every realistic
 /// resolution; the `u32` choice here keeps the public API plug-
 /// compatible with both adapter typings.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Dimensions {
   width: u32,
@@ -374,6 +375,7 @@ impl core::fmt::Display for Dimensions {
 ///
 /// Used for `VideoFrame::visible_rect` (FFmpeg crop /
 /// WebCodecs `visibleRect` / ProRes RAW `CleanAperture`).
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rect {
   x: u32,
@@ -569,6 +571,7 @@ impl Rotation {
 /// truth for "exact ratio with a non-zero denominator". The fields
 /// are private; the entire public method API (and the `buffa` wire
 /// format) is unchanged, delegating to the inner `Rational`.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SampleAspectRatio(Rational);
 
@@ -690,6 +693,7 @@ impl From<Rational> for SampleAspectRatio {
 /// frames-per-second) carry the domain meaning. A `0` numerator is a
 /// valid representable state (e.g. an "unknown" FFmpeg `AVRational`
 /// `0/1`) — see [`Self::is_zero`].
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Rational {
   num: u32,
@@ -788,6 +792,7 @@ impl core::fmt::Display for Rational {
 ///
 /// The [`Default`] is `{ rate: Rational::default() (1/1),
 /// is_vfr: false }`.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FrameRate {
   rate: Rational,

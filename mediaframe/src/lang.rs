@@ -182,6 +182,38 @@ impl core::str::FromStr for Language {
   }
 }
 
+// Optional `serde` impls grouped in one gated `const` block: (de)serializes
+// as the canonical BCP-47 string (`"en-US"`, `"zh-Hant-TW"`, `"und"`) — the
+// same lossless text form the storage backends use. Not derived: the
+// `icu_locale_core` subtag fields have no stable serde representation.
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
+const _: () = {
+  use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+  impl Serialize for Language {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+      ser.serialize_str(&self.to_bcp47())
+    }
+  }
+
+  impl<'de> Deserialize<'de> for Language {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+      struct V;
+      impl serde::de::Visitor<'_> for V {
+        type Value = Language;
+        fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+          f.write_str("a BCP-47 language tag string")
+        }
+        fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Language, E> {
+          Language::from_bcp47(v).map_err(serde::de::Error::custom)
+        }
+      }
+      de.deserialize_str(V)
+    }
+  }
+};
+
 /// Errors returned by [`Language`] constructors / parsers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
 #[non_exhaustive]

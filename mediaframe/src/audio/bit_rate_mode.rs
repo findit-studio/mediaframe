@@ -60,6 +60,20 @@ impl BitRateMode {
       _ => Self::Cbr,
     }
   }
+
+  /// Strict counterpart to [`Self::from_u32`]: returns `None` for any code
+  /// outside the enumerated set, instead of silently mapping it to the
+  /// default. Used by the strict deserialize path so adversarial / corrupt
+  /// wire values fail loudly rather than masquerading as `Cbr`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_from_u32(v: u32) -> Option<Self> {
+    match v {
+      0 => Some(Self::Cbr),
+      1 => Some(Self::Vbr),
+      2 => Some(Self::Abr),
+      _ => None,
+    }
+  }
 }
 
 #[cfg(test)]

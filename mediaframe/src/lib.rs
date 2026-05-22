@@ -56,6 +56,12 @@ pub mod frame;
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
 pub mod lang;
 pub mod pixel_format;
+/// Centralised `serde` impls for the descriptor enums (the structs derive
+/// serde at their definition sites). Open codec/format enums serialize as
+/// their `as_str()` slug; closed FFmpeg-coded enums as their `to_u32()`
+/// code — mirroring the storage backends.
+#[cfg(feature = "serde")]
+mod serde_impls;
 pub mod source;
 /// Subtitle-stream descriptor vocabulary — file / demuxer format
 /// ([`subtitle::Format`]) and track-origin axis

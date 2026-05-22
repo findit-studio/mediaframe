@@ -653,6 +653,7 @@ impl ChromaLocation {
 /// RAW backends populate from clip-level color science and leave
 /// `Unspecified` if absent. `Info::UNSPECIFIED` is the sensible
 /// default for RAW backends that don't carry per-frame color data.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Info {
   primaries: Primaries,
@@ -918,6 +919,7 @@ impl DcpTargetGamut {
 /// This is clip / stream level (and frame-level when carried as
 /// frame side data); the per-frame [`Info`] enums are
 /// unchanged.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContentLightLevel {
   max_cll: u32,
@@ -987,6 +989,7 @@ impl ContentLightLevel {
 /// losslessly** rather than being silently saturated (Codex
 /// adversarial-review F3). Validity is a separate concern from
 /// preservation — see [`HdrStaticMetadata`].
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChromaCoord {
   x: u32,
@@ -1062,6 +1065,7 @@ impl ChromaCoord {
 /// - `max_luminance` / `min_luminance` are in units of **0.0001
 ///   cd/m²** (floating value = `raw / 10000.0`), matching FFmpeg's
 ///   `n/10000` `AVRational` luminance encoding.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MasteringDisplay {
   display_primaries: [ChromaCoord; 3],
@@ -1185,6 +1189,7 @@ impl MasteringDisplay {
 /// stays per-frame closed-form enums only; HDR10 static metadata is
 /// clip / stream level and optional, so it lives in its own type.
 /// (Dynamic HDR — HDR10+ / Dolby Vision RPU — is out of scope here.)
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HdrStaticMetadata {
   mastering: Option<MasteringDisplay>,
@@ -1263,6 +1268,7 @@ impl HdrStaticMetadata {
 ///
 /// All fields default to `0` (`#[derive(Default)]`), matching an
 /// absent / unset configuration.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DolbyVisionConfig {
   profile: u8,

@@ -4,6 +4,54 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] May 21, 2026
+
+### Added
+
+- **`serde` feature** — optional `serde::{Serialize, Deserialize}` for the
+  whole descriptor vocabulary, gated behind `--features serde` (off by
+  default). The wire shape mirrors what storage backends already use, so a
+  serde-`json` value matches their representation:
+  - **Open** codec / format enums (`codec::{Video,Audio,Subtitle}Codec`,
+    `container::Format`, `subtitle::Format`,
+    `audio::{ChannelLayout, ContainerFormat}`) serialize as their canonical
+    `as_str()` slug — `VideoCodec::H264` ⇄ `"h264"`, `Other("x265")` ⇄
+    `"x265"` (no `{"Other": …}` wrapper).
+  - **`audio::SampleFormat`** — has BOTH an `Unknown(u32)` numeric escape
+    AND an `Other(SmolStr)` string escape, so it gets a bespoke impl rather
+    than the slug-only path. On **human-readable** formats (JSON / YAML /
+    …): named + `Other` values serialize as their `as_str()` string,
+    `Unknown(v)` as the bare numeric code `v`. On **non-human-readable**
+    binary formats (bincode / postcard / …): an explicit tagged
+    `{Code(u32), Slug(Cow<str>)}` wire enum, since `deserialize_any` is
+    unavailable there. All three arms round-trip losslessly on both.
+  - **Closed FFmpeg-coded enums with a lossless `Unknown(u32)` escape**
+    (`color::{Matrix, Primaries, Transfer, DynamicRange, ChromaLocation,
+    DcpTargetGamut}`, `pixel_format::PixelFormat`,
+    `frame::{Rotation, FieldOrder, StereoMode}`) and
+    `disposition::TrackDisposition` serialize as their `to_u32()` integer.
+    Round-trip is total: an unrecognised *code* deserializes to `Unknown(v)`.
+    These accept only integers — there is no slug form.
+  - **Strictly-closed coded enums (no `Unknown` arm)** —
+    `subtitle::TrackOrigin` (`Embedded`/`Sidecar`/`External`) and
+    `audio::BitRateMode` (`Cbr`/`Vbr`/`Abr`) — serialize as their `to_u32()`
+    integer but **reject unrecognised wire codes** as serde errors instead
+    of silently collapsing them to the default variant. Both expose a
+    `try_from_u32(v: u32) -> Option<Self>` method backing this behavior.
+  - **Plain structs** (`color::Info` and its HDR/mastering sub-structs,
+    `frame::{Dimensions, Rect, Rational, SampleAspectRatio, FrameRate}`,
+    `audio::{Loudness, Tags, Device}`… ) derive serde directly.
+  - **Validated structs** (`capture::GeoLocation`, `audio::Fingerprint`,
+    `audio::CoverArt`) route deserialize through their checking
+    constructors, so out-of-range / invariant-violating values are rejected
+    rather than materialised.
+  - **`lang::Language`** serializes as its canonical BCP-47 string
+    (`"en-US"`, `"zh-Hant-TW"`, `"und"`).
+  - Works at every capability tier: the no-alloc Copy types gain serde
+    under bare `--features serde`; the heap-tier types (codecs, formats,
+    audio metadata, capture, language) when paired with `alloc` / `std`
+    (forwarding `serde` to `smol_str` / `bytes`).
+
 ## [0.1.0] May 19, 2026
 
 Initial `mediaframe` release — this crate is a **rename** of the

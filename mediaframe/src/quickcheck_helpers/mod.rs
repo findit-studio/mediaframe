@@ -127,20 +127,67 @@ mod tests {
     );
   }
 
+  // Every one of `SampleFormat`'s 12 named variants must be reachable —
+  // plus the `Unknown(_)` and `Other(_)` escape arms. A weaker
+  // "some named appears" check (Codex round-2 finding) would pass even
+  // if half the slug list were missing.
   #[test]
-  fn reachability_sample_format_reaches_all_three_arms() {
+  fn reachability_sample_format_all_named_plus_arms() {
     use crate::audio::SampleFormat;
-    let mut saw_named = false;
+    use ::std::collections::HashSet;
+    let mut named: HashSet<::std::string::String> = HashSet::new();
     let mut saw_unknown = false;
     let mut saw_other = false;
-    drive(64, 2048, |g| match SampleFormat::arbitrary(g) {
+    drive(64, 4096, |g| match SampleFormat::arbitrary(g) {
       SampleFormat::Unknown(_) => saw_unknown = true,
       SampleFormat::Other(_) => saw_other = true,
-      _ => saw_named = true,
+      other => {
+        named.insert(other.as_str().to_string());
+      }
     });
+    assert_eq!(
+      named.len(),
+      12,
+      "missing named SampleFormat variants; observed: {named:?}"
+    );
+    assert!(saw_unknown, "SampleFormat: never observed `Unknown(_)`");
+    assert!(saw_other, "SampleFormat: never observed `Other(_)`");
+  }
+
+  // The range-weighted large coded enums must reach a broad set of named
+  // codes — `arb_via_code!` (uniform `u32`) hit the named range for
+  // `Matrix` / `Primaries` essentially never (Codex round-2 finding).
+  #[test]
+  fn reachability_range_weighted_enums_hit_named_codes() {
+    use ::std::collections::HashSet;
+    let mut matrix: HashSet<u32> = HashSet::new();
+    let mut primaries: HashSet<u32> = HashSet::new();
+    let mut transfer: HashSet<u32> = HashSet::new();
+    let mut pixel: HashSet<u32> = HashSet::new();
+    drive(64, 8192, |g| {
+      matrix.insert(crate::color::Matrix::arbitrary(g).to_u32());
+      primaries.insert(crate::color::Primaries::arbitrary(g).to_u32());
+      transfer.insert(crate::color::Transfer::arbitrary(g).to_u32());
+      pixel.insert(crate::pixel_format::PixelFormat::arbitrary(g).to_u32());
+    });
+    let in_range = |s: &HashSet<u32>, max: u32| s.iter().filter(|&&c| c <= max).count();
     assert!(
-      saw_named && saw_unknown && saw_other,
-      "SampleFormat missing arms: named={saw_named} unknown={saw_unknown} other={saw_other}"
+      in_range(&matrix, 17) >= 10,
+      "Matrix named-range coverage too low: {matrix:?}"
+    );
+    assert!(
+      in_range(&primaries, 22) >= 8,
+      "Primaries named-range coverage too low: {primaries:?}"
+    );
+    assert!(
+      in_range(&transfer, 18) >= 10,
+      "Transfer named-range coverage too low: {transfer:?}"
+    );
+    // PixelFormat: 270 named codes spread over 0..=947 — a generous floor.
+    assert!(
+      in_range(&pixel, 947) >= 40,
+      "PixelFormat named-range coverage too low: {} distinct",
+      in_range(&pixel, 947)
     );
   }
 

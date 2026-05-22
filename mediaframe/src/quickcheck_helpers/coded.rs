@@ -65,16 +65,50 @@ macro_rules! qc_via_code_weighted {
   )* };
 }
 
+/// Closed coded enum with `Unknown(u32)` arm whose named codes cluster in a
+/// low-integer range (FFmpeg `AV*` colour / pixel-format enums). Listing
+/// every named variant would be unwieldy (`PixelFormat` has 270), so this
+/// 50/50-splits an in-`0..=max_named` code (`u32 % (max+1)` — most land on
+/// named variants; gaps fall on `Unknown`) against a full-range `u32` (broad
+/// `Unknown` exercise). `arb_via_code!` alone almost never reaches the named
+/// range for these — uniform `u32` lands in `0..=947` ~1-in-4.5-million.
+macro_rules! qc_via_code_weighted_range {
+  ($($fn:ident => $ty:path, max_named = $max:expr);* $(;)?) => { $(
+    #[inline]
+    pub(crate) fn $fn(g: &mut Gen) -> $ty {
+      let code = if bool::arbitrary(g) {
+        // `$max < u32::MAX` for every covered type, so `+ 1` is safe.
+        u32::arbitrary(g) % ($max + 1)
+      } else {
+        u32::arbitrary(g)
+      };
+      <$ty>::from_u32(code)
+    }
+  )* };
+}
+
 // ─── coded enums (13) ────────────────────────────────────────────────────────
 
-// Large coded enums — uniform `u32` decode is fine; named-arm density is
-// high enough that explicit `choose` weighting would only slow coverage.
+// Bitflags: uniform `u32` produces reasonable flag combinations directly —
+// every bit pattern is meaningful, so raw-`u32` decode is correct here.
 arb_via_code! {
-  matrix            => crate::color::Matrix,
-  primaries         => crate::color::Primaries,
-  transfer          => crate::color::Transfer,
-  pixel_format      => crate::pixel_format::PixelFormat,
   track_disposition => crate::disposition::TrackDisposition,
+}
+
+// Large coded enums with an `Unknown(u32)` arm whose named codes cluster in
+// a low-integer range. Uniform `u32` essentially never reaches the named
+// range (Codex round-2 finding); `qc_via_code_weighted_range!` 50/50-splits
+// an in-range pick against a broad `Unknown` exercise. `max_named` = the
+// highest code emitted by each type's `to_u32`:
+//   - Matrix      — Self::YCgCoRo      => 17
+//   - Primaries   — Self::Ebu3213E     => 22
+//   - Transfer    — Self::AribStdB67Hlg => 18
+//   - PixelFormat — 270 named codes spanning 0..=947 (FFmpeg AVPixelFormat)
+qc_via_code_weighted_range! {
+  matrix       => crate::color::Matrix,            max_named = 17;
+  primaries    => crate::color::Primaries,         max_named = 22;
+  transfer     => crate::color::Transfer,          max_named = 18;
+  pixel_format => crate::pixel_format::PixelFormat, max_named = 947;
 }
 
 // Strictly-closed (no `Unknown` arm) — pick uniformly from named variants.

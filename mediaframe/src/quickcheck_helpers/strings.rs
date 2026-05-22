@@ -73,7 +73,12 @@ qc_open_string_enum!(
 /// pick over a sentinel slice (`Gen` has no `int_in_range`).
 pub(crate) fn sample_format(g: &mut ::quickcheck::Gen) -> crate::audio::SampleFormat {
   use ::quickcheck::Arbitrary;
-  const SLUGS: &[&str] = &["s16", "s32", "flt", "s16p", "fltp", "u8"];
+  // All 12 named slugs — a 6-slug subset (Codex round-2 finding) left
+  // the planar / double / 64-bit variants reachable only by the rare
+  // numeric arm drawing their exact `0..=11` code.
+  const SLUGS: &[&str] = &[
+    "u8", "s16", "s32", "flt", "dbl", "u8p", "s16p", "s32p", "fltp", "dblp", "s64", "s64p",
+  ];
   match *g.choose(&[0u8, 1, 2]).expect("non-empty arm-tag slice") {
     0 => <crate::audio::SampleFormat as ::core::str::FromStr>::from_str(
       g.choose(SLUGS).expect("non-empty SLUGS"),

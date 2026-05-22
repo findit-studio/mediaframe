@@ -67,11 +67,22 @@ qc_open_string_enum!(
   ["mono", "stereo", "5.1", "7.1", "quad", "5.0"]
 );
 
-qc_open_string_enum!(
-  sample_format,
-  crate::audio::SampleFormat,
-  ["s16", "s32", "flt", "s16p", "fltp", "u8"]
-);
+/// `SampleFormat` has 3 arms (`Unknown(u32)` / named / `Other(SmolStr)`)
+/// rather than 2, so it can't share the curated-slug-vs-`Other` macro path
+/// (which would only ever produce named or `Other`, never `Unknown`). 3-way
+/// pick over a sentinel slice (`Gen` has no `int_in_range`).
+pub(crate) fn sample_format(g: &mut ::quickcheck::Gen) -> crate::audio::SampleFormat {
+  use ::quickcheck::Arbitrary;
+  const SLUGS: &[&str] = &["s16", "s32", "flt", "s16p", "fltp", "u8"];
+  match *g.choose(&[0u8, 1, 2]).expect("non-empty arm-tag slice") {
+    0 => <crate::audio::SampleFormat as ::core::str::FromStr>::from_str(
+      g.choose(SLUGS).expect("non-empty SLUGS"),
+    )
+    .unwrap(),
+    1 => crate::audio::SampleFormat::from_u32(u32::arbitrary(g)),
+    _ => crate::audio::SampleFormat::Other(::smol_str::SmolStr::from(super::arb_string(g))),
+  }
+}
 
 qc_open_string_enum!(
   audio_container_format,

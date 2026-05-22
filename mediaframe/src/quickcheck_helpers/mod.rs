@@ -100,6 +100,51 @@ mod tests {
   }
 
   #[test]
+  fn reachability_small_coded_enums_hit_all_named() {
+    use ::std::collections::HashSet;
+    let mut br: HashSet<crate::audio::BitRateMode> = HashSet::new();
+    let mut to: HashSet<crate::subtitle::TrackOrigin> = HashSet::new();
+    drive(64, 2048, |g| {
+      br.insert(crate::audio::BitRateMode::arbitrary(g));
+      to.insert(crate::subtitle::TrackOrigin::arbitrary(g));
+    });
+    assert_eq!(br.len(), 3, "BitRateMode coverage: {br:?}");
+    assert_eq!(to.len(), 3, "TrackOrigin coverage: {to:?}");
+  }
+
+  #[test]
+  fn reachability_weighted_rotation_hits_named_and_unknown() {
+    use crate::frame::Rotation;
+    let mut saw_named = false;
+    let mut saw_unknown = false;
+    drive(64, 2048, |g| match Rotation::arbitrary(g) {
+      Rotation::Unknown(_) => saw_unknown = true,
+      _ => saw_named = true,
+    });
+    assert!(
+      saw_named && saw_unknown,
+      "Rotation missing arms: named={saw_named} unknown={saw_unknown}"
+    );
+  }
+
+  #[test]
+  fn reachability_sample_format_reaches_all_three_arms() {
+    use crate::audio::SampleFormat;
+    let mut saw_named = false;
+    let mut saw_unknown = false;
+    let mut saw_other = false;
+    drive(64, 2048, |g| match SampleFormat::arbitrary(g) {
+      SampleFormat::Unknown(_) => saw_unknown = true,
+      SampleFormat::Other(_) => saw_other = true,
+      _ => saw_named = true,
+    });
+    assert!(
+      saw_named && saw_unknown && saw_other,
+      "SampleFormat missing arms: named={saw_named} unknown={saw_unknown} other={saw_other}"
+    );
+  }
+
+  #[test]
   fn coded_enums_roundtrip_through_code() {
     drive(64, 128, |g| {
       let m = crate::color::Matrix::arbitrary(g);

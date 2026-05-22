@@ -14,6 +14,11 @@ use ::quickcheck::{Arbitrary, Gen};
 /// Emits a `pub(crate) fn snake(g: &mut Gen) -> Ty` that decodes an arbitrary
 /// `u32` through the type's lossless `from_u32` — total coverage of
 /// `Unknown(u32)` / `Reserved(_)` arms in one line per type.
+///
+/// Used for LARGE coded enums (matrix / primaries / transfer / pixel format /
+/// disposition bitflags) where a uniform-`u32` decode hits named code points
+/// often enough that the long tail of `Unknown` codes is the dominant
+/// contributor and a `choose`-biased weighting would only slow coverage.
 macro_rules! arb_via_code {
   ($($fn:ident => $ty:path),* $(,)?) => { $(
     #[inline]
@@ -23,22 +28,71 @@ macro_rules! arb_via_code {
   )* };
 }
 
+/// Strictly-closed coded enum (no `Unknown` arm) — pick uniformly from named.
+///
+/// `arb_via_code!` is unsuitable for tiny enums like `BitRateMode` (3 named
+/// codes, no `Unknown`): `u32::arbitrary(g)` collapses to the `_ =>` default
+/// arm of `from_u32` (~all 4 G values), so e.g. `Vbr` / `Abr` are never
+/// exercised. `choose` over a `const NAMED: &[Ty]` slice fixes this.
+macro_rules! qc_via_named_variants {
+  ($($fn:ident => $ty:path, [$($variant:ident),+ $(,)?]);* $(;)?) => { $(
+    #[inline]
+    pub(crate) fn $fn(g: &mut Gen) -> $ty {
+      const NAMED: &[$ty] = &[$(<$ty>::$variant),+];
+      *g.choose(NAMED).expect("non-empty NAMED slice")
+    }
+  )* };
+}
+
+/// Closed coded enum with `Unknown(u32)` arm — 50/50 between named variants
+/// (via `choose`) and an arbitrary `u32` (via `from_u32`, which may land on a
+/// named code or fall through to `Unknown`).
+///
+/// Without the bias, small enums like `Rotation` (4 named + `Unknown`)
+/// virtually never sample a named variant from a uniform `u32` decode. The
+/// 50/50 split keeps `Unknown` reachable while guaranteeing named-arm coverage.
+macro_rules! qc_via_code_weighted {
+  ($($fn:ident => $ty:path, [$($variant:ident),+ $(,)?]);* $(;)?) => { $(
+    #[inline]
+    pub(crate) fn $fn(g: &mut Gen) -> $ty {
+      if bool::arbitrary(g) {
+        const NAMED: &[$ty] = &[$(<$ty>::$variant),+];
+        *g.choose(NAMED).expect("non-empty NAMED slice")
+      } else {
+        <$ty>::from_u32(u32::arbitrary(g))
+      }
+    }
+  )* };
+}
+
 // ─── coded enums (13) ────────────────────────────────────────────────────────
 
+// Large coded enums — uniform `u32` decode is fine; named-arm density is
+// high enough that explicit `choose` weighting would only slow coverage.
 arb_via_code! {
   matrix            => crate::color::Matrix,
   primaries         => crate::color::Primaries,
   transfer          => crate::color::Transfer,
-  dynamic_range     => crate::color::DynamicRange,
-  chroma_location   => crate::color::ChromaLocation,
-  dcp_target_gamut  => crate::color::DcpTargetGamut,
   pixel_format      => crate::pixel_format::PixelFormat,
-  rotation          => crate::frame::Rotation,
-  field_order       => crate::frame::FieldOrder,
-  stereo_mode       => crate::frame::StereoMode,
-  track_origin      => crate::subtitle::TrackOrigin,
-  bit_rate_mode     => crate::audio::BitRateMode,
   track_disposition => crate::disposition::TrackDisposition,
+}
+
+// Strictly-closed (no `Unknown` arm) — pick uniformly from named variants.
+qc_via_named_variants! {
+  bit_rate_mode => crate::audio::BitRateMode,        [Cbr, Vbr, Abr];
+  track_origin  => crate::subtitle::TrackOrigin,     [Embedded, Sidecar, External];
+}
+
+// Closed + `Unknown(u32)`, < 10 named variants — 50/50 named-vs-`from_u32`.
+qc_via_code_weighted! {
+  rotation         => crate::frame::Rotation,        [D0, D90, D180, D270];
+  field_order      => crate::frame::FieldOrder,      [Progressive, Tt, Bb, Tb, Bt];
+  stereo_mode      => crate::frame::StereoMode,
+    [Mono, SideBySide, TopBottom, FrameSequence, Checkerboard, SideBySideQuincunx, Lines, Columns];
+  dynamic_range    => crate::color::DynamicRange,    [Unspecified, Limited, Full];
+  chroma_location  => crate::color::ChromaLocation,
+    [Unspecified, Left, Center, TopLeft, Top, BottomLeft, Bottom];
+  dcp_target_gamut => crate::color::DcpTargetGamut,  [DciP3, Rec709, Rec2020];
 }
 
 // ─── colour structs ──────────────────────────────────────────────────────────

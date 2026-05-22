@@ -1676,6 +1676,14 @@ fn build_codec_enum(
 ) -> TokenStream {
   let enum_ident = format_ident!("{}", type_name);
 
+  // The `quickcheck` feature derives `quickcheck_richderive::Arbitrary` on
+  // each codec enum, routing generation through a per-type helper fn
+  // (`quickcheck_helpers::strings::{video,audio,subtitle}_codec`). Since
+  // `codec.rs` is generated, that derive `cfg_attr` must be emitted *here*
+  // — a hand-edit would not survive `gen-codec` and would fail the
+  // freshness diff in `cargo xtask check`.
+  let qc_helper = format!("crate::quickcheck_helpers::strings::{media_type}_codec");
+
   let variants: Vec<(Ident, String)> = codecs
     .keys()
     .map(|n| (Ident::new(&codec_ident(n), Span::call_site()), n.clone()))
@@ -1764,6 +1772,11 @@ fn build_codec_enum(
 
   quote! {
     #[doc = #enum_doc]
+    #[cfg_attr(
+      feature = "quickcheck",
+      derive(::quickcheck_richderive::Arbitrary),
+      quickcheck(arbitrary = #qc_helper)
+    )]
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
     #[display("{}", self.as_str())]
     #[non_exhaustive]

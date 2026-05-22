@@ -54,10 +54,11 @@ pub(crate) fn cover_art(g: &mut ::quickcheck::Gen) -> crate::audio::CoverArt {
   crate::audio::CoverArt::try_new(mime, data).expect("mime + data non-empty by construction")
 }
 
-/// `audio::Tags` — `new()` + builder setters covering the same representative
-/// subset as the `arbitrary_impls` cluster (title/artist/album_artist/album/
-/// composer/genre/comment + year/track_number/track_total/disc_number/
-/// disc_total).
+/// `audio::Tags` — `new()` + every builder setter: the seven string fields
+/// (title/artist/album_artist/album/composer/genre/comment), the five
+/// `Option<u16>` numeric fields (year/track_number/track_total/disc_number/
+/// disc_total), and `language` (Codex round-4 finding — it was previously
+/// omitted, so every generated `Tags` had `language == None`).
 pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
   crate::audio::Tags::new()
     .with_title(::smol_str::SmolStr::from(
@@ -86,6 +87,15 @@ pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
     .maybe_track_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
     .maybe_disc_number(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
     .maybe_disc_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
+    // `language` is `Option<SmolStr>`; generate both `None` and
+    // `Some(<arbitrary string>)` so the absent / present halves are covered.
+    .maybe_language(if bool::arbitrary(g) {
+      Some(::smol_str::SmolStr::from(
+        <::std::string::String as Arbitrary>::arbitrary(g),
+      ))
+    } else {
+      None
+    })
 }
 
 /// `capture::Device` — `new()` + `with_make` / `with_model`. Both fields are

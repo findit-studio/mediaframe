@@ -214,4 +214,41 @@ mod tests {
       );
     });
   }
+
+  // `Tags.language` was omitted from the generator (Codex round-4 finding) —
+  // every generated `Tags` had `language == None`. Both the absent (`None`)
+  // and present (`Some(_)`) states must be reachable.
+  #[test]
+  fn reachability_tags_language_hits_none_and_some() {
+    let mut saw_none = false;
+    let mut saw_some = false;
+    drive(64, 1024, |g| {
+      match crate::audio::Tags::arbitrary(g).language() {
+        None => saw_none = true,
+        Some(_) => saw_some = true,
+      }
+    });
+    assert!(saw_none, "Tags.language never generated `None`");
+    assert!(saw_some, "Tags.language never generated `Some(_)`");
+  }
+
+  // Arbitrary-generated values must survive a serde round-trip unchanged
+  // (Codex round-4 finding). Every helper here produces only *canonical*
+  // values — string construction routes through `FromStr`, so an `Other`
+  // can never hold a named slug, and `from_u32` codes are canonical.
+  #[cfg(feature = "serde")]
+  #[test]
+  fn arbitrary_values_survive_serde_round_trip() {
+    drive(64, 4096, |g| {
+      let sf = crate::audio::SampleFormat::arbitrary(g);
+      let json = serde_json::to_string(&sf).unwrap();
+      let back: crate::audio::SampleFormat = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, sf, "SampleFormat lost identity via serde: {json}");
+
+      let vc = crate::codec::VideoCodec::arbitrary(g);
+      let json = serde_json::to_string(&vc).unwrap();
+      let back: crate::codec::VideoCodec = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, vc, "VideoCodec lost identity via serde: {json}");
+    });
+  }
 }

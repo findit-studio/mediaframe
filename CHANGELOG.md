@@ -14,9 +14,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   serde-`json` value matches their representation:
   - **Open** codec / format enums (`codec::{Video,Audio,Subtitle}Codec`,
     `container::Format`, `subtitle::Format`,
-    `audio::{ChannelLayout, SampleFormat, ContainerFormat}`) serialize as
-    their canonical `as_str()` slug — `VideoCodec::H264` ⇄ `"h264"`,
-    `Other("x265")` ⇄ `"x265"` (no `{"Other": …}` wrapper).
+    `audio::{ChannelLayout, ContainerFormat}`) serialize as their canonical
+    `as_str()` slug — `VideoCodec::H264` ⇄ `"h264"`, `Other("x265")` ⇄
+    `"x265"` (no `{"Other": …}` wrapper).
+  - **`audio::SampleFormat`** — has BOTH an `Unknown(u32)` numeric escape
+    AND an `Other(SmolStr)` string escape, so it gets a bespoke impl rather
+    than the slug-only path. On **human-readable** formats (JSON / YAML /
+    …): named + `Other` values serialize as their `as_str()` string,
+    `Unknown(v)` as the bare numeric code `v`. On **non-human-readable**
+    binary formats (bincode / postcard / …): an explicit tagged
+    `{Code(u32), Slug(Cow<str>)}` wire enum, since `deserialize_any` is
+    unavailable there. All three arms round-trip losslessly on both.
   - **Closed FFmpeg-coded enums with a lossless `Unknown(u32)` escape**
     (`color::{Matrix, Primaries, Transfer, DynamicRange, ChromaLocation,
     DcpTargetGamut}`, `pixel_format::PixelFormat`,

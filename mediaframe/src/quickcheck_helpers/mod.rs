@@ -249,6 +249,13 @@ mod tests {
       let json = serde_json::to_string(&vc).unwrap();
       let back: crate::codec::VideoCodec = serde_json::from_str(&json).unwrap();
       assert_eq!(back, vc, "VideoCodec lost identity via serde: {json}");
+
+      // `Loudness` is the serde-derived composite struct with `f32` fields —
+      // the round-trip only holds if every field is finite (Codex round-5).
+      let ld = crate::audio::Loudness::arbitrary(g);
+      let json = serde_json::to_string(&ld).unwrap();
+      let back: crate::audio::Loudness = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, ld, "Loudness lost identity via serde: {json}");
     });
   }
 }

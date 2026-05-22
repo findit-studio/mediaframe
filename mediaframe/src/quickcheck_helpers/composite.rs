@@ -12,15 +12,21 @@
 
 use ::quickcheck::Arbitrary;
 
-/// `audio::Loudness` — plain `new(f32, f32, f32, f32)` constructor; no
-/// validation, so the four `f32` fields pass straight through.
+/// `audio::Loudness` — plain `new(f32, f32, f32, f32)` constructor.
+///
+/// The four fields are generated FINITE (Codex round-5 finding): raw
+/// `f32::arbitrary` yields NaN / ±inf, which JSON serializes as `null`
+/// and then fails to deserialize back into `f32`. A bounded integer
+/// `[-10_000_000, 10_000_000]` mapped to `f32 / 100.0` gives a finite
+/// value in [-100_000, 100_000] — covers every real EBU R128 scalar
+/// (LUFS / LU / dBTP / dBFS) while staying serde-round-trippable.
 pub(crate) fn loudness(g: &mut ::quickcheck::Gen) -> crate::audio::Loudness {
-  crate::audio::Loudness::new(
-    f32::arbitrary(g),
-    f32::arbitrary(g),
-    f32::arbitrary(g),
-    f32::arbitrary(g),
-  )
+  fn finite(g: &mut ::quickcheck::Gen) -> f32 {
+    // `Gen` has no `int_in_range`; bound via `rem_euclid` on an arbitrary
+    // `i32` (always non-negative remainder), then shift into range.
+    (i32::arbitrary(g).rem_euclid(20_000_001) - 10_000_000) as f32 / 100.0
+  }
+  crate::audio::Loudness::new(finite(g), finite(g), finite(g), finite(g))
 }
 
 /// `audio::Fingerprint` — `try_new(algo, value)` rejects empty `algo`; fall

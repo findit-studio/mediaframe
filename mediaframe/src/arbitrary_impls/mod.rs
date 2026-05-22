@@ -334,6 +334,13 @@ mod tests {
       in_range(&matrix, 17) >= 10,
       "Matrix named-range coverage too low: {matrix:?}"
     );
+    // `Matrix::Bt601` is the domain-extension variant at `DOMAIN_EXT_BASE`
+    // — must be reached by the hand-written 3-way `Matrix` impl, not just
+    // the rare full-`u32` fallback.
+    assert!(
+      matrix.contains(&crate::color::DOMAIN_EXT_BASE),
+      "Matrix::Bt601 (DOMAIN_EXT_BASE) never generated"
+    );
     assert!(
       in_range(&primaries, 22) >= 8,
       "Primaries named-range coverage too low: {primaries:?}"

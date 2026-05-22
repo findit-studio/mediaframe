@@ -93,12 +93,13 @@ pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
     .maybe_track_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
     .maybe_disc_number(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
     .maybe_disc_total(<::core::option::Option<u16> as Arbitrary>::arbitrary(g))
-    // `language` is `Option<SmolStr>`; generate both `None` and
-    // `Some(<arbitrary string>)` so the absent / present halves are covered.
+    // `language` — empty strings normalize to `None`: buffa writes field 13
+    // only for a non-empty language and decodes empty back to `None`, so
+    // `Some("")` would not survive a wire round-trip (Codex round-8 finding).
+    // Yields only `None` or `Some(non-empty)`.
     .maybe_language(if bool::arbitrary(g) {
-      Some(::smol_str::SmolStr::from(
-        <::std::string::String as Arbitrary>::arbitrary(g),
-      ))
+      let s = <::std::string::String as Arbitrary>::arbitrary(g);
+      (!s.is_empty()).then(|| ::smol_str::SmolStr::from(s))
     } else {
       None
     })

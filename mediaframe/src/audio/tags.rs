@@ -24,6 +24,14 @@ use crate::lang::Language;
 /// - **`language`** is `Option<Language>`: `None` = no language tag,
 ///   `Some(Language)` = a parsed BCP-47 tag (which may itself be the
 ///   `und` "undetermined" value — distinct from "tag absent").
+///
+/// **`language` normalization** — [`Language`] models the BCP-47
+/// *language / script / region* subtags only; a tag carrying a *variant*
+/// (`de-CH-1901`) or *extension* (`-u-…`) is accepted but normalized to
+/// its language/script/region core, and an unparseable wire value decodes
+/// to `und`. Embedded-metadata language tags are language/script/region in
+/// practice, so this is lossless for real input; callers needing the
+/// verbatim tag should not route it through `Tags`.
 // `serde(default)` keeps sparse / older-schema JSON deserializable: missing
 // fields fall back to the type-level `Default` impl (`Tags::new()` — all
 // fields absent), matching the absent-vs-present convention above.
@@ -57,6 +65,10 @@ pub struct Tags {
   /// Total discs in the release; `0` means absent.
   disc_total: u16,
   /// Parsed BCP-47 language tag; `None` means no language tag present.
+  // golden-rule §9: an `Option` serde field skip-serializes when `None` —
+  // absent language is an omitted key, never `"language":null`. The
+  // container `serde(default)` restores it on the way back.
+  #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
   language: Option<Language>,
 }
 

@@ -1239,7 +1239,14 @@ impl MasteringDisplay {
 /// stays per-frame closed-form enums only; HDR10 static metadata is
 /// clip / stream level and optional, so it lives in its own type.
 /// (Dynamic HDR — HDR10+ / Dolby Vision RPU — is out of scope here.)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// golden-rule §9: both fields are `Option` — skip-serialize when `None`
+// (never emit `null`); `serde(default)` (whole struct has a meaningful
+// all-`None` `Default`) restores an omitted field on deserialize.
+#[cfg_attr(
+  feature = "serde",
+  derive(serde::Serialize, serde::Deserialize),
+  serde(default)
+)]
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -1247,7 +1254,9 @@ impl MasteringDisplay {
 )]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HdrStaticMetadata {
+  #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
   mastering: Option<MasteringDisplay>,
+  #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
   content_light: Option<ContentLightLevel>,
 }
 

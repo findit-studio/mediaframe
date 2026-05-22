@@ -37,10 +37,18 @@ const _: () = {
 
   impl Serialize for GeoLocation {
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-      let mut st = ser.serialize_struct("GeoLocation", 3)?;
+      // golden-rule §9: `altitude` is optional — skip the field entirely
+      // when absent rather than emitting `"altitude":null`. The deserialize
+      // `Shadow` already has `#[serde(default)]` on it, so an omitted key
+      // round-trips back to `None`.
+      let len = 2 + usize::from(self.altitude.is_some());
+      let mut st = ser.serialize_struct("GeoLocation", len)?;
       st.serialize_field("lat", &self.lat)?;
       st.serialize_field("lon", &self.lon)?;
-      st.serialize_field("altitude", &self.altitude)?;
+      match &self.altitude {
+        Some(alt) => st.serialize_field("altitude", alt)?,
+        None => st.skip_field("altitude")?,
+      }
       st.end()
     }
   }

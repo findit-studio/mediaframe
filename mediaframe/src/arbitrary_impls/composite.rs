@@ -22,12 +22,16 @@
 
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Loudness {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
-    Ok(Self::new(
-      <f32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
-      <f32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
-      <f32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
-      <f32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
-    ))
+    // `f32::arbitrary` builds floats from raw bits — it can yield NaN / ±inf,
+    // which JSON serializes as `null` and then fails to deserialize back
+    // into `f32` (Codex round-5 finding). Generate FINITE values by mapping
+    // a bounded integer: `[-10_000_000, 10_000_000] / 100` → finite f32 in
+    // [-100_000.0, 100_000.0], comfortably covering every real EBU R128
+    // scalar (LUFS / LU / dBTP / dBFS) while staying serde-round-trippable.
+    fn finite(u: &mut ::arbitrary::Unstructured<'_>) -> ::arbitrary::Result<f32> {
+      Ok(u.int_in_range(-10_000_000i32..=10_000_000)? as f32 / 100.0)
+    }
+    Ok(Self::new(finite(u)?, finite(u)?, finite(u)?, finite(u)?))
   }
 }
 

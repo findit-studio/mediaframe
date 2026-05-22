@@ -243,12 +243,17 @@ mod tests {
   // `arb_via_named_variants!` now picks uniformly from the named set.
   #[test]
   fn reachability_small_closed_coded_enums_hit_all_named() {
-    use ::std::collections::HashSet;
-    let mut br: HashSet<crate::audio::BitRateMode> = HashSet::new();
-    let mut to: HashSet<crate::subtitle::TrackOrigin> = HashSet::new();
+    // `BTreeSet`, not `HashSet` — under `--no-default-features --features
+    // arbitrary` the crate is no-std (`arbitrary` pulls only `alloc`), where
+    // `::std` aliases to `alloc` and `alloc` has no `HashSet` (Codex round-5
+    // finding). `BitRateMode` / `TrackOrigin` aren't `Ord`, so key the set on
+    // their `to_u32()` code.
+    use ::std::collections::BTreeSet;
+    let mut br: BTreeSet<u32> = BTreeSet::new();
+    let mut to: BTreeSet<u32> = BTreeSet::new();
     drive_per_round(0x12C0DE5_u64, 2048, |u| {
-      br.insert(crate::audio::BitRateMode::arbitrary(u).unwrap());
-      to.insert(crate::subtitle::TrackOrigin::arbitrary(u).unwrap());
+      br.insert(crate::audio::BitRateMode::arbitrary(u).unwrap().to_u32());
+      to.insert(crate::subtitle::TrackOrigin::arbitrary(u).unwrap().to_u32());
     });
     assert_eq!(br.len(), 3, "BitRateMode coverage: {br:?}");
     assert_eq!(to.len(), 3, "TrackOrigin coverage: {to:?}");
@@ -292,8 +297,8 @@ mod tests {
   #[test]
   fn reachability_sample_format_all_named_plus_arms() {
     use crate::audio::SampleFormat;
-    use ::std::collections::HashSet;
-    let mut named: HashSet<::std::string::String> = HashSet::new();
+    use ::std::collections::BTreeSet;
+    let mut named: BTreeSet<::std::string::String> = BTreeSet::new();
     let mut saw_unknown = false;
     let mut saw_other = false;
     drive_per_round(0x3F0_FEED_u64, 4096, |u| {
@@ -301,7 +306,10 @@ mod tests {
         SampleFormat::Unknown(_) => saw_unknown = true,
         SampleFormat::Other(_) => saw_other = true,
         other => {
-          named.insert(other.as_str().to_string());
+          // `String::from`, not `.to_string()` — `ToString` is not in the
+          // no-std prelude (this test compiles under `--features arbitrary`,
+          // which is alloc-only).
+          named.insert(::std::string::String::from(other.as_str()));
         }
       }
     });
@@ -319,11 +327,11 @@ mod tests {
   // for `Matrix` / `Primaries` essentially never (Codex round-2 finding).
   #[test]
   fn reachability_range_weighted_enums_hit_named_codes() {
-    use ::std::collections::HashSet;
-    let mut matrix: HashSet<u32> = HashSet::new();
-    let mut primaries: HashSet<u32> = HashSet::new();
-    let mut transfer: HashSet<u32> = HashSet::new();
-    let mut pixel: HashSet<u32> = HashSet::new();
+    use ::std::collections::BTreeSet;
+    let mut matrix: BTreeSet<u32> = BTreeSet::new();
+    let mut primaries: BTreeSet<u32> = BTreeSet::new();
+    let mut transfer: BTreeSet<u32> = BTreeSet::new();
+    let mut pixel: BTreeSet<u32> = BTreeSet::new();
     drive_per_round(0x4A_C0DE5_u64, 8192, |u| {
       matrix.insert(crate::color::Matrix::arbitrary(u).unwrap().to_u32());
       primaries.insert(crate::color::Primaries::arbitrary(u).unwrap().to_u32());
@@ -335,7 +343,7 @@ mod tests {
       );
     });
     // Count distinct codes within each type's named range.
-    let in_range = |s: &HashSet<u32>, max: u32| s.iter().filter(|&&c| c <= max).count();
+    let in_range = |s: &BTreeSet<u32>, max: u32| s.iter().filter(|&&c| c <= max).count();
     assert!(
       in_range(&matrix, 17) >= 10,
       "Matrix named-range coverage too low: {matrix:?}"
@@ -383,12 +391,12 @@ mod tests {
   }
 
   // Arbitrary-generated values must survive a serde round-trip unchanged
-  // (Codex round-4 finding). Every `arbitrary` impl here generates only
-  // *canonical* values — `Unknown(v)` whose `v` is canonical, named
-  // variants, and `Other` slugs that are genuinely non-named — so the
-  // bespoke `SampleFormat` serde and the slug serde for the open enums
-  // both preserve identity. A generator that produced `Other("s16")` or
-  // `Unknown(<named code>)` would fail this.
+  // (Codex round-4/5 findings). Every `arbitrary` impl here generates only
+  // *canonical* values: `Unknown(v)` whose `v` is canonical, named variants,
+  // `Other` slugs that are genuinely non-named, and — crucially — `Loudness`
+  // with FINITE floats (non-finite `f32` would JSON-serialize as `null` and
+  // fail to deserialize). A generator that produced `Other("s16")`,
+  // `Unknown(<named code>)`, or a NaN/inf `Loudness` field would fail this.
   #[cfg(feature = "serde")]
   #[test]
   fn arbitrary_values_survive_serde_round_trip() {
@@ -402,6 +410,13 @@ mod tests {
       let json = serde_json::to_string(&vc).unwrap();
       let back: crate::codec::VideoCodec = serde_json::from_str(&json).unwrap();
       assert_eq!(back, vc, "VideoCodec lost identity via serde: {json}");
+
+      // `Loudness` is the serde-derived composite struct with `f32` fields —
+      // the round-trip only holds if every field is finite.
+      let ld = crate::audio::Loudness::arbitrary(u).unwrap();
+      let json = serde_json::to_string(&ld).unwrap();
+      let back: crate::audio::Loudness = serde_json::from_str(&json).unwrap();
+      assert_eq!(back, ld, "Loudness lost identity via serde: {json}");
     });
   }
 }

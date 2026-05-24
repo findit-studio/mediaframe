@@ -4,7 +4,7 @@
 
 use core::str::FromStr;
 
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use smol_str::SmolStr;
 
 /// Audio sample format — FFmpeg `AVSampleFormat`.
@@ -192,11 +192,16 @@ impl FromStr for SampleFormat {
   derive(::quickcheck_richderive::Arbitrary),
   quickcheck(arbitrary = "crate::quickcheck_helpers::strings::audio_container_format")
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant, Unwrap, TryUnwrap)]
 #[display("{}", self.as_str())]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 #[non_exhaustive]
 pub enum ContainerFormat {
-  /// MPEG-1/2 Audio Layer III (`.mp3`).
+  /// MPEG-1/2 Audio Layer III (`.mp3`). The auto-derived predicate
+  /// name would be `is_mp_3` (digit-snake-case); the hand-written
+  /// [`Self::is_mp3`] uses the cleaner name.
+  #[is_variant(ignore)]
   Mp3,
   /// Raw AAC ADTS / ADIF stream (`.aac`).
   Aac,
@@ -222,6 +227,10 @@ pub enum ContainerFormat {
   /// Matroska Audio (`.mka`).
   Mka,
   /// MPEG-4 audio-only (`.m4a`) — AAC / ALAC in an MP4 box layout.
+  /// The auto-derived predicate name would be `is_m_4_a`
+  /// (digit-snake-case); the hand-written [`Self::is_m4a`] uses the
+  /// cleaner name.
+  #[is_variant(ignore)]
   M4a,
   /// Apple Core Audio Format (`.caf`).
   Caf,
@@ -242,6 +251,20 @@ impl Default for ContainerFormat {
 }
 
 impl ContainerFormat {
+  /// True iff this is [`Self::Mp3`]. Hand-written to override the
+  /// auto-derived `is_mp_3` (digit-snake-case is ugly).
+  #[inline(always)]
+  pub const fn is_mp3(&self) -> bool {
+    matches!(self, Self::Mp3)
+  }
+
+  /// True iff this is [`Self::M4a`]. Hand-written to override the
+  /// auto-derived `is_m_4_a` (digit-snake-case is ugly).
+  #[inline(always)]
+  pub const fn is_m4a(&self) -> bool {
+    matches!(self, Self::M4a)
+  }
+
   /// File-extension-style slug (`"mp3"`, `"aac"`, `"flac"`, …).
   pub fn as_str(&self) -> &str {
     match self {
@@ -260,6 +283,37 @@ impl ContainerFormat {
       Self::M4a => "m4a",
       Self::Caf => "caf",
       Self::Other(s) => s.as_str(),
+    }
+  }
+
+  /// Primary file-on-disk extension (without the leading dot —
+  /// `"mp3"`, `"flac"`, `"m4a"`, …). For most audio containers the
+  /// extension matches the FFmpeg slug from [`Self::as_str`]; the
+  /// exception is `Alac`, which has no standalone extension (the
+  /// codec rides inside `.m4a`), so this method returns `"m4a"`.
+  ///
+  /// Returns `""` for [`Self::Other`] — the open variant carries an
+  /// FFmpeg slug, not an extension, so the mapping is unknown.
+  /// Returns `&'static str` (not `&str`) so the value is compile-time
+  /// stable and the method is `const`.
+  #[inline(always)]
+  pub const fn as_extension(&self) -> &'static str {
+    match self {
+      Self::Mp3 => "mp3",
+      Self::Aac => "aac",
+      Self::Flac => "flac",
+      Self::Ogg => "ogg",
+      Self::Opus => "opus",
+      Self::Wav => "wav",
+      Self::Aiff => "aiff",
+      Self::Alac => "m4a",
+      Self::Wma => "wma",
+      Self::Ape => "ape",
+      Self::Wv => "wv",
+      Self::Mka => "mka",
+      Self::M4a => "m4a",
+      Self::Caf => "caf",
+      Self::Other(_) => "",
     }
   }
 }
@@ -380,6 +434,47 @@ mod tests {
     assert_eq!(
       ContainerFormat::Other(SmolStr::new("snd")).to_string(),
       "snd"
+    );
+  }
+
+  #[test]
+  fn audio_container_unwrap_other_borrowed_view() {
+    // `Other(SmolStr)` carries data — golden-rule §2 mandates
+    // unwrap/try_unwrap accessors for data-carrying variants.
+    let v = ContainerFormat::Other(SmolStr::new("custom_audio"));
+    assert_eq!(v.unwrap_other_ref().as_str(), "custom_audio");
+    assert!(v.try_unwrap_other_ref().is_ok());
+    let named = ContainerFormat::Flac;
+    assert!(named.try_unwrap_other_ref().is_err());
+  }
+
+  #[test]
+  fn audio_container_as_extension_matches_disk_form() {
+    // Most variants: slug == extension.
+    for (variant, ext) in [
+      (ContainerFormat::Mp3, "mp3"),
+      (ContainerFormat::Aac, "aac"),
+      (ContainerFormat::Flac, "flac"),
+      (ContainerFormat::Ogg, "ogg"),
+      (ContainerFormat::Opus, "opus"),
+      (ContainerFormat::Wav, "wav"),
+      (ContainerFormat::Aiff, "aiff"),
+      (ContainerFormat::Wma, "wma"),
+      (ContainerFormat::Ape, "ape"),
+      (ContainerFormat::Wv, "wv"),
+      (ContainerFormat::Mka, "mka"),
+      (ContainerFormat::M4a, "m4a"),
+      (ContainerFormat::Caf, "caf"),
+    ] {
+      assert_eq!(variant.as_extension(), ext);
+    }
+    // ALAC has no standalone extension — rides in `.m4a`.
+    assert_eq!(ContainerFormat::Alac.as_str(), "alac");
+    assert_eq!(ContainerFormat::Alac.as_extension(), "m4a");
+    // Other has no known extension.
+    assert_eq!(
+      ContainerFormat::Other(SmolStr::new("weird")).as_extension(),
+      ""
     );
   }
 }

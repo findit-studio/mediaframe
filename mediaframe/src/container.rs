@@ -8,7 +8,7 @@
 
 use core::str::FromStr;
 
-use derive_more::{Display, IsVariant};
+use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
 use smol_str::SmolStr;
 
 /// Top-level multimedia container format.
@@ -31,13 +31,18 @@ use smol_str::SmolStr;
   derive(::quickcheck_richderive::Arbitrary),
   quickcheck(arbitrary = "crate::quickcheck_helpers::strings::container_format")
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Display, IsVariant, Unwrap, TryUnwrap)]
 #[display("{}", self.as_str())]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
 #[non_exhaustive]
 pub enum Format {
   /// QuickTime File Format (`.mov`).
   Mov,
-  /// ISO Base Media / MPEG-4 Part 14 (`.mp4`).
+  /// ISO Base Media / MPEG-4 Part 14 (`.mp4`). The auto-derived
+  /// predicate name would be `is_mp_4` (digit-snake-case); the
+  /// hand-written [`Self::is_mp4`] uses the cleaner name.
+  #[is_variant(ignore)]
   Mp4,
   /// Matroska (`.mkv`).
   Mkv,
@@ -86,6 +91,13 @@ impl Default for Format {
 }
 
 impl Format {
+  /// True iff this is [`Self::Mp4`]. Hand-written to override the
+  /// auto-derived `is_mp_4` (digit-snake-case is ugly).
+  #[inline(always)]
+  pub const fn is_mp4(&self) -> bool {
+    matches!(self, Self::Mp4)
+  }
+
   /// Canonical extension-style slug (`"mov"`, `"mp4"`, `"mkv"`,
   /// `"webm"`, `"3gp"`, …).
   pub fn as_str(&self) -> &str {
@@ -105,6 +117,37 @@ impl Format {
       Self::Gxf => "gxf",
       Self::Threegp => "3gp",
       Self::Other(s) => s.as_str(),
+    }
+  }
+
+  /// Primary file-on-disk extension (without the leading dot —
+  /// `"mov"`, `"mp4"`, `"ts"`, `"ogv"`, `"3gp"`, …). Distinct from
+  /// the FFmpeg slug returned by [`Self::as_str`]: `MpegTs` returns
+  /// `"ts"` here (vs `"mpegts"`); `Ogg` returns `"ogv"` for the
+  /// video-bearing form (vs the generic Ogg slug).
+  ///
+  /// Returns `""` for [`Self::Other`] — the open variant carries an
+  /// FFmpeg slug, not an extension, so the mapping is unknown.
+  /// Returns `&'static str` (not `&str`) so the value is compile-time
+  /// stable and the method is `const`.
+  #[inline(always)]
+  pub const fn as_extension(&self) -> &'static str {
+    match self {
+      Self::Mov => "mov",
+      Self::Mp4 => "mp4",
+      Self::Mkv => "mkv",
+      Self::Webm => "webm",
+      Self::Avi => "avi",
+      Self::Flv => "flv",
+      Self::MpegTs => "ts",
+      Self::Ogg => "ogv",
+      Self::Asf => "asf",
+      Self::Rm => "rm",
+      Self::Wmv => "wmv",
+      Self::Mxf => "mxf",
+      Self::Gxf => "gxf",
+      Self::Threegp => "3gp",
+      Self::Other(_) => "",
     }
   }
 }
@@ -169,8 +212,42 @@ mod tests {
 
   #[test]
   fn is_variant_predicates() {
-    assert!(Format::Mp4.is_mp_4());
+    // Hand-written `is_mp4` (vs the auto-derived `is_mp_4` that the
+    // `IsVariant` derive would otherwise produce) — see the
+    // `#[is_variant(ignore)]` attribute on `Format::Mp4`.
+    assert!(Format::Mp4.is_mp4());
+    assert!(!Format::Mkv.is_mp4());
     assert!(Format::Threegp.is_threegp());
     assert!(Format::Other(SmolStr::new("x")).is_other());
+  }
+
+  #[test]
+  fn unwrap_other_borrowed_view() {
+    // `Other(SmolStr)` carries data — golden-rule §2 mandates
+    // unwrap/try_unwrap accessors for data-carrying variants.
+    let v = Format::Other(SmolStr::new("custom"));
+    assert_eq!(v.unwrap_other_ref().as_str(), "custom");
+    assert!(v.try_unwrap_other_ref().is_ok());
+    let named = Format::Mp4;
+    assert!(named.try_unwrap_other_ref().is_err());
+  }
+
+  #[test]
+  fn as_extension_matches_disk_form() {
+    // Most variants: slug == extension.
+    assert_eq!(Format::Mov.as_extension(), "mov");
+    assert_eq!(Format::Mp4.as_extension(), "mp4");
+    assert_eq!(Format::Mkv.as_extension(), "mkv");
+    assert_eq!(Format::Webm.as_extension(), "webm");
+    assert_eq!(Format::Avi.as_extension(), "avi");
+    assert_eq!(Format::Flv.as_extension(), "flv");
+    assert_eq!(Format::Threegp.as_extension(), "3gp");
+    // Variants where extension differs from FFmpeg slug.
+    assert_eq!(Format::MpegTs.as_str(), "mpegts");
+    assert_eq!(Format::MpegTs.as_extension(), "ts");
+    assert_eq!(Format::Ogg.as_str(), "ogg");
+    assert_eq!(Format::Ogg.as_extension(), "ogv");
+    // Other has no known extension.
+    assert_eq!(Format::Other(SmolStr::new("weird")).as_extension(), "");
   }
 }

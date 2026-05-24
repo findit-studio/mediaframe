@@ -45,7 +45,10 @@ pub enum Format {
   Ssa,
   /// MicroDVD (`.sub`, FFmpeg slug `"microdvd"`).
   Sub,
-  /// MPlayer2 (`.mpl`, FFmpeg slug `"mpl2"`).
+  /// MPlayer2 (`.mpl`, FFmpeg slug `"mpl2"`). The auto-derived
+  /// predicate name would be `is_mpl_2` (digit-snake-case); the
+  /// hand-written [`Self::is_mpl2`] uses the cleaner name.
+  #[is_variant(ignore)]
   Mpl2,
   /// LRC — synchronised lyrics, also used for karaoke subtitles
   /// (`.lrc`, FFmpeg slug `"lrc"`).
@@ -97,6 +100,13 @@ impl Default for Format {
 }
 
 impl Format {
+  /// True iff this is [`Self::Mpl2`]. Hand-written to override the
+  /// auto-derived `is_mpl_2` (digit-snake-case is ugly).
+  #[inline(always)]
+  pub const fn is_mpl2(&self) -> bool {
+    matches!(self, Self::Mpl2)
+  }
+
   /// Canonical FFmpeg-style short name for this format (matches the
   /// demuxer / codec slug FFmpeg uses for the corresponding file
   /// form). [`Self::Other`] returns the wrapped slug verbatim.
@@ -120,6 +130,55 @@ impl Format {
       Self::DvbSub => "dvb_subtitle",
       Self::XSub => "xsub",
       Self::Other(s) => s.as_str(),
+    }
+  }
+
+  /// Primary file-on-disk extension (without the leading dot —
+  /// `"srt"`, `"vtt"`, `"ass"`, …). Distinct from the FFmpeg slug
+  /// returned by [`Self::as_str`] for the formats whose codec name
+  /// diverges from the extension (`WebVtt` slug `"webvtt"` vs
+  /// extension `"vtt"`; `Sub` slug `"microdvd"` vs extension
+  /// `"sub"`; `Smi` slug `"sami"` vs extension `"smi"`; `Sbv` slug
+  /// `"subviewer"` vs extension `"sbv"`).
+  ///
+  /// **Image-based / container-embedded formats return `""`** —
+  /// they have no standalone file extension because they ride
+  /// inside a video container ([`Self::MovText`] in MP4 / MOV;
+  /// [`Self::DvbSub`] in MPEG-TS broadcast; [`Self::XSub`] in
+  /// DivX), come as multi-file pairs ([`Self::DvdSub`] writes
+  /// paired `.idx` and `.sub` files), or are demuxed straight from
+  /// disc images ([`Self::PgsSub`] / [`Self::HdmvPgs`] become
+  /// `.sup` only after extraction). Callers that have already
+  /// extracted these to disk and know the conventional extension
+  /// should hardcode it on their side; this method returns the
+  /// **default-on-disk** presence, which for bitmap-subtitle
+  /// variants is "none".
+  ///
+  /// Returns `""` for [`Self::Other`] — the open variant carries an
+  /// FFmpeg slug, not an extension, so the mapping is unknown.
+  /// Returns `&'static str` (not `&str`) so the value is compile-time
+  /// stable and the method is `const`.
+  #[inline(always)]
+  pub const fn as_extension(&self) -> &'static str {
+    match self {
+      Self::Srt => "srt",
+      Self::WebVtt => "vtt",
+      Self::Ass => "ass",
+      Self::Ssa => "ssa",
+      Self::Sub => "sub",
+      Self::Mpl2 => "mpl",
+      Self::Lrc => "lrc",
+      Self::Smi => "smi",
+      Self::Stl => "stl",
+      Self::Sbv => "sbv",
+      Self::Ttml => "ttml",
+      Self::MovText => "",
+      Self::DvdSub => "",
+      Self::PgsSub => "",
+      Self::HdmvPgs => "",
+      Self::DvbSub => "",
+      Self::XSub => "",
+      Self::Other(_) => "",
     }
   }
 
@@ -274,5 +333,39 @@ mod tests {
     assert!(Format::Srt.is_srt());
     assert!(!Format::Srt.is_web_vtt());
     assert!(Format::Other(SmolStr::new("x")).is_other());
+  }
+
+  #[test]
+  fn as_extension_matches_disk_form() {
+    // Text-based formats: extension is the canonical .ext (often differs
+    // from the FFmpeg slug, e.g. WebVtt slug "webvtt" vs ext "vtt").
+    for (variant, ext) in [
+      (Format::Srt, "srt"),
+      (Format::WebVtt, "vtt"),
+      (Format::Ass, "ass"),
+      (Format::Ssa, "ssa"),
+      (Format::Sub, "sub"),
+      (Format::Mpl2, "mpl"),
+      (Format::Lrc, "lrc"),
+      (Format::Smi, "smi"),
+      (Format::Stl, "stl"),
+      (Format::Sbv, "sbv"),
+      (Format::Ttml, "ttml"),
+    ] {
+      assert_eq!(variant.as_extension(), ext, "{variant:?}");
+    }
+    // Image-based + container-embedded: no standalone extension.
+    for variant in [
+      Format::MovText,
+      Format::DvdSub,
+      Format::PgsSub,
+      Format::HdmvPgs,
+      Format::DvbSub,
+      Format::XSub,
+    ] {
+      assert_eq!(variant.as_extension(), "", "{variant:?}");
+    }
+    // Other: unknown.
+    assert_eq!(Format::Other(SmolStr::new("custom")).as_extension(), "");
   }
 }

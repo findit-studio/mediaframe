@@ -3,7 +3,7 @@
 </div>
 <div align="center">
 
-A common media-stream descriptor vocabulary for media processing pipelines — codec / pixel-format / colour / frame metadata. Video + audio + subtitle codec vocabularies ship today; the frame / pixel-format / colour types currently cover video, with audio + subtitle descriptor types added incrementally.
+A common media-stream descriptor vocabulary for media processing pipelines — codec, pixel-format, colour, frame, audio, subtitle, container, track-disposition, EXIF capture, and BCP-47 language metadata.
 
 [<img alt="github" src="https://img.shields.io/badge/github-findit--ai/mediaframe-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Fmediaframe" height="22">
@@ -21,12 +21,16 @@ A common media-stream descriptor vocabulary for media processing pipelines — c
 
 A common media-stream descriptor vocabulary for media processing
 pipelines. The codec module covers video + audio + subtitle codec
-identifiers; the pixel-format / colour / frame / source modules
-cover the video pipeline today, with audio + subtitle descriptor
-types added incrementally. Pure data types: no SIMD, no decoder, no
-codec implementation, no math — just the shared spine that a
-color-conversion library, a decoder backend, and a frame consumer
-can all speak to without agreeing on anything heavier.
+identifiers. Frame-side modules — pixel-format / colour / frame /
+source — cover the video pipeline. Stream-side modules cover audio
+(channel layout, sample / container format, bit-rate mode, EBU R128
+loudness, fingerprint, tags + cover art), subtitle (format + track
+origin), top-level multimedia container format, FFmpeg track
+dispositions, EXIF capture metadata (device + geolocation), and
+BCP-47 language. Pure data types: no SIMD, no decoder, no codec
+implementation, no math — just the shared spine that a color-
+conversion library, a decoder backend, and a frame consumer can all
+speak to without agreeing on anything heavier.
 
 ## What it provides
 
@@ -49,7 +53,6 @@ can all speak to without agreeing on anything heavier.
   `DolbyVisionConfig` (FFmpeg `AVDOVIDecoderConfigurationRecord`).
   Colour-enum numbering is CI-checked against the pinned FFmpeg
   header by `cargo xtask check`.
-- **`cfa`** — Bayer color-filter-array description (`BayerPattern`).
 - **`pixel_format`** — single `PixelFormat` enum covering **every**
   pixel format in FFmpeg `n8.1`'s `AVPixelFormat` (254 variants
   excluding GPU-resident HW formats) plus cinema-RAW additions.
@@ -59,8 +62,9 @@ can all speak to without agreeing on anything heavier.
   `Plane<B>`), exact-ratio building blocks (`Rational`,
   `FrameRate`, `SampleAspectRatio` as a `Rational` newtype), stream-
   descriptor metadata (`FieldOrder`, `StereoMode` — both with
-  lossless `Unknown(u32)`), the runtime-tagged `VideoFrame<P, B>`,
-  and the orthogonal `TimestampedFrame<F>` wrapper bundling
+  lossless `Unknown(u32)`), `BayerPattern` for color-filter-array
+  description, the runtime-tagged `VideoFrame<P, B>`, and the
+  orthogonal `TimestampedFrame<F>` wrapper bundling
   `mediatime::Timestamp` PTS + duration around any inner frame
   shape. Plus per-format typed `*Frame<'a, BE>` zero-copy borrow
   views + `*FrameError` validation (feature-gated).
@@ -70,6 +74,37 @@ can all speak to without agreeing on anything heavier.
   the marker / Row / Sink / walker quartet uniformly. Marker
   construction is `Foo::new()` (private `()` field locks shape
   evolution to additive changes).
+- **`container`** — top-level multimedia `container::Format` enum
+  (`Mov`, `Mp4`, `Mkv`, `Webm`, `Avi`, `MpegTs`, …) with an
+  `Other(SmolStr)` lossless escape. Distinct from audio-only
+  containers, which live on `audio::ContainerFormat`. Requires the
+  `alloc` feature (`std` includes it).
+- **`audio`** — audio-stream descriptor vocabulary:
+  `ChannelLayout` (FFmpeg `AV_CHANNEL_LAYOUT_*` bitmask),
+  `ContainerFormat` (audio-only containers: `mp3` / `flac` / `wav`
+  / …), `SampleFormat`, `BitRateMode` (CBR / VBR / ABR), `Loudness`
+  (EBU R128 integrated / true-peak / LRA), `Fingerprint`,
+  embedded-metadata `Tags`, and `CoverArt` payload. Requires the
+  `alloc` feature.
+- **`subtitle`** — `subtitle::Format` (`Srt` / `WebVtt` / `Ass` /
+  image-based `HdmvPgs` / …) + `TrackOrigin`
+  (`Embedded` / `Sidecar` / `External`). Pure stream-descriptor
+  vocabulary — no per-cue content. Requires the `alloc` feature.
+- **`lang`** — validated BCP-47 `Language` tag (language subtag +
+  optional script + optional region), wrapping `icu_locale_core`'s
+  `TinyAsciiStr`-backed subtag types so the value is `Copy` /
+  heap-free. Validates via `LanguageIdentifier::try_from_bytes`.
+  Requires the `alloc` feature.
+- **`disposition`** — `TrackDisposition` bitflags mirroring FFmpeg's
+  `AV_DISPOSITION_*` (`DEFAULT`, `FORCED`, `HEARING_IMPAIRED`, …).
+  Bit values are append-only, never renumbered; unknown bits
+  round-trip losslessly through `to_u32` / `from_u32` via
+  `bitflags::from_bits_retain` semantics. No alloc requirement —
+  pure `Copy` bitflags.
+- **`capture`** — EXIF / capture-metadata vocabulary: `Device`
+  (capture device name / model / serial) and `GeoLocation`
+  (latitude / longitude / altitude with ISO-6709 parse + format).
+  Requires the `alloc` feature.
 - **`buffa`** — optional `buffa` wire serialization (hand-written
   `Message` / `DefaultInstance` impls, no codegen) for the colour /
   frame / HDR vocabulary so downstream proto schemas can extern-map

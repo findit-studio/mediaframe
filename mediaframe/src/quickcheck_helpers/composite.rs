@@ -35,8 +35,16 @@ pub(crate) fn replay_gain(g: &mut ::quickcheck::Gen) -> crate::audio::ReplayGain
   fn finite(g: &mut ::quickcheck::Gen) -> f32 {
     (i32::arbitrary(g).rem_euclid(20_000_001) - 10_000_000) as f32 / 100.0
   }
-  let album_gain = if bool::arbitrary(g) { Some(finite(g)) } else { None };
-  let album_peak = if bool::arbitrary(g) { Some(finite(g)) } else { None };
+  let album_gain = if bool::arbitrary(g) {
+    Some(finite(g))
+  } else {
+    None
+  };
+  let album_peak = if bool::arbitrary(g) {
+    Some(finite(g))
+  } else {
+    None
+  };
   crate::audio::ReplayGain::new(finite(g), finite(g), album_gain, album_peak)
 }
 

@@ -45,8 +45,16 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::ReplayGain {
     }
     let track_gain = finite(u)?;
     let track_peak = finite(u)?;
-    let album_gain = if bool::arbitrary(u)? { Some(finite(u)?) } else { None };
-    let album_peak = if bool::arbitrary(u)? { Some(finite(u)?) } else { None };
+    let album_gain = if bool::arbitrary(u)? {
+      Some(finite(u)?)
+    } else {
+      None
+    };
+    let album_peak = if bool::arbitrary(u)? {
+      Some(finite(u)?)
+    } else {
+      None
+    };
     Ok(Self::new(track_gain, track_peak, album_gain, album_peak))
   }
 }

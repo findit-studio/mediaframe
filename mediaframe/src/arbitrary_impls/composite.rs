@@ -6,6 +6,7 @@
 //
 //   AUDIO COMPOSITE:
 //     - audio::Loudness          (new(f32, f32, f32, f32) — plain ctor)
+//     - audio::ReplayGain        (new(f32, f32, Option<f32>, Option<f32>) — plain ctor)
 //     - audio::Fingerprint       (try_new(algo, value) — algo non-empty)
 //     - audio::CoverArt          (try_new(mime, data) — both non-empty)
 //     - audio::Tags              (new() + builder setters; representative
@@ -32,6 +33,21 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Loudness {
       Ok(u.int_in_range(-10_000_000i32..=10_000_000)? as f32 / 100.0)
     }
     Ok(Self::new(finite(u)?, finite(u)?, finite(u)?, finite(u)?))
+  }
+}
+
+impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::ReplayGain {
+  fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
+    // Same finite-f32 generation as `Loudness` (see the rationale on
+    // `Loudness::arbitrary` for the NaN / ±inf JSON-round-trip bug).
+    fn finite(u: &mut ::arbitrary::Unstructured<'_>) -> ::arbitrary::Result<f32> {
+      Ok(u.int_in_range(-10_000_000i32..=10_000_000)? as f32 / 100.0)
+    }
+    let track_gain = finite(u)?;
+    let track_peak = finite(u)?;
+    let album_gain = if bool::arbitrary(u)? { Some(finite(u)?) } else { None };
+    let album_peak = if bool::arbitrary(u)? { Some(finite(u)?) } else { None };
+    Ok(Self::new(track_gain, track_peak, album_gain, album_peak))
   }
 }
 

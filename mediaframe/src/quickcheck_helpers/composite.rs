@@ -29,6 +29,17 @@ pub(crate) fn loudness(g: &mut ::quickcheck::Gen) -> crate::audio::Loudness {
   crate::audio::Loudness::new(finite(g), finite(g), finite(g), finite(g))
 }
 
+/// `audio::ReplayGain` — same finite-f32 generation strategy as
+/// [`loudness`]; album scalars are independently `Some`/`None`.
+pub(crate) fn replay_gain(g: &mut ::quickcheck::Gen) -> crate::audio::ReplayGain {
+  fn finite(g: &mut ::quickcheck::Gen) -> f32 {
+    (i32::arbitrary(g).rem_euclid(20_000_001) - 10_000_000) as f32 / 100.0
+  }
+  let album_gain = if bool::arbitrary(g) { Some(finite(g)) } else { None };
+  let album_peak = if bool::arbitrary(g) { Some(finite(g)) } else { None };
+  crate::audio::ReplayGain::new(finite(g), finite(g), album_gain, album_peak)
+}
+
 /// `audio::Fingerprint` — `try_new(algo, value)` rejects empty `algo`; fall
 /// back to `"x"` so the `expect` is sound. Empty `value` is allowed.
 pub(crate) fn fingerprint(g: &mut ::quickcheck::Gen) -> crate::audio::Fingerprint {

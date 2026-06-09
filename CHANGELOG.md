@@ -4,6 +4,25 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / [0.1.4]
+
+### Added
+
+- **`audio::ReplayGain`** — value object for container-tagged loudness-
+  normalization recommendations (FFmpeg `AV_PKT_DATA_REPLAYGAIN` side
+  data or the `REPLAYGAIN_TRACK_*` / `REPLAYGAIN_ALBUM_*` `AVDictionary`
+  keys). Carries `track_gain_db`, `track_peak`, and the optional
+  album-level `album_gain_db` / `album_peak`. Distinct from
+  [`audio::Loudness`]: `Loudness` is the EBU R128 measurement of the
+  signal; `ReplayGain` is the normalization recommendation a tagger
+  wrote into the container (the delta from a −18 LUFS reference).
+  Album-level numbers cannot be computed from a single track's loudness
+  alone, so both are independently useful and not redundant. Buffa wire
+  bridge: `{ float track_gain_db = 1; float track_peak = 2; optional
+  float album_gain_db = 3; optional float album_peak = 4; }`. Test
+  helpers wired through `quickcheck_helpers::composite::replay_gain` +
+  `arbitrary_impls::composite`.
+
 ## [0.1.1] May 21, 2026
 
 ### Added

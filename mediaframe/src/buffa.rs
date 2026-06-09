@@ -132,6 +132,9 @@
 //!
 //! Loudness         { float integrated_lufs = 1; float range_lu = 2;
 //!                    float true_peak_dbtp = 3; float sample_peak_dbfs = 4; }
+//! ReplayGain       { float track_gain_db = 1; float track_peak = 2;
+//!                    optional float album_gain_db = 3;
+//!                    optional float album_peak = 4; }
 //! Fingerprint { string algorithm = 1; bytes value = 2; }     // algorithm ALWAYS encoded
 //! CoverArt    { string mime      = 1; bytes data  = 2; }     // both ALWAYS encoded
 //! Tags        { string title        = 1; string artist        = 2;
@@ -154,6 +157,12 @@
 //! - **`Loudness`** — all four `f32` fields use proto3 zero-elision
 //!   (`Default` is all-zero == proto-zero for `f32`). Each present
 //!   field is wire-type `Fixed32` (4 bytes LE).
+//! - **`ReplayGain`** — `track_gain_db` / `track_peak` use proto3
+//!   zero-elision (`Default` is all-zero == proto-zero for `f32`);
+//!   `album_gain_db` / `album_peak` are `optional float` so a
+//!   distribution-absent album-level number round-trips as `None`
+//!   (the wire field is absent rather than zero). Each present field
+//!   is wire-type `Fixed32` (4 bytes LE).
 //! - **`Fingerprint`** — `algorithm` is ALWAYS encoded
 //!   (`try_new` rejects empty, so a default-constructed wire-empty
 //!   `algorithm` would not be a valid `Fingerprint` — encoding
@@ -254,8 +263,8 @@ use smol_str::SmolStr;
 
 use crate::{
   audio::{
-    BitRateMode, ChannelLayout, ContainerFormat, CoverArt, Fingerprint, Loudness, SampleFormat,
-    Tags,
+    BitRateMode, ChannelLayout, ContainerFormat, CoverArt, Fingerprint, Loudness, ReplayGain,
+    SampleFormat, Tags,
   },
   capture::{Device, GeoLocation},
   color::{
@@ -1683,6 +1692,97 @@ impl Message for Loudness {
 
   fn clear(&mut self) {
     *self = Loudness::default();
+  }
+}
+
+// ----------------------------------------------------------------------------
+// ReplayGain — `track_gain_db` / `track_peak` are `float` with proto3
+// zero-elision (Default is all-zero == proto-zero for f32). The two
+// album-level scalars are `optional float` so a distribution-absent
+// album-level number round-trips as `None` (wire field absent rather
+// than zero). All four are wire-type `Fixed32` (4 bytes LE).
+// ----------------------------------------------------------------------------
+
+impl DefaultInstance for ReplayGain {
+  fn default_instance() -> &'static Self {
+    static VALUE: buffa::__private::OnceBox<ReplayGain> = buffa::__private::OnceBox::new();
+    VALUE.get_or_init(|| buffa::alloc::boxed::Box::new(ReplayGain::default()))
+  }
+}
+
+impl Message for ReplayGain {
+  fn compute_size(&self, _cache: &mut SizeCache) -> u32 {
+    let mut size = 0u32;
+    // proto3 zero-elision on the two `float` fields.
+    if self.track_gain_db() != 0.0 {
+      size += 1 + FIXED32_ENCODED_LEN as u32;
+    }
+    if self.track_peak() != 0.0 {
+      size += 1 + FIXED32_ENCODED_LEN as u32;
+    }
+    // `optional float` — present iff `Some` (independent of value).
+    if self.album_gain_db().is_some() {
+      size += 1 + FIXED32_ENCODED_LEN as u32;
+    }
+    if self.album_peak().is_some() {
+      size += 1 + FIXED32_ENCODED_LEN as u32;
+    }
+    size
+  }
+
+  fn write_to(&self, _cache: &mut SizeCache, buf: &mut impl BufMut) {
+    if self.track_gain_db() != 0.0 {
+      Tag::new(1, WireType::Fixed32).encode(buf);
+      encode_float(self.track_gain_db(), buf);
+    }
+    if self.track_peak() != 0.0 {
+      Tag::new(2, WireType::Fixed32).encode(buf);
+      encode_float(self.track_peak(), buf);
+    }
+    if let Some(v) = self.album_gain_db() {
+      Tag::new(3, WireType::Fixed32).encode(buf);
+      encode_float(v, buf);
+    }
+    if let Some(v) = self.album_peak() {
+      Tag::new(4, WireType::Fixed32).encode(buf);
+      encode_float(v, buf);
+    }
+  }
+
+  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    match tag.field_number() {
+      n @ 1..=4 => {
+        if tag.wire_type() != WireType::Fixed32 {
+          return Err(DecodeError::WireTypeMismatch {
+            field_number: n,
+            expected: FIXED32,
+            actual: tag.wire_type() as u8,
+          });
+        }
+        let v = decode_float(buf)?;
+        match n {
+          1 => {
+            self.set_track_gain_db(v);
+          }
+          2 => {
+            self.set_track_peak(v);
+          }
+          3 => {
+            self.set_album_gain_db(Some(v));
+          }
+          4 => {
+            self.set_album_peak(Some(v));
+          }
+          _ => unreachable!(),
+        }
+      }
+      _ => skip_field_depth(tag, buf, depth)?,
+    }
+    Ok(())
+  }
+
+  fn clear(&mut self) {
+    *self = ReplayGain::default();
   }
 }
 

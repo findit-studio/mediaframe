@@ -751,6 +751,18 @@ pub use gray16::*;
 
 #[cfg(feature = "gray")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gray")))]
+mod gray32;
+#[cfg(feature = "gray")]
+pub use gray32::*;
+
+#[cfg(feature = "gray")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gray")))]
+mod grayf16;
+#[cfg(feature = "gray")]
+pub use grayf16::*;
+
+#[cfg(feature = "gray")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gray")))]
 mod grayf32;
 #[cfg(feature = "gray")]
 pub use grayf32::*;
@@ -766,6 +778,18 @@ pub use ya8::*;
 mod ya16;
 #[cfg(feature = "gray")]
 pub use ya16::*;
+
+#[cfg(feature = "gray")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gray")))]
+mod yaf16;
+#[cfg(feature = "gray")]
+pub use yaf16::*;
+
+#[cfg(feature = "gray")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gray")))]
+mod yaf32;
+#[cfg(feature = "gray")]
+pub use yaf32::*;
 
 // --- mono ---
 #[cfg(feature = "mono")]

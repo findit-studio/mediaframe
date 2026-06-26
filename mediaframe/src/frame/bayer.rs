@@ -128,22 +128,79 @@ impl<'a> BayerFrame<'a> {
 }
 
 /// A validated Bayer-mosaic frame at 10 / 12 / 14 / 16 bits per
-/// sample, **low-packed** in `u16` containers.
+/// sample, **low-packed** (each sample's *logical* value occupies the
+/// low bits of its `u16`).
 ///
-/// `BITS` ∈ {10, 12, 14, 16}; samples occupy the **low** `BITS`
-/// bits of each `u16` (range `[0, (1 << BITS) - 1]`), with the high
-/// `16 - BITS` bits zero. This matches the planar high-bit-depth
-/// convention used by `Yuv420pFrame16`, `Yuv422p*`, and
+/// `BITS` ∈ {10, 12, 14, 16}; each `u16`'s **logical** value — after
+/// byte-order normalization (see the endian contract below) — occupies
+/// the **low** `BITS` bits (range `[0, (1 << BITS) - 1]`), with the high
+/// `16 - BITS` bits zero. (The stored `u16` is the raw wire element, not
+/// this logical value; see [`Self::data`].) This matches the planar
+/// high-bit-depth convention used by `Yuv420pFrame16`, `Yuv422p*`, and
 /// `Yuv444p*`. Note that this is **not** the `PnFrame`
 /// (`P010` / `P012`) convention, which is high-bit-packed
 /// (semi-planar `u16` containers carry samples in the *high* bits);
 /// Bayer is single-plane and tracks the planar family instead.
 ///
+/// # Endian contract — `<const BE: bool = false>`
+///
+/// The `<const BE: bool>` parameter selects the plane byte order,
+/// mirroring the Y2xx (`Y210`/`Y212`/`Y216`) family. FFmpeg defines a
+/// Bayer LE/BE split only at **16-bit** (`AV_PIX_FMT_BAYER_*16LE` /
+/// `*16BE`); the 10 / 12 / 14-bit forms are **mediaframe extensions**
+/// with no FFmpeg pixel format, endian-aware for decoders that emit
+/// high-bit Bayer:
+///
+/// - `BE = false` (default; e.g. [`Bayer10Frame`]) — the `&[u16]` plane
+///   is the **LE-encoded byte layout** reinterpreted as `u16` (at
+///   16-bit, `AV_PIX_FMT_BAYER_*16LE`). On a little-endian host LE bytes
+///   are host-native; on a big-endian host they are byte-swapped before
+///   arithmetic.
+/// - `BE = true` (e.g. [`Bayer10BeFrame`]) — the plane is the
+///   **BE-encoded byte layout** (at 16-bit, `AV_PIX_FMT_BAYER_*16BE`).
+///   On a little-endian host the bytes are byte-swapped before
+///   arithmetic; on a big-endian host they are host-native.
+///
+/// Downstream row kernels handle the byte-swap (or no-op) under the
+/// hood — callers do **not** pre-swap. The `BE` flag propagates from
+/// the frame through [`bayer16_to_endian`] into the sink dispatch,
+/// exactly as Y216's `BE` propagates through `y216_to_endian`. Callers
+/// holding a raw FFmpeg byte buffer should cast via
+/// `bytemuck::cast_slice` (which checks alignment) before constructing.
+///
+/// **Wire-bytes contract, and the change from the pre-endian-aware
+/// behavior.** The plane `&[u16]` is now interpreted as **wire bytes**
+/// — LE-encoded for `BE = false`, BE-encoded for `BE = true` — exactly
+/// like [`Y2xxFrame`](crate::frame::Y2xxFrame) and the high-bit YUV
+/// frames, and both [`Self::try_new`]'s sample check and the row kernel
+/// normalize that byte order (`from_le` / `from_be`) before touching the
+/// value. This is the host-independent, FFmpeg-matching contract.
+///
+/// It is **not** byte-identical on every host to the original,
+/// endian-naive `BayerFrame16`, which compared the host-native `u16`
+/// reading directly with no byte-order normalization. The correct
+/// characterization is:
+///
+/// - On a **little-endian host** the behavior is **identical** to the
+///   pre-endian-aware code for `BE = false`: the LE wire order coincides
+///   with the host-native order, so `from_le` is a no-op and the
+///   compared value is unchanged.
+/// - On a **big-endian host** the behavior **differs** from the
+///   pre-endian-aware code: a `BE = false` plane is now correctly read
+///   as LE wire bytes (byte-swapped before the range check and the
+///   arithmetic) rather than as raw native `u16`. This is the *intended*
+///   fix — an LE-encoded plane is LE on every host — not a regression.
+///
+/// (For `BE = true` the same logic holds with the endianness roles
+/// swapped: identical to a hypothetical native reading on a big-endian
+/// host, byte-swapped on a little-endian host.)
+///
 /// **Type-level guarantee.** [`Self::try_new`] validates every
 /// active sample against the low-packed range as part of
-/// construction, so an existing `BayerFrame16<BITS>` value is
+/// construction (after normalizing the wire byte order to
+/// host-native), so an existing `BayerFrame16<BITS, BE>` value is
 /// guaranteed to carry only in-range samples. Downstream
-/// `bayer16_to` therefore needs no further
+/// `bayer16_to` / `bayer16_to_endian` therefore needs no further
 /// runtime validation and never panics on bad sample data —
 /// any `Result::Err` from the conversion comes from the sink,
 /// never from the frame's contents.
@@ -160,20 +217,20 @@ impl<'a> BayerFrame<'a> {
 /// workflow; the kernel handles partial 2×2 tiles via edge
 /// clamping).
 ///
-/// Source: FFmpeg's `bayer_*16le` decoders, vendor-SDK
+/// Source: FFmpeg's `bayer_*16le` / `bayer_*16be` decoders, vendor-SDK
 /// 10/12/14/16-bit RAW ingest paths. If your upstream provides
 /// high-bit-packed Bayer (active bits in the *high* `BITS`),
 /// right-shift each sample by `(16 - BITS)` before constructing
 /// [`BayerFrame16`].
 #[derive(Debug, Clone, Copy)]
-pub struct BayerFrame16<'a, const BITS: u32> {
+pub struct BayerFrame16<'a, const BITS: u32, const BE: bool = false> {
   data: &'a [u16],
   width: u32,
   height: u32,
   stride: u32,
 }
 
-impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
+impl<'a, const BITS: u32, const BE: bool> BayerFrame16<'a, BITS, BE> {
   /// Constructs a new [`BayerFrame16`], validating dimensions,
   /// plane length, the `BITS` parameter, **and every active
   /// sample's value**.
@@ -189,6 +246,17 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
   /// construction lets callers handle the failure as a normal
   /// `Result` instead of risking a panic later in
   /// `bayer16_to`.
+  ///
+  /// Per the byte-encoding contract on the type-level docs, each
+  /// sample is normalized from its wire byte order to host-native
+  /// (`u16::from_le` for `BE = false`, `u16::from_be` for `BE = true`)
+  /// **before** the range check, so the check always operates on the
+  /// intended logical value. On a little-endian host `from_le` is a
+  /// no-op and `from_be` byte-swaps; on a big-endian host the roles
+  /// flip. Without this a valid BE plane on an LE host would have its
+  /// low-packed samples appear byte-swapped (high bits set in the
+  /// host-native reading) and the validator would falsely reject every
+  /// row — and vice-versa. This mirrors `Y2xxFrame::try_new_checked`.
   ///
   /// `stride` is in **samples** (`u16` elements). Returns
   /// [`BayerFrame16Error`] if any of:
@@ -251,15 +319,21 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
     // and trailing storage are deliberately skipped because the
     // walker never reads them, matching the boundary contract of
     // the row dispatchers.
+    //
+    // Each sample is normalized from wire byte order to host-native
+    // before the range check (`from_le` for `BE = false`, `from_be`
+    // for `BE = true`) so the low-packed range is checked against the
+    // intended logical value on every host; see the method docs.
     let max_valid: u16 = ((1u32 << BITS) - 1) as u16;
     let w = width as usize;
     let h = height as usize;
     for row in 0..h {
       let start = row * stride as usize;
       for (col, &s) in data[start..start + w].iter().enumerate() {
-        if s > max_valid {
+        let host = if BE { u16::from_be(s) } else { u16::from_le(s) };
+        if host > max_valid {
           return Err(BayerFrame16Error::SampleOutOfRange(
-            BayerSampleOutOfRange::new(start + col, s, max_valid),
+            BayerSampleOutOfRange::new(start + col, host, max_valid),
           ));
         }
       }
@@ -284,10 +358,15 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
     }
   }
 
-  /// The Bayer plane samples. Row `r` starts at sample offset
-  /// `r * stride()`. Each `u16` carries the `BITS` active bits in
-  /// its **low** `BITS` positions; the high `16 - BITS` bits are
-  /// zero on well-formed input.
+  /// The Bayer plane as raw wire `u16` elements. Row `r` starts at
+  /// sample offset `r * stride()`. Each element is in the frame's
+  /// wire byte order (LE-encoded for `BE = false`, BE-encoded for
+  /// `BE = true`) and is **not** pre-normalized. Its **logical**
+  /// value — after `from_le` / `from_be` per [`is_be`](Self::is_be)
+  /// — carries the `BITS` active bits in the low `BITS` positions,
+  /// the high `16 - BITS` zero on well-formed input. Downstream
+  /// kernels normalize byte order; callers do **not** pre-swap.
+  /// See the type-level endian contract.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn data(&self) -> &'a [u16] {
     self.data
@@ -316,17 +395,39 @@ impl<'a, const BITS: u32> BayerFrame16<'a, BITS> {
   pub const fn bits(&self) -> u32 {
     BITS
   }
+
+  /// Returns the compile-time BE flag — `true` if plane bytes are
+  /// BE-encoded, `false` if LE-encoded (at 16-bit, the FFmpeg
+  /// `AV_PIX_FMT_BAYER_*16BE` / `*16LE`). Runtime mirror of the
+  /// `<const BE: bool>` type parameter; mirrors `Y2xxFrame::is_be`.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_be(&self) -> bool {
+    BE
+  }
 }
 
-/// Type alias for a 10-bit Bayer frame — low-packed `u16` samples
-/// with values in `[0, 1023]` (the high 6 bits are zero).
-pub type Bayer10Frame<'a> = BayerFrame16<'a, 10>;
-/// Type alias for a 12-bit Bayer frame.
-pub type Bayer12Frame<'a> = BayerFrame16<'a, 12>;
-/// Type alias for a 14-bit Bayer frame.
-pub type Bayer14Frame<'a> = BayerFrame16<'a, 14>;
-/// Type alias for a 16-bit Bayer frame.
-pub type Bayer16Frame<'a> = BayerFrame16<'a, 16>;
+/// Type alias for a 10-bit LE Bayer frame — LE-wire `u16` elements whose
+/// **logical** values (after `from_le`) are in `[0, 1023]` (high 6 bits
+/// zero). See [`BayerFrame16`] for the wire-bytes / endian contract.
+pub type Bayer10Frame<'a> = BayerFrame16<'a, 10, false>;
+/// Type alias for a 12-bit LE Bayer frame.
+pub type Bayer12Frame<'a> = BayerFrame16<'a, 12, false>;
+/// Type alias for a 14-bit LE Bayer frame.
+pub type Bayer14Frame<'a> = BayerFrame16<'a, 14, false>;
+/// Type alias for a 16-bit LE Bayer frame.
+pub type Bayer16Frame<'a> = BayerFrame16<'a, 16, false>;
+
+/// Type alias for a 10-bit **BE-encoded** Bayer frame (mediaframe
+/// extension) — plane bytes are big-endian `u16` samples; downstream
+/// kernels byte-swap under the hood.
+pub type Bayer10BeFrame<'a> = BayerFrame16<'a, 10, true>;
+/// Type alias for a 12-bit **BE-encoded** Bayer frame (mediaframe extension).
+pub type Bayer12BeFrame<'a> = BayerFrame16<'a, 12, true>;
+/// Type alias for a 14-bit **BE-encoded** Bayer frame (mediaframe extension).
+pub type Bayer14BeFrame<'a> = BayerFrame16<'a, 14, true>;
+/// Type alias for a 16-bit **BE-encoded** Bayer frame
+/// (`AV_PIX_FMT_BAYER_*16BE`).
+pub type Bayer16BeFrame<'a> = BayerFrame16<'a, 16, true>;
 
 /// Errors returned by [`BayerFrame::try_new`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
@@ -1379,19 +1480,43 @@ impl<'a, const BITS: u32> BayerRow16<'a, BITS> {
 }
 
 /// Sinks that consume high-bit-depth Bayer rows at a fixed `BITS`.
-pub trait BayerSink16<const BITS: u32>:
+///
+/// The `<const BE: bool>` parameter encodes the source plane byte
+/// order, mirroring `Y216Sink<BE>`: a sink typically impls for the one
+/// `BE` matching its kernel monomorphization. The [`BayerRow16`] type
+/// itself does **not** carry `BE` — Row is just borrowed `u16` samples;
+/// the BE-aware byte-swap happens inside the kernel dispatch keyed off
+/// the sink's `<const BE>` parameter. `BE` defaults to `false` (LE) so
+/// existing LE-only custom sinks keep writing
+/// `impl BayerSink16<BITS> for MySink` / `S: BayerSink16<BITS>` without
+/// migrating to an explicit const argument.
+pub trait BayerSink16<const BITS: u32, const BE: bool = false>:
   for<'a> PixelSink<Input<'a> = BayerRow16<'a, BITS>>
 {
 }
 
-/// Walks a [`BayerFrame16<BITS>`] row by row, handing each row to
-/// the sink along with the precomputed `M = CCM · diag(wb)` 3×3.
+/// Walks a [`BayerFrame16<BITS, BE>`] row by row, handing each row to
+/// the sink along with the precomputed `M = CCM · diag(wb)` 3×3,
+/// propagating the frame's `<const BE>` byte order into the sink
+/// dispatch.
+///
+/// This is the byte-order-generic walker, mirroring `y216_to_endian`:
+/// it accepts both LE (`BE = false`) and BE (`BE = true`) frames. The
+/// [`bayer16_to`] wrapper forwards here with `BE = false` and preserves
+/// the pre-endian `<const BITS, S>` public signature for source compat.
+///
+/// The `BE` flag rides on the frame and the [`BayerSink16<BITS, BE>`]
+/// bound; the row slices are handed through untouched (the [`BayerRow16`]
+/// type does not carry `BE`). The actual byte-swap of the `u16` samples
+/// happens inside the sink's kernel dispatch, keyed off `BE` — exactly
+/// as the Y2xx family threads `BE` from `Y2xxFrame<'_, BITS, BE>` into
+/// `Y216Sink<BE>`.
 ///
 /// **Fully fallible.** The walker performs no data-dependent
 /// validation — every panic surface that previously existed has
 /// been moved to [`BayerFrame16::try_new`], which validates
 /// dimensions *and* every active sample's range at construction.
-/// Once you hold a `BayerFrame16<BITS>`, the conversion can only
+/// Once you hold a `BayerFrame16<BITS, BE>`, the conversion can only
 /// fail through `S::Error` (sink-side I/O, geometry-mismatch,
 /// etc.); bad sample data is reported as
 /// [`crate::frame::BayerFrame16Error::SampleOutOfRange`] from the
@@ -1399,14 +1524,17 @@ pub trait BayerSink16<const BITS: u32>:
 ///
 /// **Allocation profile.** Zero per-row and zero per-frame heap
 /// allocation, identical to the 8-bit [`super::bayer_to`].
-pub fn bayer16_to<const BITS: u32, S: BayerSink16<BITS>>(
-  src: &BayerFrame16<'_, BITS>,
+pub fn bayer16_to_endian<const BITS: u32, const BE: bool, S>(
+  src: &BayerFrame16<'_, BITS, BE>,
   pattern: BayerPattern,
   demosaic: BayerDemosaic,
   wb: WhiteBalance,
   ccm: ColorCorrectionMatrix,
   sink: &mut S,
-) -> Result<(), S::Error> {
+) -> Result<(), S::Error>
+where
+  S: BayerSink16<BITS, BE>,
+{
   let w = src.width() as usize;
   let h = src.height() as usize;
   let stride = src.stride() as usize;
@@ -1439,6 +1567,28 @@ pub fn bayer16_to<const BITS: u32, S: BayerSink16<BITS>>(
     ))?;
   }
   Ok(())
+}
+
+/// LE-only back-compat wrapper over [`bayer16_to_endian`] preserving
+/// the pre-endian `bayer16_to::<BITS, S>` walker signature. Forwards to
+/// the byte-order-generic helper with `BE = false`.
+///
+/// Rust forbids defaults on function-position const-generic parameters,
+/// so an explicit-turbofish caller written before the endian extension
+/// (`bayer16_to::<12, MySink>(...)`) would otherwise fail to compile.
+/// Keeping this two-generic wrapper preserves source compatibility for
+/// those call sites; BE-aware callers should use [`bayer16_to_endian`]
+/// directly. Mirrors the `y216_to` → `y216_to_endian` pairing.
+#[cfg_attr(not(tarpaulin), inline(always))]
+pub fn bayer16_to<const BITS: u32, S: BayerSink16<BITS, false>>(
+  src: &BayerFrame16<'_, BITS, false>,
+  pattern: BayerPattern,
+  demosaic: BayerDemosaic,
+  wb: WhiteBalance,
+  ccm: ColorCorrectionMatrix,
+  sink: &mut S,
+) -> Result<(), S::Error> {
+  bayer16_to_endian::<BITS, false, S>(src, pattern, demosaic, wb, ccm, sink)
 }
 
 #[cfg(test)]

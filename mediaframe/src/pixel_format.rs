@@ -706,28 +706,52 @@ pub enum PixelFormat {
   BayerGrbg8,
   /// Bayer BGGR pattern, 10-bit little-endian (low-packed in u16).
   BayerBggr10Le,
+  /// Bayer BGGR pattern, 10-bit big-endian (low-packed in u16).
+  BayerBggr10Be,
   /// Bayer RGGB pattern, 10-bit little-endian.
   BayerRggb10Le,
+  /// Bayer RGGB pattern, 10-bit big-endian.
+  BayerRggb10Be,
   /// Bayer GBRG pattern, 10-bit little-endian.
   BayerGbrg10Le,
+  /// Bayer GBRG pattern, 10-bit big-endian.
+  BayerGbrg10Be,
   /// Bayer GRBG pattern, 10-bit little-endian.
   BayerGrbg10Le,
+  /// Bayer GRBG pattern, 10-bit big-endian.
+  BayerGrbg10Be,
   /// Bayer BGGR pattern, 12-bit little-endian.
   BayerBggr12Le,
+  /// Bayer BGGR pattern, 12-bit big-endian.
+  BayerBggr12Be,
   /// Bayer RGGB pattern, 12-bit little-endian.
   BayerRggb12Le,
+  /// Bayer RGGB pattern, 12-bit big-endian.
+  BayerRggb12Be,
   /// Bayer GBRG pattern, 12-bit little-endian.
   BayerGbrg12Le,
+  /// Bayer GBRG pattern, 12-bit big-endian.
+  BayerGbrg12Be,
   /// Bayer GRBG pattern, 12-bit little-endian.
   BayerGrbg12Le,
+  /// Bayer GRBG pattern, 12-bit big-endian.
+  BayerGrbg12Be,
   /// Bayer BGGR pattern, 14-bit little-endian.
   BayerBggr14Le,
+  /// Bayer BGGR pattern, 14-bit big-endian.
+  BayerBggr14Be,
   /// Bayer RGGB pattern, 14-bit little-endian.
   BayerRggb14Le,
+  /// Bayer RGGB pattern, 14-bit big-endian.
+  BayerRggb14Be,
   /// Bayer GBRG pattern, 14-bit little-endian.
   BayerGbrg14Le,
+  /// Bayer GBRG pattern, 14-bit big-endian.
+  BayerGbrg14Be,
   /// Bayer GRBG pattern, 14-bit little-endian.
   BayerGrbg14Le,
+  /// Bayer GRBG pattern, 14-bit big-endian.
+  BayerGrbg14Be,
   /// Bayer BGGR pattern, 16-bit little-endian.
   BayerBggr16Le,
   /// Bayer BGGR pattern, 16-bit big-endian.
@@ -1016,14 +1040,26 @@ impl PixelFormat {
       Self::BayerRggb10Le => 911,
       Self::BayerGbrg10Le => 912,
       Self::BayerGrbg10Le => 913,
+      Self::BayerBggr10Be => 914,
+      Self::BayerRggb10Be => 915,
+      Self::BayerGbrg10Be => 916,
+      Self::BayerGrbg10Be => 917,
       Self::BayerBggr12Le => 920,
       Self::BayerRggb12Le => 921,
       Self::BayerGbrg12Le => 922,
       Self::BayerGrbg12Le => 923,
+      Self::BayerBggr12Be => 924,
+      Self::BayerRggb12Be => 925,
+      Self::BayerGbrg12Be => 926,
+      Self::BayerGrbg12Be => 927,
       Self::BayerBggr14Le => 930,
       Self::BayerRggb14Le => 931,
       Self::BayerGbrg14Le => 932,
       Self::BayerGrbg14Le => 933,
+      Self::BayerBggr14Be => 934,
+      Self::BayerRggb14Be => 935,
+      Self::BayerGbrg14Be => 936,
+      Self::BayerGrbg14Be => 937,
       Self::BayerBggr16Le => 940,
       Self::BayerBggr16Be => 944,
       Self::BayerRggb16Le => 941,
@@ -1316,14 +1352,26 @@ impl PixelFormat {
       911 => Self::BayerRggb10Le,
       912 => Self::BayerGbrg10Le,
       913 => Self::BayerGrbg10Le,
+      914 => Self::BayerBggr10Be,
+      915 => Self::BayerRggb10Be,
+      916 => Self::BayerGbrg10Be,
+      917 => Self::BayerGrbg10Be,
       920 => Self::BayerBggr12Le,
       921 => Self::BayerRggb12Le,
       922 => Self::BayerGbrg12Le,
       923 => Self::BayerGrbg12Le,
+      924 => Self::BayerBggr12Be,
+      925 => Self::BayerRggb12Be,
+      926 => Self::BayerGbrg12Be,
+      927 => Self::BayerGrbg12Be,
       930 => Self::BayerBggr14Le,
       931 => Self::BayerRggb14Le,
       932 => Self::BayerGbrg14Le,
       933 => Self::BayerGrbg14Le,
+      934 => Self::BayerBggr14Be,
+      935 => Self::BayerRggb14Be,
+      936 => Self::BayerGbrg14Be,
+      937 => Self::BayerGrbg14Be,
       940 => Self::BayerBggr16Le,
       941 => Self::BayerRggb16Le,
       942 => Self::BayerGbrg16Le,
@@ -1352,14 +1400,26 @@ impl PixelFormat {
         | Self::BayerRggb10Le
         | Self::BayerGbrg10Le
         | Self::BayerGrbg10Le
+        | Self::BayerBggr10Be
+        | Self::BayerRggb10Be
+        | Self::BayerGbrg10Be
+        | Self::BayerGrbg10Be
         | Self::BayerBggr12Le
         | Self::BayerRggb12Le
         | Self::BayerGbrg12Le
         | Self::BayerGrbg12Le
+        | Self::BayerBggr12Be
+        | Self::BayerRggb12Be
+        | Self::BayerGbrg12Be
+        | Self::BayerGrbg12Be
         | Self::BayerBggr14Le
         | Self::BayerRggb14Le
         | Self::BayerGbrg14Le
         | Self::BayerGrbg14Le
+        | Self::BayerBggr14Be
+        | Self::BayerRggb14Be
+        | Self::BayerGbrg14Be
+        | Self::BayerGrbg14Be
         | Self::BayerBggr16Le
         | Self::BayerBggr16Be
         | Self::BayerRggb16Le
@@ -1373,9 +1433,12 @@ impl PixelFormat {
 }
 
 impl PixelFormat {
-  /// Lowercase FFmpeg-style identifier for this variant
-  /// (`AV_PIX_FMT_*` lowercase slug). Matches the enum's [`Display`]
-  /// output exactly — single source of truth.
+  /// Lowercase FFmpeg-style identifier for this variant — the FFmpeg
+  /// `AV_PIX_FMT_*` lowercase slug where one exists, or the same
+  /// lowercase convention applied to mediaframe-extension formats that
+  /// have no FFmpeg pixel format (e.g. the sub-16-bit Bayer variants).
+  /// Matches the enum's [`Display`] output exactly — single source of
+  /// truth.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn as_str(&self) -> &'static str {
     match self {
@@ -1632,17 +1695,29 @@ impl PixelFormat {
       Self::BayerGbrg8 => "bayer_gbrg8",
       Self::BayerGrbg8 => "bayer_grbg8",
       Self::BayerBggr10Le => "bayer_bggr10le",
+      Self::BayerBggr10Be => "bayer_bggr10be",
       Self::BayerRggb10Le => "bayer_rggb10le",
+      Self::BayerRggb10Be => "bayer_rggb10be",
       Self::BayerGbrg10Le => "bayer_gbrg10le",
+      Self::BayerGbrg10Be => "bayer_gbrg10be",
       Self::BayerGrbg10Le => "bayer_grbg10le",
+      Self::BayerGrbg10Be => "bayer_grbg10be",
       Self::BayerBggr12Le => "bayer_bggr12le",
+      Self::BayerBggr12Be => "bayer_bggr12be",
       Self::BayerRggb12Le => "bayer_rggb12le",
+      Self::BayerRggb12Be => "bayer_rggb12be",
       Self::BayerGbrg12Le => "bayer_gbrg12le",
+      Self::BayerGbrg12Be => "bayer_gbrg12be",
       Self::BayerGrbg12Le => "bayer_grbg12le",
+      Self::BayerGrbg12Be => "bayer_grbg12be",
       Self::BayerBggr14Le => "bayer_bggr14le",
+      Self::BayerBggr14Be => "bayer_bggr14be",
       Self::BayerRggb14Le => "bayer_rggb14le",
+      Self::BayerRggb14Be => "bayer_rggb14be",
       Self::BayerGbrg14Le => "bayer_gbrg14le",
+      Self::BayerGbrg14Be => "bayer_gbrg14be",
       Self::BayerGrbg14Le => "bayer_grbg14le",
+      Self::BayerGrbg14Be => "bayer_grbg14be",
       Self::BayerBggr16Le => "bayer_bggr16le",
       Self::BayerBggr16Be => "bayer_bggr16be",
       Self::BayerRggb16Le => "bayer_rggb16le",
@@ -1699,6 +1774,8 @@ mod tests {
       PixelFormat::Pal8,
       PixelFormat::BayerBggr8,
       PixelFormat::BayerRggb16Le,
+      PixelFormat::BayerGrbg10Be,
+      PixelFormat::BayerBggr14Be,
     ];
     for fmt in all {
       assert_eq!(
@@ -1736,8 +1813,17 @@ mod tests {
     assert_eq!(format!("{}", PixelFormat::Nv12), "nv12");
     assert_eq!(format!("{}", PixelFormat::P010Le), "p010le");
     assert_eq!(format!("{}", PixelFormat::Rgba64Le), "rgba64le");
-    assert_eq!(format!("{}", PixelFormat::BayerBggr12Le), "bayer_bggr12le");
     assert_eq!(format!("{}", PixelFormat::Unknown(0)), "unknown");
+  }
+
+  // Sub-16-bit Bayer are mediaframe extensions (no FFmpeg pixel format);
+  // their Display slugs follow the same lowercase convention, but they are
+  // not FFmpeg names, so they live here rather than in the FFmpeg-name test.
+  #[cfg(any(feature = "alloc", feature = "std"))]
+  #[test]
+  fn display_uses_lowercase_names_for_bayer_extensions() {
+    assert_eq!(format!("{}", PixelFormat::BayerBggr12Le), "bayer_bggr12le");
+    assert_eq!(format!("{}", PixelFormat::BayerRggb10Be), "bayer_rggb10be");
   }
 
   #[test]
@@ -1745,6 +1831,8 @@ mod tests {
     assert!(PixelFormat::BayerBggr8.is_bayer());
     assert!(PixelFormat::BayerRggb16Le.is_bayer());
     assert!(PixelFormat::BayerGrbg12Le.is_bayer());
+    assert!(PixelFormat::BayerGbrg10Be.is_bayer());
+    assert!(PixelFormat::BayerGrbg14Be.is_bayer());
     assert!(!PixelFormat::Yuv420p.is_bayer());
     assert!(!PixelFormat::Rgb24.is_bayer());
     assert!(!PixelFormat::Unknown(0).is_bayer());

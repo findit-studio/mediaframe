@@ -42,15 +42,23 @@
 //!   /// parameterized over the active bit depth.
 //!   struct Foo<const BITS: u32 = 16>;
 //! }
+//!
+//! marker! {
+//!   /// Zero-sized marker for a high-bit-depth source format
+//!   /// parameterized over both the active bit depth and the
+//!   /// byte order of its pixel data.
+//!   struct Foo<const BITS: u32, const BE: bool = false>;
+//! }
 //! ```
 
 /// Generates the canonical marker quartet (`struct` + `new()` +
 /// `Sealed` + `SourceFormat`) for a source-format marker type.
 ///
-/// Three forms are supported:
+/// Four forms are supported:
 /// - Bare: `struct Foo;`
 /// - Endian-aware: `struct Foo<const BE: bool = false>;`
 /// - Arbitrary const-generic: `struct Foo<const BITS: u32 = 16>;`
+/// - Bit-depth + endian: `struct Foo<const BITS: u32, const BE: bool = false>;`
 ///
 /// See [module-level docs](crate::source) for the conventions and
 /// rationale behind the `(())`-field + `pub const fn new()` shape.
@@ -128,5 +136,37 @@ macro_rules! marker {
 
     impl<const $param: $ty> $crate::source::sealed::Sealed for $name<$param> {}
     impl<const $param: $ty> $crate::SourceFormat for $name<$param> {}
+  };
+
+  // Bit-depth + endian marker — `<const BITS: u32, const BE: bool = false>`.
+  // Used by markers that are both bit-depth- and byte-order-aware, e.g.
+  // the high-bit-depth Bayer family (`Bayer16<const BITS: u32, const BE>`).
+  // The `BE = false` default keeps `$name<BITS>` an alias for the
+  // little-endian variant (back-compat with single-generic callers).
+  //
+  // Only `BE` carries a default; the leading `BITS` parameter is always
+  // explicit at the call sites that use this arm (every Bayer alias pins
+  // `BITS`). Default value is a literal for the same `expr`-can't-precede-
+  // `>` reason as the other arms.
+  (
+    $(#[$attr:meta])*
+    struct $name:ident<const $bparam:ident: $bty:ty, const $eparam:ident: bool $(= $edefault:literal)?>;
+  ) => {
+    $(#[$attr])*
+    pub struct $name<const $bparam: $bty, const $eparam: bool $(= $edefault)?>(());
+
+    impl<const $bparam: $bty, const $eparam: bool> $name<$bparam, $eparam> {
+      #[allow(clippy::new_without_default)]
+      /// Constructs the marker. Zero-cost — this is a ZST.
+      #[inline]
+      pub const fn new() -> Self {
+        Self(())
+      }
+    }
+
+    impl<const $bparam: $bty, const $eparam: bool> $crate::source::sealed::Sealed
+      for $name<$bparam, $eparam> {}
+    impl<const $bparam: $bty, const $eparam: bool> $crate::SourceFormat
+      for $name<$bparam, $eparam> {}
   };
 }

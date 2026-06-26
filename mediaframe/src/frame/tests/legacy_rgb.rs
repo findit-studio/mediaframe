@@ -388,3 +388,358 @@ fn bgr444_frame_try_new_rejects_plane_too_short() {
     Err(LegacyRgbFrameError::InsufficientPlane(_))
   ));
 }
+
+// ============================================================
+// Bit-packed RGB/BGR frames (8bpp byte + 4bpp bitstream)
+// ============================================================
+
+// ---- Rgb8Frame -------------------------------------------------------------
+
+#[test]
+fn rgb8_frame_try_new_accepts_valid_tight() {
+  // 1 byte/pixel: 16 px wide, 4 rows, stride = 16 → 64 bytes.
+  let buf = vec![0u8; 16 * 4];
+  Rgb8Frame::try_new(&buf, 16, 4, 16).expect("valid tight stride");
+}
+
+#[test]
+fn rgb8_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Rgb8Frame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn rgb8_frame_try_new_rejects_stride_too_small() {
+  // min stride = width = 16; supply 15
+  let buf = vec![0u8; 16 * 4];
+  assert!(matches!(
+    Rgb8Frame::try_new(&buf, 16, 4, 15),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn rgb8_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Rgb8Frame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn rgb8_frame_try_new_rejects_plane_too_short() {
+  // 16 px wide, 4 rows, stride=16 → need 64 bytes; give 63
+  let buf = vec![0u8; 63];
+  assert!(matches!(
+    Rgb8Frame::try_new(&buf, 16, 4, 16),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Rgb8Frame dimensions or plane length")]
+fn rgb8_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Rgb8Frame::new(&buf, 16, 4, 16);
+}
+
+// ---- Bgr8Frame -------------------------------------------------------------
+
+#[test]
+fn bgr8_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 16 * 4];
+  Bgr8Frame::try_new(&buf, 16, 4, 16).expect("valid tight stride");
+}
+
+#[test]
+fn bgr8_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Bgr8Frame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn bgr8_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 16 * 4];
+  assert!(matches!(
+    Bgr8Frame::try_new(&buf, 16, 4, 15),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn bgr8_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Bgr8Frame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn bgr8_frame_try_new_rejects_plane_too_short() {
+  let buf = vec![0u8; 63];
+  assert!(matches!(
+    Bgr8Frame::try_new(&buf, 16, 4, 16),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Bgr8Frame dimensions or plane length")]
+fn bgr8_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Bgr8Frame::new(&buf, 16, 4, 16);
+}
+
+// ---- Rgb4ByteFrame ---------------------------------------------------------
+
+#[test]
+fn rgb4_byte_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 16 * 4];
+  Rgb4ByteFrame::try_new(&buf, 16, 4, 16).expect("valid tight stride");
+}
+
+#[test]
+fn rgb4_byte_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Rgb4ByteFrame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn rgb4_byte_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 16 * 4];
+  assert!(matches!(
+    Rgb4ByteFrame::try_new(&buf, 16, 4, 15),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn rgb4_byte_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Rgb4ByteFrame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn rgb4_byte_frame_try_new_rejects_plane_too_short() {
+  let buf = vec![0u8; 63];
+  assert!(matches!(
+    Rgb4ByteFrame::try_new(&buf, 16, 4, 16),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Rgb4ByteFrame dimensions or plane length")]
+fn rgb4_byte_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Rgb4ByteFrame::new(&buf, 16, 4, 16);
+}
+
+// ---- Bgr4ByteFrame ---------------------------------------------------------
+
+#[test]
+fn bgr4_byte_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 16 * 4];
+  Bgr4ByteFrame::try_new(&buf, 16, 4, 16).expect("valid tight stride");
+}
+
+#[test]
+fn bgr4_byte_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Bgr4ByteFrame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn bgr4_byte_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 16 * 4];
+  assert!(matches!(
+    Bgr4ByteFrame::try_new(&buf, 16, 4, 15),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn bgr4_byte_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Bgr4ByteFrame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn bgr4_byte_frame_try_new_rejects_plane_too_short() {
+  let buf = vec![0u8; 63];
+  assert!(matches!(
+    Bgr4ByteFrame::try_new(&buf, 16, 4, 16),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Bgr4ByteFrame dimensions or plane length")]
+fn bgr4_byte_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Bgr4ByteFrame::new(&buf, 16, 4, 16);
+}
+
+// ---- Rgb4Frame (4bpp bitstream, 2 px/byte) ---------------------------------
+
+#[test]
+fn rgb4_frame_try_new_accepts_valid_tight() {
+  // 4bpp: 16 px wide → min stride = 8 bytes; 4 rows → 32 bytes.
+  let buf = vec![0u8; 8 * 4];
+  Rgb4Frame::try_new(&buf, 16, 4, 8).expect("valid tight stride");
+}
+
+#[test]
+fn rgb4_frame_try_new_accepts_odd_width_tight() {
+  // Odd width 15 → min stride = div_ceil(15, 2) = 8 bytes; final byte's low
+  // nibble is unused. 4 rows → 32 bytes.
+  let buf = vec![0u8; 8 * 4];
+  Rgb4Frame::try_new(&buf, 15, 4, 8).expect("valid tight odd-width stride");
+}
+
+#[test]
+fn rgb4_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Rgb4Frame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn rgb4_frame_try_new_rejects_stride_too_small() {
+  // min stride = div_ceil(16, 2) = 8; supply 7
+  let buf = vec![0u8; 8 * 4];
+  assert!(matches!(
+    Rgb4Frame::try_new(&buf, 16, 4, 7),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn rgb4_frame_try_new_rejects_odd_width_stride_too_small() {
+  // Odd width 15 → min stride = div_ceil(15, 2) = 8; supply 7
+  let buf = vec![0u8; 8 * 4];
+  assert!(matches!(
+    Rgb4Frame::try_new(&buf, 15, 4, 7),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn rgb4_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Rgb4Frame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn rgb4_frame_try_new_rejects_plane_too_short() {
+  // 16 px wide, 4 rows, stride=8 → need 32 bytes; give 31
+  let buf = vec![0u8; 31];
+  assert!(matches!(
+    Rgb4Frame::try_new(&buf, 16, 4, 8),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Rgb4Frame dimensions or plane length")]
+fn rgb4_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Rgb4Frame::new(&buf, 16, 4, 8);
+}
+
+// ---- Bgr4Frame (4bpp bitstream, 2 px/byte) ---------------------------------
+
+#[test]
+fn bgr4_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 8 * 4];
+  Bgr4Frame::try_new(&buf, 16, 4, 8).expect("valid tight stride");
+}
+
+#[test]
+fn bgr4_frame_try_new_accepts_odd_width_tight() {
+  let buf = vec![0u8; 8 * 4];
+  Bgr4Frame::try_new(&buf, 15, 4, 8).expect("valid tight odd-width stride");
+}
+
+#[test]
+fn bgr4_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 16];
+  assert!(matches!(
+    Bgr4Frame::try_new(&buf, 0, 0, 0),
+    Err(PackedRgbBitFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn bgr4_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 8 * 4];
+  assert!(matches!(
+    Bgr4Frame::try_new(&buf, 16, 4, 7),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn bgr4_frame_try_new_rejects_odd_width_stride_too_small() {
+  let buf = vec![0u8; 8 * 4];
+  assert!(matches!(
+    Bgr4Frame::try_new(&buf, 15, 4, 7),
+    Err(PackedRgbBitFrameError::InsufficientStride(_))
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn bgr4_frame_try_new_rejects_geometry_overflow() {
+  let buf: [u8; 0] = [];
+  assert!(matches!(
+    Bgr4Frame::try_new(&buf, 1, 0x1_0000, 0x1_0000),
+    Err(PackedRgbBitFrameError::GeometryOverflow(_))
+  ));
+}
+
+#[test]
+fn bgr4_frame_try_new_rejects_plane_too_short() {
+  let buf = vec![0u8; 31];
+  assert!(matches!(
+    Bgr4Frame::try_new(&buf, 16, 4, 8),
+    Err(PackedRgbBitFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+#[should_panic(expected = "invalid Bgr4Frame dimensions or plane length")]
+fn bgr4_frame_new_panics_on_invalid() {
+  let buf = vec![0u8; 1];
+  Bgr4Frame::new(&buf, 16, 4, 8);
+}

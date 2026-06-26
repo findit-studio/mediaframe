@@ -619,3 +619,601 @@ impl<'a> Bgr444Frame<'a> {
     self.stride
   }
 }
+
+// ============================================================
+// Tier 7 — Legacy bit-packed RGB/BGR frame types (8bpp + 4bpp)
+// (Rgb8, Bgr8, Rgb4Byte, Bgr4Byte — 1 byte/pixel;
+//  Rgb4, Bgr4 — 4 bits/pixel, two pixels per byte)
+// ============================================================
+
+/// Errors returned by any of the legacy bit-packed-RGB frame
+/// constructors (the 8-bits-per-pixel `Rgb8` / `Bgr8` / `Rgb4Byte` /
+/// `Bgr4Byte` and the 4-bits-per-pixel `Rgb4` / `Bgr4`).
+///
+/// All six frame types share this error enum and perform validation in
+/// the same order. Unlike [`LegacyRgbFrameError`] there is no
+/// `WidthOverflow` variant: the minimum stride for these formats is at
+/// most `width` bytes (`width` for the byte-aligned formats,
+/// `width.div_ceil(2)` for the sub-byte 4-bpp formats), so it can never
+/// overflow `u32`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
+#[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum PackedRgbBitFrameError {
+  /// `width` or `height` was zero.
+  #[error(transparent)]
+  ZeroDimension(ZeroDimension),
+
+  /// `stride` is smaller than the format's minimum row length in bytes
+  /// (`width` for the byte-aligned formats, `width.div_ceil(2)` for the
+  /// sub-byte 4-bpp formats).
+  #[error(transparent)]
+  InsufficientStride(InsufficientStride),
+
+  /// Plane is shorter than `stride * height` bytes.
+  #[error(transparent)]
+  InsufficientPlane(InsufficientPlane),
+
+  /// `stride * height` overflows `usize`.
+  #[error(transparent)]
+  GeometryOverflow(GeometryOverflow),
+}
+
+// ---- Rgb8Frame -------------------------------------------------------------
+
+/// A validated packed **RGB8** frame (`AV_PIX_FMT_RGB8`) — 1 byte per
+/// pixel, packed RGB 3:3:2 with bits \[7:5\]=R3, \[4:2\]=G3, \[1:0\]=B2
+/// (`(msb)3R 3G 2B(lsb)`). No unused bits.
+///
+/// `stride` is in **bytes** (≥ `width`). No width parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Rgb8Frame<'a> {
+  rgb8: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Rgb8Frame<'a> {
+  /// Constructs a new [`Rgb8Frame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    rgb8: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    if stride < width {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if rgb8.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb8.len()),
+      ));
+    }
+    Ok(Self {
+      rgb8,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Rgb8Frame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(rgb8: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(rgb8, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Rgb8Frame dimensions or plane length"),
+    }
+  }
+
+  /// Packed RGB8 plane bytes — each byte is one 3:3:2 pixel.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rgb8(&self) -> &'a [u8] {
+    self.rgb8
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}
+
+// ---- Bgr8Frame -------------------------------------------------------------
+
+/// A validated packed **BGR8** frame (`AV_PIX_FMT_BGR8`) — 1 byte per
+/// pixel, packed RGB 3:3:2 with bits \[7:6\]=B2, \[5:3\]=G3, \[2:0\]=R3
+/// (`(msb)2B 3G 3R(lsb)`). No unused bits.
+///
+/// `stride` is in **bytes** (≥ `width`). No width parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Bgr8Frame<'a> {
+  bgr8: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Bgr8Frame<'a> {
+  /// Constructs a new [`Bgr8Frame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    bgr8: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    if stride < width {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if bgr8.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr8.len()),
+      ));
+    }
+    Ok(Self {
+      bgr8,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Bgr8Frame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(bgr8: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(bgr8, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Bgr8Frame dimensions or plane length"),
+    }
+  }
+
+  /// Packed BGR8 plane bytes — each byte is one 3:3:2 pixel.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bgr8(&self) -> &'a [u8] {
+    self.bgr8
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}
+
+// ---- Rgb4ByteFrame ---------------------------------------------------------
+
+/// A validated packed **RGB4_BYTE** frame (`AV_PIX_FMT_RGB4_BYTE`) — 1
+/// byte per pixel, packed RGB 1:2:1 with bit \[3\]=R1, bits \[2:1\]=G2,
+/// bit \[0\]=B1 (`(msb)1R 2G 1B(lsb)`). The top 4 bits \[7:4\] are unused
+/// padding (only the low nibble carries data).
+///
+/// `stride` is in **bytes** (≥ `width`). No width parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Rgb4ByteFrame<'a> {
+  rgb4_byte: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Rgb4ByteFrame<'a> {
+  /// Constructs a new [`Rgb4ByteFrame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    rgb4_byte: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    if stride < width {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if rgb4_byte.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb4_byte.len()),
+      ));
+    }
+    Ok(Self {
+      rgb4_byte,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Rgb4ByteFrame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(rgb4_byte: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(rgb4_byte, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Rgb4ByteFrame dimensions or plane length"),
+    }
+  }
+
+  /// Packed RGB4_BYTE plane bytes — each byte is one 1:2:1 pixel in its
+  /// low nibble.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rgb4_byte(&self) -> &'a [u8] {
+    self.rgb4_byte
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}
+
+// ---- Bgr4ByteFrame ---------------------------------------------------------
+
+/// A validated packed **BGR4_BYTE** frame (`AV_PIX_FMT_BGR4_BYTE`) — 1
+/// byte per pixel, packed RGB 1:2:1 with bit \[3\]=B1, bits \[2:1\]=G2,
+/// bit \[0\]=R1 (`(msb)1B 2G 1R(lsb)`). The top 4 bits \[7:4\] are unused
+/// padding (only the low nibble carries data).
+///
+/// `stride` is in **bytes** (≥ `width`). No width parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Bgr4ByteFrame<'a> {
+  bgr4_byte: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Bgr4ByteFrame<'a> {
+  /// Constructs a new [`Bgr4ByteFrame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    bgr4_byte: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    if stride < width {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, width),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if bgr4_byte.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr4_byte.len()),
+      ));
+    }
+    Ok(Self {
+      bgr4_byte,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Bgr4ByteFrame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(bgr4_byte: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(bgr4_byte, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Bgr4ByteFrame dimensions or plane length"),
+    }
+  }
+
+  /// Packed BGR4_BYTE plane bytes — each byte is one 1:2:1 pixel in its
+  /// low nibble.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bgr4_byte(&self) -> &'a [u8] {
+    self.bgr4_byte
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}
+
+// ---- Rgb4Frame -------------------------------------------------------------
+
+/// A validated packed **RGB4** frame (`AV_PIX_FMT_RGB4`) — 4 bits per
+/// pixel, bitstream-packed two pixels per byte. Each 4-bit nibble holds
+/// one 1:2:1 pixel: bit \[3\]=R1, bits \[2:1\]=G2, bit \[0\]=B1
+/// (`(msb)1R 2G 1B(lsb)`). Within each byte the **first (even) pixel is
+/// the high nibble \[7:4\]** and the second (odd) pixel is the low nibble
+/// \[3:0\].
+///
+/// `stride` is in **bytes** (≥ `width.div_ceil(2)`, i.e. `(4 * width + 7)
+/// / 8`). Odd widths leave the final byte's low nibble unused. No width
+/// parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Rgb4Frame<'a> {
+  rgb4: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Rgb4Frame<'a> {
+  /// Constructs a new [`Rgb4Frame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    rgb4: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    // Bitstream 4-bpp row length in bytes: `(4 * width + 7) / 8`, which
+    // for 4 bpp is exactly `width.div_ceil(2)`. `width <= u32::MAX`, so
+    // the ceiling division cannot overflow `u32`.
+    let min_stride = width.div_ceil(2);
+    if stride < min_stride {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if rgb4.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgb4.len()),
+      ));
+    }
+    Ok(Self {
+      rgb4,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Rgb4Frame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(rgb4: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(rgb4, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Rgb4Frame dimensions or plane length"),
+    }
+  }
+
+  /// Packed RGB4 plane bytes — each byte holds two 1:2:1 pixels (first
+  /// pixel in the high nibble).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rgb4(&self) -> &'a [u8] {
+    self.rgb4
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width.div_ceil(2)`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}
+
+// ---- Bgr4Frame -------------------------------------------------------------
+
+/// A validated packed **BGR4** frame (`AV_PIX_FMT_BGR4`) — 4 bits per
+/// pixel, bitstream-packed two pixels per byte. Each 4-bit nibble holds
+/// one 1:2:1 pixel: bit \[3\]=B1, bits \[2:1\]=G2, bit \[0\]=R1
+/// (`(msb)1B 2G 1R(lsb)`). Within each byte the **first (even) pixel is
+/// the high nibble \[7:4\]** and the second (odd) pixel is the low nibble
+/// \[3:0\].
+///
+/// `stride` is in **bytes** (≥ `width.div_ceil(2)`, i.e. `(4 * width + 7)
+/// / 8`). Odd widths leave the final byte's low nibble unused. No width
+/// parity constraint.
+#[derive(Debug, Clone, Copy)]
+pub struct Bgr4Frame<'a> {
+  bgr4: &'a [u8],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+impl<'a> Bgr4Frame<'a> {
+  /// Constructs a new [`Bgr4Frame`], validating dimensions and plane length.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    bgr4: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, PackedRgbBitFrameError> {
+    if width == 0 || height == 0 {
+      return Err(PackedRgbBitFrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    // Bitstream 4-bpp row length in bytes: `(4 * width + 7) / 8`, which
+    // for 4 bpp is exactly `width.div_ceil(2)`. `width <= u32::MAX`, so
+    // the ceiling division cannot overflow `u32`.
+    let min_stride = width.div_ceil(2);
+    if stride < min_stride {
+      return Err(PackedRgbBitFrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
+    }
+    let plane_min = match (stride as u64).checked_mul(height as u64) {
+      Some(v) if v <= usize::MAX as u64 => v as usize,
+      _ => {
+        return Err(PackedRgbBitFrameError::GeometryOverflow(
+          GeometryOverflow::new(stride, height),
+        ));
+      }
+    };
+    if bgr4.len() < plane_min {
+      return Err(PackedRgbBitFrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, bgr4.len()),
+      ));
+    }
+    Ok(Self {
+      bgr4,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Bgr4Frame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(bgr4: &'a [u8], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(bgr4, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Bgr4Frame dimensions or plane length"),
+    }
+  }
+
+  /// Packed BGR4 plane bytes — each byte holds two 1:2:1 pixels (first
+  /// pixel in the high nibble).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn bgr4(&self) -> &'a [u8] {
+    self.bgr4
+  }
+
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+
+  /// Byte stride (`>= width.div_ceil(2)`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+}

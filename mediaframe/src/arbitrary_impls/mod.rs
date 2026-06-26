@@ -425,7 +425,7 @@ mod tests {
     let mut saw_none = false;
     let mut saw_some = false;
     drive_per_round(
-      0x7A65_1A_u64,
+      0x007A_651A_u64,
       1024,
       |u| match crate::audio::Tags::arbitrary(u).unwrap().language() {
         None => saw_none = true,

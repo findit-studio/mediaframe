@@ -167,3 +167,109 @@ fn yuva420p10_be_try_new_checked_rejects_be_encoded_alpha_out_of_range() {
   let e = Yuva420p10BeFrame::try_new_checked(&y, &u, &v, &a, 16, 8, 16, 8, 8, 16).unwrap_err();
   assert!(matches!(e, Yuva420pFrame16Error::SampleOutOfRange(_)));
 }
+
+// ---- Yuva420p12 (non-FFmpeg-enum 12-bit low-bit-packed) ---------------
+//
+// `BITS == 12` was relaxed in for the non-FFmpeg `yuva420p12le` layout
+// (WebCodecs I420AP12 / non-FFmpeg decoders). 12 active low bits, high
+// 4 bits zero — `try_new_checked` rejects stray high bits (anything
+// above the 12-bit max of 4095, i.e. any bit in the 0xF000 mask).
+
+#[test]
+fn yuva420p12_try_new_accepts_bits_12() {
+  // BITS=12 must now construct (was previously rejected as unsupported).
+  let y = vec![0u16; 16 * 8];
+  let uv = vec![0u16; 8 * 4];
+  let a = vec![0u16; 16 * 8];
+  let f = Yuva420p12Frame::try_new(&y, &uv, &uv, &a, 16, 8, 16, 8, 8, 16)
+    .expect("BITS=12 yuva420p12le must construct");
+  assert_eq!(f.bits(), 12);
+  assert_eq!(f.width(), 16);
+  assert_eq!(f.height(), 8);
+}
+
+#[test]
+fn yuva420p12_try_new_checked_accepts_le_encoded_buffer_on_any_host() {
+  // 12-bit-low-packed white = 4095 (LE bytes [0xFF, 0x0F]).
+  let intended_y = vec![4095u16; 16 * 8];
+  let intended_uv = vec![2048u16; 8 * 4];
+  let intended_a = vec![4095u16; 16 * 8];
+  let y = le_encoded_u16_buf(&intended_y);
+  let u = le_encoded_u16_buf(&intended_uv);
+  let v = le_encoded_u16_buf(&intended_uv);
+  let a = le_encoded_u16_buf(&intended_a);
+  Yuva420p12Frame::try_new_checked(&y, &u, &v, &a, 16, 8, 16, 8, 8, 16)
+    .expect("LE-encoded valid yuva420p12le must be accepted on both LE and BE hosts");
+}
+
+#[test]
+fn yuva420p12_try_new_checked_rejects_stray_high_bits_on_any_host() {
+  // 0x1000 (= 4096) sets a bit in the 0xF000 high-nibble mask — one
+  // above the 12-bit max of 4095. `try_new_checked` must reject it on
+  // every host (LE-encoded byte buffer carries logical 4096).
+  let intended_y = vec![0u16; 16 * 8];
+  let intended_uv = vec![2048u16; 8 * 4];
+  let mut intended_a = vec![4095u16; 16 * 8];
+  intended_a[3 * 16 + 5] = 0x1000; // stray high bit set
+  let y = le_encoded_u16_buf(&intended_y);
+  let u = le_encoded_u16_buf(&intended_uv);
+  let v = le_encoded_u16_buf(&intended_uv);
+  let a = le_encoded_u16_buf(&intended_a);
+  let e = Yuva420p12Frame::try_new_checked(&y, &u, &v, &a, 16, 8, 16, 8, 8, 16).unwrap_err();
+  assert!(matches!(e, Yuva420pFrame16Error::SampleOutOfRange(_)));
+}
+
+#[test]
+fn yuva420p12_be_alias_constructs_and_reports_be() {
+  // The const-generic `BE` alias resolves and reports its byte order.
+  let y = vec![0u16; 16 * 8];
+  let uv = vec![0u16; 8 * 4];
+  let a = vec![0u16; 16 * 8];
+  let f = Yuva420p12BeFrame::try_new(&y, &uv, &uv, &a, 16, 8, 16, 8, 8, 16).unwrap();
+  assert!(f.is_be());
+  assert_eq!(f.bits(), 12);
+}
+
+#[test]
+fn yuva420p12_be_try_new_checked_accepts_be_encoded_buffer_on_any_host() {
+  // 12-bit-low-packed white = 4095, BE-encoded. The `try_new_checked`
+  // validator normalizes via `u16::from_be` before the range check, so a
+  // valid BE buffer must be accepted on both LE and BE hosts.
+  let intended_y = vec![4095u16; 16 * 8];
+  let intended_uv = vec![2048u16; 8 * 4];
+  let intended_a = vec![4095u16; 16 * 8];
+  let y = be_encoded_u16_buf(&intended_y);
+  let u = be_encoded_u16_buf(&intended_uv);
+  let v = be_encoded_u16_buf(&intended_uv);
+  let a = be_encoded_u16_buf(&intended_a);
+  Yuva420p12BeFrame::try_new_checked(&y, &u, &v, &a, 16, 8, 16, 8, 8, 16)
+    .expect("BE-encoded valid yuva420p12be must be accepted on both LE and BE hosts");
+}
+
+#[test]
+fn yuva420p12_be_try_new_checked_rejects_stray_high_bits_on_any_host() {
+  // 0x1000 (= 4096) sets a bit in the 0xF000 high-nibble mask — one
+  // above the 12-bit max of 4095 — on the alpha plane, BE-encoded. After
+  // `u16::from_be` normalization the validator must reject it on every
+  // host.
+  let intended_y = vec![4095u16; 16 * 8];
+  let intended_uv = vec![2048u16; 8 * 4];
+  let mut intended_a = vec![4095u16; 16 * 8];
+  intended_a[3 * 16 + 5] = 0x1000; // stray high bit set
+  let y = be_encoded_u16_buf(&intended_y);
+  let u = be_encoded_u16_buf(&intended_uv);
+  let v = be_encoded_u16_buf(&intended_uv);
+  let a = be_encoded_u16_buf(&intended_a);
+  let e = Yuva420p12BeFrame::try_new_checked(&y, &u, &v, &a, 16, 8, 16, 8, 8, 16).unwrap_err();
+  assert!(matches!(e, Yuva420pFrame16Error::SampleOutOfRange(_)));
+}
+
+#[test]
+fn yuva420p_frame16_still_rejects_bits_14() {
+  // Only 9/10/12/16 are accepted for YUVA 4:2:0; 14-bit has no decoder.
+  let y = vec![0u16; 16 * 8];
+  let uv = vec![0u16; 8 * 4];
+  let a = vec![0u16; 16 * 8];
+  let e = Yuva420pFrame16::<14, false>::try_new(&y, &uv, &uv, &a, 16, 8, 16, 8, 8, 16).unwrap_err();
+  assert!(matches!(e, Yuva420pFrame16Error::UnsupportedBits(_)));
+}

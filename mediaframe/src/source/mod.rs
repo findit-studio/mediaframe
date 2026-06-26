@@ -328,6 +328,12 @@ pub use yuva420p10::*;
 
 #[cfg(feature = "yuva")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuva")))]
+mod yuva420p12;
+#[cfg(feature = "yuva")]
+pub use yuva420p12::*;
+
+#[cfg(feature = "yuva")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuva")))]
 mod yuva420p16;
 #[cfg(feature = "yuva")]
 pub use yuva420p16::*;
@@ -441,6 +447,12 @@ pub use v30x::*;
 mod xv36;
 #[cfg(feature = "yuv-444-packed")]
 pub use xv36::*;
+
+#[cfg(feature = "yuv-444-packed")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-444-packed")))]
+mod xv48;
+#[cfg(feature = "yuv-444-packed")]
+pub use xv48::*;
 
 #[cfg(feature = "yuv-444-packed")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-444-packed")))]

@@ -304,9 +304,12 @@ impl<'a> Yuva420pFrame<'a> {
 #[unwrap(ref, ref_mut)]
 #[try_unwrap(ref, ref_mut)]
 pub enum Yuva420pFrame16Error {
-  /// `BITS` was not one of the supported depths (9, 10, 16). FFmpeg
-  /// only ships `yuva420p9le`, `yuva420p10le`, `yuva420p16le` — no
-  /// 12/14-bit YUVA 4:2:0 pixel formats exist.
+  /// `BITS` was not one of the supported depths (9, 10, 12, 16).
+  /// FFmpeg ships `yuva420p9le`, `yuva420p10le`, `yuva420p16le`; the
+  /// extra `BITS == 12` slot covers the non-FFmpeg-enum
+  /// `yuva420p12le` low-bit-packed layout that WebCodecs `I420AP12`
+  /// and assorted non-FFmpeg decoders emit. 14-bit has no decoder and
+  /// is still rejected.
   #[error(transparent)]
   UnsupportedBits(UnsupportedBits),
 
@@ -376,9 +379,12 @@ pub enum Yuva420pFrame16Plane {
 }
 
 /// A validated planar 4:2:0 `u16`-backed frame **with an alpha plane**,
-/// generic over `const BITS: u32 ∈ {9, 10, 16}`. FFmpeg ships
-/// `yuva420p9le`, `yuva420p10le`, and `yuva420p16le` — no 12/14-bit
-/// YUVA 4:2:0 pixel formats exist, so [`Self::try_new`] rejects them.
+/// generic over `const BITS: u32 ∈ {9, 10, 12, 16}`. FFmpeg ships
+/// `yuva420p9le`, `yuva420p10le`, and `yuva420p16le`; the `BITS == 12`
+/// slot additionally accepts the non-FFmpeg-enum `yuva420p12le`
+/// low-bit-packed layout (12 active low bits, high 4 bits zero) that
+/// WebCodecs `I420AP12` and non-FFmpeg decoders produce. 14-bit has no
+/// decoder, so [`Self::try_new`] still rejects it.
 ///
 /// Four planes — Y full-width × full-height, U/V half-width ×
 /// half-height (4:2:0 chroma subsampling), A full-width × full-height
@@ -414,9 +420,11 @@ impl<'a, const BITS: u32, const BE: bool> Yuva420pFrame16<'a, BITS, BE> {
     v_stride: u32,
     a_stride: u32,
   ) -> Result<Self, Yuva420pFrame16Error> {
-    // FFmpeg's only YUVA 4:2:0 high-bit pixel formats: yuva420p9le,
-    // yuva420p10le, yuva420p16le. No 12/14-bit variants exist.
-    if BITS != 9 && BITS != 10 && BITS != 16 {
+    // FFmpeg's YUVA 4:2:0 high-bit pixel formats are yuva420p9le,
+    // yuva420p10le, yuva420p16le. BITS == 12 is also accepted for the
+    // non-FFmpeg-enum yuva420p12le low-bit-packed layout (WebCodecs
+    // I420AP12 / non-FFmpeg decoders). 14-bit has no decoder.
+    if BITS != 9 && BITS != 10 && BITS != 12 && BITS != 16 {
       return Err(Yuva420pFrame16Error::UnsupportedBits(UnsupportedBits::new(
         BITS,
       )));
@@ -725,6 +733,12 @@ pub type Yuva420p9Frame<'a> = Yuva420pFrame16<'a, 9>;
 /// LE-encoded 4:2:0 planar with alpha, 10-bit (`AV_PIX_FMT_YUVA420P10LE`).
 pub type Yuva420p10Frame<'a> = Yuva420pFrame16<'a, 10>;
 
+/// LE-encoded 4:2:0 planar with alpha, 12-bit low-bit-packed
+/// (`yuva420p12le` — no FFmpeg `AV_PIX_FMT` enum; emitted by WebCodecs
+/// `I420AP12` and non-FFmpeg decoders). 12 active low bits per sample,
+/// high 4 bits zero.
+pub type Yuva420p12Frame<'a> = Yuva420pFrame16<'a, 12>;
+
 /// LE-encoded 4:2:0 planar with alpha, 16-bit (`AV_PIX_FMT_YUVA420P16LE`).
 /// Uses the parallel i64 kernel family for the u16 RGBA path.
 pub type Yuva420p16Frame<'a> = Yuva420pFrame16<'a, 16>;
@@ -739,6 +753,12 @@ pub type Yuva420p9BeFrame<'a> = Yuva420pFrame16<'a, 9, true>;
 pub type Yuva420p10LeFrame<'a> = Yuva420pFrame16<'a, 10, false>;
 /// BE-encoded `Yuva420p10Frame` (`AV_PIX_FMT_YUVA420P10BE`).
 pub type Yuva420p10BeFrame<'a> = Yuva420pFrame16<'a, 10, true>;
+/// LE-encoded `Yuva420p12Frame` (`yuva420p12le` — no FFmpeg enum).
+pub type Yuva420p12LeFrame<'a> = Yuva420pFrame16<'a, 12, false>;
+/// BE-encoded `Yuva420p12Frame` (`yuva420p12be` — no FFmpeg enum; the
+/// byte-order sibling of [`Yuva420p12LeFrame`], const-generic over `BE`
+/// for symmetry with the 9/10/16-bit YUVA 4:2:0 BE forms).
+pub type Yuva420p12BeFrame<'a> = Yuva420pFrame16<'a, 12, true>;
 /// LE-encoded `Yuva420p16Frame` (`AV_PIX_FMT_YUVA420P16LE`).
 pub type Yuva420p16LeFrame<'a> = Yuva420pFrame16<'a, 16, false>;
 /// BE-encoded `Yuva420p16Frame` (`AV_PIX_FMT_YUVA420P16BE`).

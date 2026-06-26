@@ -234,6 +234,14 @@ pub enum PixelFormat {
   /// discriminants stable. Surfaced by WebCodecs as the
   /// `I420AP12` `VideoPixelFormat`.
   Yuva420p12Le,
+  /// Planar 4:2:0 YUVA, 12-bit big-endian (`yuva420p12be` — no FFmpeg
+  /// `AV_PIX_FMT` enum; the byte-order sibling of [`Self::Yuva420p12Le`],
+  /// supported for symmetry with the 9 / 10 / 16-bit YUVA 4:2:0 BE
+  /// forms). Discriminant placed at the YUVA tail (after the 16Be
+  /// block) for the same reason the 12Le form was: the in-order 200-
+  /// series slots were already consumed, so a new tail slot keeps every
+  /// existing discriminant stable.
+  Yuva420p12Be,
   /// Planar 4:2:2 YUVA, 12-bit little-endian.
   Yuva422p12Le,
   /// Planar 4:2:2 YUVA, 12-bit big-endian.
@@ -818,6 +826,7 @@ impl PixelFormat {
       Self::Yuva444p10Le => 208,
       Self::Yuva444p10Be => 221,
       Self::Yuva420p12Le => 215,
+      Self::Yuva420p12Be => 227,
       Self::Yuva422p12Le => 209,
       Self::Yuva422p12Be => 222,
       Self::Yuva444p12Le => 210,
@@ -1114,6 +1123,7 @@ impl PixelFormat {
       224 => Self::Yuva420p16Be,
       225 => Self::Yuva422p16Be,
       226 => Self::Yuva444p16Be,
+      227 => Self::Yuva420p12Be,
       // Semi-planar YUV.
       300 => Self::Nv12,
       301 => Self::Nv21,
@@ -1435,6 +1445,7 @@ impl PixelFormat {
       Self::Yuva444p10Le => "yuva444p10le",
       Self::Yuva444p10Be => "yuva444p10be",
       Self::Yuva420p12Le => "yuva420p12le",
+      Self::Yuva420p12Be => "yuva420p12be",
       Self::Yuva422p12Le => "yuva422p12le",
       Self::Yuva422p12Be => "yuva422p12be",
       Self::Yuva444p12Le => "yuva444p12le",

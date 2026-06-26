@@ -2,7 +2,7 @@ use crate::frame::{
   Ayuv64BeFrame, Ayuv64FrameError, Ayuv64LeFrame, AyuvFrame, AyuvFrameError, UyvaFrame,
   UyvaFrameError, V30XFrame, V30XFrameError, V410BeFrame, V410FrameError, V410LeFrame, VuyaFrame,
   VuyaFrameError, VuyxFrame, VuyxFrameError, Vyu444Frame, Vyu444FrameError, Xv36BeFrame,
-  Xv36FrameError, Xv36LeFrame,
+  Xv36FrameError, Xv36LeFrame, Xv48BeFrame, Xv48FrameError, Xv48LeFrame,
 };
 use std::vec;
 
@@ -320,6 +320,93 @@ fn xv36_be_frame_alias_constructs() {
   assert!(f.is_be());
   assert_eq!(f.width(), 4);
   assert_eq!(f.height(), 4);
+}
+
+// ---- XV48 (16-bit packed 4:4:4, full-depth sibling of XV36) ----------
+//
+// Geometry-only validation: XV48 is 16-bit native (all bits active), so
+// unlike XV36 there is no low-bit-alignment invariant / `try_new_checked`.
+
+#[test]
+fn xv48_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u16; 4 * 4 * 4]; // 4 px × 4 channels × 4 rows
+  let f = Xv48LeFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 16);
+  assert_eq!(f.packed().len(), 64);
+}
+
+#[test]
+fn xv48_frame_try_new_accepts_oversized_stride() {
+  let buf = vec![0u16; 4 * 4 * 8]; // stride=32 > width*4=16
+  Xv48LeFrame::try_new(&buf, 4, 4, 32).unwrap();
+}
+
+#[test]
+fn xv48_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u16; 16];
+  assert!(matches!(
+    Xv48LeFrame::try_new(&buf, 0, 4, 16),
+    Err(Xv48FrameError::ZeroDimension(_))
+  ));
+  assert!(matches!(
+    Xv48LeFrame::try_new(&buf, 4, 0, 16),
+    Err(Xv48FrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn xv48_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u16; 64];
+  // width=4, width*4=16; stride=12 < 16
+  assert!(matches!(
+    Xv48LeFrame::try_new(&buf, 4, 4, 12),
+    Err(Xv48FrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn xv48_frame_try_new_rejects_short_plane() {
+  let buf = vec![0u16; 32]; // need 16*4 = 64
+  assert!(matches!(
+    Xv48LeFrame::try_new(&buf, 4, 4, 16),
+    Err(Xv48FrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+fn xv48_frame_accessors_round_trip() {
+  let buf = vec![0u16; 64];
+  let f = Xv48LeFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert_eq!(f.packed().len(), 64);
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 16);
+}
+
+#[test]
+fn xv48_le_frame_default_is_le() {
+  let buf = vec![0u16; 64];
+  let f = Xv48LeFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert!(!f.is_be());
+}
+
+#[test]
+fn xv48_be_frame_alias_constructs() {
+  // `Xv48BeFrame` alias resolves to `Xv48Frame<'_, true>`.
+  let buf = vec![0u16; 64];
+  let f = Xv48BeFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert!(f.is_be());
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+}
+
+#[test]
+#[should_panic(expected = "invalid Xv48Frame:")]
+fn xv48_frame_new_panics_on_invalid() {
+  let buf = vec![0u16; 32]; // need width*4*height = 64; too short
+  let _ = Xv48LeFrame::new(&buf, 4, 4, 16); // InsufficientPlane
 }
 
 #[test]

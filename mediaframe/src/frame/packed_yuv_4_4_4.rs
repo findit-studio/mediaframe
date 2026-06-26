@@ -594,6 +594,196 @@ impl<'a, const BE: bool> Xv36Frame<'a, BE> {
   }
 }
 
+/// Validated wrapper around a packed YUV 4:4:4 16-bit `XV48` plane.
+///
+/// `XV48` (FFmpeg `AV_PIX_FMT_XV48LE`) is the full-16-bit sibling of
+/// [`Xv36Frame`] — same per-pixel channel order, but every channel
+/// uses the full `u16` range (16-bit native, no MSB shift / no zero
+/// low bits). It packs **four u16 channels per pixel** as
+/// `U(16) ‖ Y(16) ‖ V(16) ‖ X(16)` little-endian. The channel order is
+/// fixed by FFmpeg `libavutil/pixdesc.c`, whose `AV_PIX_FMT_XV48LE`
+/// `.comp` array places each component at these byte offsets within
+/// the 8-byte pixel: `U` @ 0, `Y` @ 2, `V` @ 4, `X` @ 6 (all
+/// `depth = 16`, `shift = 0`). pixdesc documents XV48 as a "variant of
+/// Y416 where alpha channel is left undefined", so the `X` slot is
+/// **padding** — reads are tolerated but values are discarded; RGBA
+/// outputs always force α = max (`0xFF` u8 / `0xFFFF` u16 native-depth).
+///
+/// Per-pixel layout (LE, MSB → LSB inside each channel u16):
+///
+/// | u16 slot | Byte offset | Field | Active bits |
+/// |----------|-------------|-------|-------------|
+/// | 0        | 0           | U     | bits\[15:0\] |
+/// | 1        | 2           | Y     | bits\[15:0\] |
+/// | 2        | 4           | V     | bits\[15:0\] |
+/// | 3        | 6           | X     | bits\[15:0\] (padding) |
+///
+/// Each row holds exactly `width × 4` u16 elements (`stride >=
+/// width × 4`); the plane occupies `stride * height` u16 elements.
+///
+/// Unlike [`Xv36Frame`], there is **no** low-bit-alignment invariant
+/// to enforce (all 16 bits are active), so there is no
+/// `try_new_checked` — geometry validation is the only check, matching
+/// [`Ayuv64Frame`].
+///
+/// # Endian contract — `<const BE: bool = false>`
+///
+/// The `<const BE: bool>` parameter selects the per-channel u16 byte
+/// order: `false` (default) → LE-encoded bytes (`AV_PIX_FMT_XV48LE`),
+/// `true` → BE-encoded bytes (`AV_PIX_FMT_XV48BE`). Each u16 channel is
+/// byte-swapped under the hood by the row kernels — callers do **not**
+/// pre-swap.
+///
+/// # Aliases
+/// - [`Xv48LeFrame`] = `Xv48Frame<'a, false>` — explicit LE.
+/// - [`Xv48BeFrame`] = `Xv48Frame<'a, true>` — explicit BE.
+#[derive(Debug, Clone, Copy)]
+pub struct Xv48Frame<'a, const BE: bool = false> {
+  packed: &'a [u16],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+/// LE-encoded `Xv48Frame` (`AV_PIX_FMT_XV48LE`). Equivalent to the
+/// default `Xv48Frame<'a>`; provided as an explicit alias.
+pub type Xv48LeFrame<'a> = Xv48Frame<'a, false>;
+
+/// BE-encoded `Xv48Frame` (`AV_PIX_FMT_XV48BE`). Per-channel u16s are
+/// big-endian-encoded; downstream row kernels byte-swap each channel.
+pub type Xv48BeFrame<'a> = Xv48Frame<'a, true>;
+
+/// Errors returned by [`Xv48Frame::try_new`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
+#[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum Xv48FrameError {
+  /// `width == 0` or `height == 0`.
+  #[error(transparent)]
+  ZeroDimension(ZeroDimension),
+
+  /// `width × 4` overflows `u32`. Only reachable on 32-bit targets
+  /// with extreme widths.
+  #[error(transparent)]
+  WidthOverflow(WidthOverflow),
+
+  /// `stride < width × 4` (u16 elements). Each row needs at least
+  /// `width × 4` u16 elements (= `width × 8` bytes) to hold all
+  /// pixels.
+  #[error(transparent)]
+  InsufficientStride(InsufficientStride),
+
+  /// `packed.len() < expected`. The packed plane is too short.
+  #[error(transparent)]
+  InsufficientPlane(InsufficientPlane),
+
+  /// `stride * height` overflows `usize`. Only reachable on 32-bit
+  /// targets with extreme dimensions.
+  #[error(transparent)]
+  GeometryOverflow(GeometryOverflow),
+}
+
+impl<'a, const BE: bool> Xv48Frame<'a, BE> {
+  /// Validates and constructs an [`Xv48Frame`].
+  ///
+  /// `<const BE: bool>` selects LE (`false`, default) vs BE (`true`)
+  /// per-channel u16 byte order; row kernels perform the byte-swap.
+  /// Geometry-only validation — XV48 is 16-bit native, so there is no
+  /// low-bit-alignment invariant to check.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    packed: &'a [u16],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, Xv48FrameError> {
+    if width == 0 || height == 0 {
+      return Err(Xv48FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    let min_stride = match width.checked_mul(4) {
+      Some(n) => n,
+      None => return Err(Xv48FrameError::WidthOverflow(WidthOverflow::new(width))),
+    };
+    if stride < min_stride {
+      return Err(Xv48FrameError::InsufficientStride(InsufficientStride::new(
+        stride, width,
+      )));
+    }
+    let plane_min = match (stride as usize).checked_mul(height as usize) {
+      Some(n) => n,
+      None => {
+        return Err(Xv48FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
+      }
+    };
+    if packed.len() < plane_min {
+      return Err(Xv48FrameError::InsufficientPlane(InsufficientPlane::new(
+        plane_min,
+        packed.len(),
+      )));
+    }
+    Ok(Self {
+      packed,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Panicking convenience over [`Self::try_new`]. Per-variant panic
+  /// messages mirror [`crate::frame::V410Frame::new`].
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(packed: &'a [u16], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(packed, width, height, stride) {
+      Ok(f) => f,
+      Err(e) => match e {
+        Xv48FrameError::ZeroDimension(_) => panic!("invalid Xv48Frame: zero dimension"),
+        Xv48FrameError::WidthOverflow(_) => panic!("invalid Xv48Frame: width overflow"),
+        Xv48FrameError::InsufficientStride(_) => panic!("invalid Xv48Frame: stride too small"),
+        Xv48FrameError::InsufficientPlane(_) => panic!("invalid Xv48Frame: plane too short"),
+        Xv48FrameError::GeometryOverflow(_) => panic!("invalid Xv48Frame: geometry overflow"),
+      },
+    }
+  }
+
+  /// Packed plane: `stride * height` total u16 elements, with
+  /// `width × 4` active u16 elements per row (4 channels per pixel)
+  /// and `stride` u16 elements per row. Channel layout per pixel:
+  /// `U(16) ‖ Y(16) ‖ V(16) ‖ X(16)` (X = padding).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn packed(&self) -> &'a [u16] {
+    self.packed
+  }
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+  /// Frame height in rows.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+  /// Stride in u16 elements (NOT bytes — the number of u16 slots per
+  /// row, ≥ `width × 4`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+  /// Returns the compile-time BE flag — `true` if per-channel u16s
+  /// are BE-encoded (`AV_PIX_FMT_XV48BE`), `false` if LE-encoded
+  /// (`AV_PIX_FMT_XV48LE`). Runtime mirror of the `<const BE: bool>`
+  /// type parameter.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_be(&self) -> bool {
+    BE
+  }
+}
+
 /// Validated wrapper around a packed YUV 4:4:4 8-bit `VUYA` plane.
 ///
 /// `VUYA` (FFmpeg `AV_PIX_FMT_VUYA`) packs **four bytes per pixel**

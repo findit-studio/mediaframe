@@ -194,6 +194,18 @@ pub use yuv444p16::*;
 
 #[cfg(feature = "yuv-planar")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-planar")))]
+mod yuv444p10_msb;
+#[cfg(feature = "yuv-planar")]
+pub use yuv444p10_msb::*;
+
+#[cfg(feature = "yuv-planar")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-planar")))]
+mod yuv444p12_msb;
+#[cfg(feature = "yuv-planar")]
+pub use yuv444p12_msb::*;
+
+#[cfg(feature = "yuv-planar")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-planar")))]
 mod yuv411p;
 #[cfg(feature = "yuv-planar")]
 pub use yuv411p::*;

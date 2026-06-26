@@ -178,19 +178,19 @@ umbrella enables all of them at once.
 
 | Feature           | Formats                                                       |
 |-------------------|---------------------------------------------------------------|
-| `yuv-planar`      | `Yuv420p` / `422p` / `444p` / `440p` / `411p` / `410p` + 9-16 bit |
-| `yuv-semi-planar` | `Nv12` / `16` / `21` / `24` / `42`, `P010` / `210` / `410` family |
+| `yuv-planar`      | `Yuv420p` / `422p` / `444p` / `440p` / `411p` / `410p` + 9-16 bit (+ `444p` MSB) |
+| `yuv-semi-planar` | `Nv12` / `16` / `21` / `24` / `42` / `Nv20`, `P010` / `210` / `410` family |
 | `yuva`            | YUVA planar 8-bit + 9-16 bit                                  |
 | `yuv-packed`      | `Yuyv422`, `Uyvy422`, `Yvyu422`, `Uyyvyy411`                  |
-| `yuv-444-packed`  | `V410`, `Xv30`, `Xv36`, `Ayuv64`, `Vuya`, `Vuyx`, `V30X`      |
+| `yuv-444-packed`  | `V410`, `Xv30`, `Xv36`, `Xv48`, `Ayuv64`, `Ayuv`, `Uyva`, `Vyu444`, `Vuya`, `Vuyx`, `V30X` |
 | `y2xx`            | `Y210` / `Y212` / `Y216`                                      |
 | `v210`            | `V210`                                                        |
-| `rgb`             | `Rgb24` / `Bgr24` / `Rgba` / `Bgra` + 10-bit + 16-bit         |
+| `rgb`             | `Rgb24` / `Bgr24` / `Rgba` / `Bgra` + 10-bit + 16-bit + 32-bit (`Rgb96` / `Rgba128`) |
 | `rgb-float`       | `Rgbf32` / `Rgbf16` + `Rgbaf16`/`f32`                         |
-| `rgb-legacy`      | `Rgb444` / `555` / `565` + Bgr counterparts                   |
-| `gbr`             | `Gbrp` / `Gbrap` + 9-16 bit + float                           |
-| `gray`            | `Gray8` / 9-16 bit / f32, `Ya8` / `Ya16`                      |
-| `bayer`           | Bayer 8 / 10 / 12 / 14 / 16-bit × 4 patterns                  |
+| `rgb-legacy`      | `Rgb444` / `555` / `565` / `Rgb4` / `Rgb4Byte` / `Rgb8` + Bgr counterparts |
+| `gbr`             | `Gbrp` / `Gbrap` + 9-16 bit (+ MSB) + 32-bit + float          |
+| `gray`            | `Gray8` / 9-16 bit / f16 / f32 / 32-bit, `Ya8` / `Ya16` / `Yaf16` / `Yaf32` |
+| `bayer`           | Bayer 8 / 10 / 12 / 14 / 16-bit × 4 patterns (LE + BE)        |
 | `xyz`             | `Xyz12` (DCI-XYZ)                                             |
 | `mono`            | `Monoblack` / `Monowhite` / `Pal8`                            |
 | `frame`           | umbrella — enables every sub-feature above                    |

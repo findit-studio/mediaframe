@@ -26,8 +26,8 @@
 //! | `yuv-444-packed`  | V410, XV30, XV36, AYUV64, VUYA, VUYX, V30X           |
 //! | `y2xx`            | Y210 / Y212 / Y216                                   |
 //! | `v210`            | V210                                                 |
-//! | `rgb`             | Rgb24/Bgr24/Rgba/Bgra + 16-bit family                |
-//! | `rgb-float`       | Rgbf32 / Rgbf16                                      |
+//! | `rgb`             | Rgb24/Bgr24/Rgba/Bgra + 16-bit + Rgb96/Rgba128       |
+//! | `rgb-float`       | Rgbf32 / Rgbf16 + Rgbaf32 / Rgbaf16                  |
 //! | `rgb-legacy`      | Rgb444/555/565 + Bgr counterparts                    |
 //! | `gbr`             | Gbrp / Gbrap + 9-16bit + float                       |
 //! | `gray`            | Gray8-16/32, Grayf16/32, Ya8/16, Yaf16/32            |
@@ -1578,6 +1578,9 @@ mod packed_rgb_10bit;
 mod packed_rgb_16bit;
 #[cfg(feature = "rgb")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rgb")))]
+mod packed_rgb_32bit;
+#[cfg(feature = "rgb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb")))]
 mod packed_rgb_8bit;
 #[cfg(feature = "rgb")]
 pub use packed_rgb_8bit::*;
@@ -1585,6 +1588,8 @@ pub use packed_rgb_8bit::*;
 pub use packed_rgb_10bit::*;
 #[cfg(feature = "rgb")]
 pub use packed_rgb_16bit::*;
+#[cfg(feature = "rgb")]
+pub use packed_rgb_32bit::*;
 
 #[cfg(feature = "rgb-float")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rgb-float")))]

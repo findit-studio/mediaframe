@@ -675,6 +675,42 @@ mod bgr565;
 #[cfg(feature = "rgb-legacy")]
 pub use bgr565::*;
 
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod rgb8;
+#[cfg(feature = "rgb-legacy")]
+pub use rgb8::*;
+
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod bgr8;
+#[cfg(feature = "rgb-legacy")]
+pub use bgr8::*;
+
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod rgb4_byte;
+#[cfg(feature = "rgb-legacy")]
+pub use rgb4_byte::*;
+
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod bgr4_byte;
+#[cfg(feature = "rgb-legacy")]
+pub use bgr4_byte::*;
+
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod rgb4;
+#[cfg(feature = "rgb-legacy")]
+pub use rgb4::*;
+
+#[cfg(feature = "rgb-legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-legacy")))]
+mod bgr4;
+#[cfg(feature = "rgb-legacy")]
+pub use bgr4::*;
+
 // --- gbr ---
 #[cfg(feature = "gbr")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gbr")))]

@@ -30,7 +30,7 @@
 //! | `rgb-float`       | Rgbf32 / Rgbf16                                      |
 //! | `rgb-legacy`      | Rgb444/555/565 + Bgr counterparts                    |
 //! | `gbr`             | Gbrp / Gbrap + 9-16bit + float                       |
-//! | `gray`            | Gray8-16, Grayf32, Ya8/16                            |
+//! | `gray`            | Gray8-16/32, Grayf16/32, Ya8/16, Yaf16/32            |
 //! | `bayer`           | Bayer 8-16bit, 4 patterns                            |
 //! | `xyz`             | Xyz12                                                |
 //! | `mono`            | Monoblack / Monowhite / Pal8                         |

@@ -3,15 +3,16 @@ use super::*;
 
 // `util` is shared by the high-bit Frame tests
 // (subsampled_4_2_2_high_bit, subsampled_4_4_4_high_bit, y2xx,
-// packed_yuv_4_4_4, nv20). Gate the helper module behind the union of
-// those consumer features so it doesn't trip dead-code lints when the
-// frame-test surface is otherwise empty (e.g. miri default-feature
-// builds without `--features frame`).
+// packed_yuv_4_4_4, nv20, planar_gbr_high_bit MSB pair). Gate the helper
+// module behind the union of those consumer features so it doesn't trip
+// dead-code lints when the frame-test surface is otherwise empty (e.g. miri
+// default-feature builds without `--features frame`).
 #[cfg(any(
   feature = "yuv-planar",
   feature = "yuv-444-packed",
   feature = "y2xx",
   feature = "yuv-semi-planar",
+  feature = "gbr",
 ))]
 mod util;
 

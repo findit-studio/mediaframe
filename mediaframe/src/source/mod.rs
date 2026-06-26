@@ -712,6 +712,24 @@ mod gbrapf16;
 #[cfg(feature = "gbr")]
 pub use gbrapf16::*;
 
+#[cfg(feature = "gbr")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gbr")))]
+mod gbrp10_msb;
+#[cfg(feature = "gbr")]
+pub use gbrp10_msb::*;
+
+#[cfg(feature = "gbr")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gbr")))]
+mod gbrp12_msb;
+#[cfg(feature = "gbr")]
+pub use gbrp12_msb::*;
+
+#[cfg(feature = "gbr")]
+#[cfg_attr(docsrs, doc(cfg(feature = "gbr")))]
+mod gbrap32;
+#[cfg(feature = "gbr")]
+pub use gbrap32::*;
+
 // --- gray ---
 #[cfg(feature = "gray")]
 #[cfg_attr(docsrs, doc(cfg(feature = "gray")))]

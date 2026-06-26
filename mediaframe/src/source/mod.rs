@@ -460,6 +460,24 @@ mod vuyx;
 #[cfg(feature = "yuv-444-packed")]
 pub use vuyx::*;
 
+#[cfg(feature = "yuv-444-packed")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-444-packed")))]
+mod ayuv;
+#[cfg(feature = "yuv-444-packed")]
+pub use ayuv::*;
+
+#[cfg(feature = "yuv-444-packed")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-444-packed")))]
+mod uyva;
+#[cfg(feature = "yuv-444-packed")]
+pub use uyva::*;
+
+#[cfg(feature = "yuv-444-packed")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-444-packed")))]
+mod vyu444;
+#[cfg(feature = "yuv-444-packed")]
+pub use vyu444::*;
+
 // --- y2xx ---
 #[cfg(feature = "y2xx")]
 #[cfg_attr(docsrs, doc(cfg(feature = "y2xx")))]

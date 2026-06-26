@@ -1,6 +1,7 @@
 use crate::frame::{
-  Ayuv64BeFrame, Ayuv64FrameError, Ayuv64LeFrame, V30XFrame, V30XFrameError, V410BeFrame,
-  V410FrameError, V410LeFrame, VuyaFrame, VuyaFrameError, VuyxFrame, VuyxFrameError, Xv36BeFrame,
+  Ayuv64BeFrame, Ayuv64FrameError, Ayuv64LeFrame, AyuvFrame, AyuvFrameError, UyvaFrame,
+  UyvaFrameError, V30XFrame, V30XFrameError, V410BeFrame, V410FrameError, V410LeFrame, VuyaFrame,
+  VuyaFrameError, VuyxFrame, VuyxFrameError, Vyu444Frame, Vyu444FrameError, Xv36BeFrame,
   Xv36FrameError, Xv36LeFrame,
 };
 use std::vec;
@@ -435,6 +436,180 @@ fn vuyx_frame_accessors_round_trip() {
   assert_eq!(f.width(), 4);
   assert_eq!(f.height(), 4);
   assert_eq!(f.stride(), 32);
+}
+
+#[test]
+fn ayuv_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 4 * 4 * 4]; // 4 px × 4 bytes × 4 rows
+  let f = AyuvFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 16);
+  assert_eq!(f.packed().len(), 64);
+}
+
+#[test]
+fn ayuv_frame_try_new_accepts_oversized_stride() {
+  let buf = vec![0u8; 4 * 4 * 8]; // stride=32 > width*4=16
+  AyuvFrame::try_new(&buf, 4, 4, 32).unwrap();
+}
+
+#[test]
+fn ayuv_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 64];
+  assert!(matches!(
+    AyuvFrame::try_new(&buf, 0, 4, 16),
+    Err(AyuvFrameError::ZeroDimension(_))
+  ));
+  assert!(matches!(
+    AyuvFrame::try_new(&buf, 4, 0, 16),
+    Err(AyuvFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn ayuv_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 64];
+  // width=4, width*4=16 bytes; stride=12 < 16
+  assert!(matches!(
+    AyuvFrame::try_new(&buf, 4, 4, 12),
+    Err(AyuvFrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn ayuv_frame_try_new_rejects_short_plane() {
+  let buf = vec![0u8; 32]; // need 16*4 = 64 bytes
+  assert!(matches!(
+    AyuvFrame::try_new(&buf, 4, 4, 16),
+    Err(AyuvFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+fn ayuv_frame_accessors_round_trip() {
+  let buf = vec![0u8; 128]; // stride=32, height=4 → 128 bytes
+  let f = AyuvFrame::try_new(&buf, 4, 4, 32).unwrap();
+  assert_eq!(f.packed().len(), 128);
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 32);
+}
+
+#[test]
+fn uyva_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 4 * 4 * 4]; // 4 px × 4 bytes × 4 rows
+  let f = UyvaFrame::try_new(&buf, 4, 4, 16).unwrap();
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 16);
+  assert_eq!(f.packed().len(), 64);
+}
+
+#[test]
+fn uyva_frame_try_new_accepts_oversized_stride() {
+  let buf = vec![0u8; 4 * 4 * 8]; // stride=32 > width*4=16
+  UyvaFrame::try_new(&buf, 4, 4, 32).unwrap();
+}
+
+#[test]
+fn uyva_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 64];
+  assert!(matches!(
+    UyvaFrame::try_new(&buf, 0, 4, 16),
+    Err(UyvaFrameError::ZeroDimension(_))
+  ));
+  assert!(matches!(
+    UyvaFrame::try_new(&buf, 4, 0, 16),
+    Err(UyvaFrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn uyva_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 64];
+  // width=4, width*4=16 bytes; stride=12 < 16
+  assert!(matches!(
+    UyvaFrame::try_new(&buf, 4, 4, 12),
+    Err(UyvaFrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn uyva_frame_try_new_rejects_short_plane() {
+  let buf = vec![0u8; 32]; // need 16*4 = 64 bytes
+  assert!(matches!(
+    UyvaFrame::try_new(&buf, 4, 4, 16),
+    Err(UyvaFrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+fn uyva_frame_accessors_round_trip() {
+  let buf = vec![0u8; 128]; // stride=32, height=4 → 128 bytes
+  let f = UyvaFrame::try_new(&buf, 4, 4, 32).unwrap();
+  assert_eq!(f.packed().len(), 128);
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 32);
+}
+
+#[test]
+fn vyu444_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0u8; 4 * 3 * 4]; // 4 px × 3 bytes × 4 rows
+  let f = Vyu444Frame::try_new(&buf, 4, 4, 12).unwrap();
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 12);
+  assert_eq!(f.packed().len(), 48);
+}
+
+#[test]
+fn vyu444_frame_try_new_accepts_oversized_stride() {
+  let buf = vec![0u8; 4 * 6 * 4]; // stride=24 > width*3=12
+  Vyu444Frame::try_new(&buf, 4, 4, 24).unwrap();
+}
+
+#[test]
+fn vyu444_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0u8; 48];
+  assert!(matches!(
+    Vyu444Frame::try_new(&buf, 0, 4, 12),
+    Err(Vyu444FrameError::ZeroDimension(_))
+  ));
+  assert!(matches!(
+    Vyu444Frame::try_new(&buf, 4, 0, 12),
+    Err(Vyu444FrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn vyu444_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0u8; 48];
+  // width=4, width*3=12 bytes; stride=11 < 12
+  assert!(matches!(
+    Vyu444Frame::try_new(&buf, 4, 4, 11),
+    Err(Vyu444FrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn vyu444_frame_try_new_rejects_short_plane() {
+  let buf = vec![0u8; 24]; // need 12*4 = 48 bytes
+  assert!(matches!(
+    Vyu444Frame::try_new(&buf, 4, 4, 12),
+    Err(Vyu444FrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+fn vyu444_frame_accessors_round_trip() {
+  let buf = vec![0u8; 96]; // stride=24, height=4 → 96 bytes
+  let f = Vyu444Frame::try_new(&buf, 4, 4, 24).unwrap();
+  assert_eq!(f.packed().len(), 96);
+  assert_eq!(f.width(), 4);
+  assert_eq!(f.height(), 4);
+  assert_eq!(f.stride(), 24);
 }
 
 #[test]

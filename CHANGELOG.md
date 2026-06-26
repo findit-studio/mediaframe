@@ -4,7 +4,47 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] / [0.1.4]
+## [Unreleased] / [0.1.5]
+
+### Added
+
+- **Pixel-format source coverage** — frame types, source markers, and
+  `{fmt}_to` walkers for a large batch of additional formats, each wired
+  through its per-family feature flag:
+  - **NV20** (`yuv-semi-planar`) — 10-bit low-bit-packed semi-planar
+    4:2:2; the low-bit-aligned twin of `P210` (one `u16` per sample with
+    the 10 active bits in the low positions).
+  - **Gray family** (`gray`) — `Gray32` (32-bit), `Grayf16` (`f16`),
+    `Yaf16` / `Yaf32` (`f16` / `f32` gray + alpha).
+  - **GBR family** (`gbr`) — `Gbrap32` (32-bit GBRA), `Gbrp10Msb` /
+    `Gbrp12Msb` (MSB-packed — samples in the high bits).
+  - **RGB family** (`rgb` / `rgb-float`) — `Rgb96` / `Rgba128`
+    (32-bit-per-channel integer), `Rgbaf16` / `Rgbaf32` (`f16` / `f32`
+    RGBA).
+  - **YUV 4:4:4 MSB** (`yuv-planar`) — `Yuv444p10Msb` / `Yuv444p12Msb`
+    (MSB-packed planar 4:4:4).
+  - **Packed 4:4:4** (`yuv-444-packed`) — `Ayuv`, `Uyva`, `Vyu444`.
+  - **Legacy bit-packed RGB** (`rgb-legacy`) — `Rgb4` / `Rgb4Byte` /
+    `Rgb8` and `Bgr4` / `Bgr4Byte` / `Bgr8`.
+  - **`Xv48`** (`yuv-444-packed`) — 16-bit packed YUV 4:4:4 (FFmpeg
+    `AV_PIX_FMT_XV48LE` / `BE`); the full-16-bit sibling of `Xv36`.
+  - **`Yuva420p12`** (`yuva`) — 12-bit low-bit-packed planar YUVA 4:2:0;
+    a mediaframe extension (no FFmpeg pixel format) that non-FFmpeg
+    decoders / WebCodecs emit.
+
+### Changed
+
+- **High-bit Bayer is now endian-aware** (`bayer`) — the Bayer source
+  marker gains a trailing `const BE: bool = false` (source-compatible
+  default), mirroring the `Y2xx` family, so the 10 / 12 / 14 / 16-bit
+  Bayer formats (all four CFA patterns) support both little- and
+  big-endian planes. The `&[u16]` plane is interpreted as wire bytes
+  (LE for `BE = false`, BE for `BE = true`); FFmpeg defines the Bayer
+  LE/BE split only at 16-bit, so the 10 / 12 / 14-bit forms are
+  mediaframe extensions. Little-endian behavior is byte-identical on
+  little-endian hosts.
+
+## [0.1.4]
 
 ### Added
 

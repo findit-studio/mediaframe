@@ -219,6 +219,12 @@ pub use nv16::*;
 
 #[cfg(feature = "yuv-semi-planar")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-semi-planar")))]
+mod nv20;
+#[cfg(feature = "yuv-semi-planar")]
+pub use nv20::*;
+
+#[cfg(feature = "yuv-semi-planar")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-semi-planar")))]
 mod nv21;
 #[cfg(feature = "yuv-semi-planar")]
 pub use nv21::*;

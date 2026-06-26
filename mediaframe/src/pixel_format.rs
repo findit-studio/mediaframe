@@ -270,9 +270,13 @@ pub enum PixelFormat {
   Nv24,
   /// 4:4:4 semi-planar Y + interleaved Cr/Cb.
   Nv42,
-  /// 10-bit semi-planar 4:2:2 YUV (8 channels in 5 16-bit words), little-endian.
+  /// 10-bit semi-planar 4:2:2 YUV — a Y plane plus an interleaved UV plane,
+  /// one `u16` per sample with the 10 data bits in the **low** bits (P210's
+  /// low-bit-packed twin), little-endian.
   Nv20Le,
-  /// 10-bit semi-planar 4:2:2 YUV (8 channels in 5 16-bit words), big-endian.
+  /// 10-bit semi-planar 4:2:2 YUV — a Y plane plus an interleaved UV plane,
+  /// one `u16` per sample with the 10 data bits in the **low** bits (P210's
+  /// low-bit-packed twin), big-endian.
   Nv20Be,
 
   // ===================================================================

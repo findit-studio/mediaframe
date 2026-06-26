@@ -1521,10 +1521,15 @@ pub use subsampled_high_bit_planar::*;
 
 #[cfg(feature = "yuv-semi-planar")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-semi-planar")))]
+mod nv20;
+#[cfg(feature = "yuv-semi-planar")]
+#[cfg_attr(docsrs, doc(cfg(feature = "yuv-semi-planar")))]
 mod semi_planar_8bit;
 #[cfg(feature = "yuv-semi-planar")]
 #[cfg_attr(docsrs, doc(cfg(feature = "yuv-semi-planar")))]
 mod subsampled_high_bit_pn;
+#[cfg(feature = "yuv-semi-planar")]
+pub use nv20::*;
 #[cfg(feature = "yuv-semi-planar")]
 pub use semi_planar_8bit::*;
 #[cfg(feature = "yuv-semi-planar")]

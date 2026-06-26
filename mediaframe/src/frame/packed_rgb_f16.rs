@@ -189,3 +189,190 @@ impl<'a, const BE: bool> Rgbf16Frame<'a, BE> {
     BE
   }
 }
+
+// ============================================================
+// Packed half-precision float RGBA source-side frame (Rgbaf16)
+// ============================================================
+
+/// Errors returned by [`Rgbaf16Frame::try_new`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IsVariant, TryUnwrap, Unwrap, Error)]
+#[non_exhaustive]
+#[unwrap(ref, ref_mut)]
+#[try_unwrap(ref, ref_mut)]
+pub enum Rgbaf16FrameError {
+  /// `width` or `height` was zero.
+  #[error(transparent)]
+  ZeroDimension(ZeroDimension),
+
+  /// `stride < 4 * width` `f16` elements. Each row needs `4 * width`
+  /// `f16` samples for packed RGBA half-precision float.
+  #[error(transparent)]
+  InsufficientStride(InsufficientStride),
+
+  /// Plane is shorter than `stride * height` `f16` elements.
+  #[error(transparent)]
+  InsufficientPlane(InsufficientPlane),
+
+  /// `stride * height` overflows `usize`.
+  #[error(transparent)]
+  GeometryOverflow(GeometryOverflow),
+
+  /// `4 * width` overflows `u32`.
+  #[error(transparent)]
+  WidthOverflow(WidthOverflow),
+}
+
+/// A validated packed **RGBAF16** frame (FFmpeg `AV_PIX_FMT_RGBAF16{LE,BE}`).
+/// One plane, 4 × `f16` per pixel, channel order `R, G, B, A`. The alpha
+/// channel is real (not padding) and is passed through by `with_rgba` /
+/// `with_rgba_u16`.
+///
+/// Values are **linear** RGB by convention — no gamma / OETF handling
+/// is applied by `colconv`. Caller is responsible for applying any
+/// gamma / OETF transforms before constructing the frame.
+///
+/// HDR values (> 1.0) are permitted in the buffer; output paths that
+/// target u8 / u16 saturate them to the output range. Output paths
+/// targeting `f16` (`with_rgb_f16`) preserve them losslessly, and
+/// output paths targeting `f32` (`with_rgb_f32`) widen them losslessly.
+///
+/// `stride` is in **`f16` elements** (≥ `4 * width`), matching the
+/// per-format convention that stride aligns with the underlying slice
+/// element type. No width parity constraint.
+///
+/// # Endian contract — `<const BE: bool = false>`
+///
+/// The `<const BE: bool>` parameter selects the plane byte order, matching
+/// the FFmpeg `*LE` / `*BE` pixel-format suffix in the format name:
+///
+/// - `BE = false` (`Rgbaf16Frame<'_, false>` aka [`Rgbaf16LeFrame`]) — plane
+///   bytes are LE-encoded, matching `AV_PIX_FMT_RGBAF16LE`. On a
+///   little-endian host (every CI runner today) LE bytes _are_ host-native,
+///   so `&[half::f16]` is also a host-native f16 slice; on a big-endian
+///   host the bytes have to be byte-swapped back to host-native (via
+///   `half::f16::from_bits(u16::from_le(elem.to_bits()))`) before arithmetic.
+/// - `BE = true` (`Rgbaf16Frame<'_, true>` aka [`Rgbaf16BeFrame`]) — plane
+///   bytes are BE-encoded, matching `AV_PIX_FMT_RGBAF16BE`. On a
+///   little-endian host the bytes are byte-swapped before arithmetic; on a
+///   big-endian host they are host-native.
+///
+/// FFmpeg also defines an unsuffixed `AV_PIX_FMT_RGBAF16` alias that is
+/// **target-endian** (resolves to `RGBAF16LE` on LE hosts and `RGBAF16BE` on
+/// BE hosts). Callers holding target-endian bytes should pick the
+/// `<const BE>` parameter that matches the host they were produced on.
+///
+/// Downstream row kernels handle the byte-swap (or no-op) under the hood —
+/// callers do **not** pre-swap. The `BE` parameter on `Frame` propagates
+/// through the walker (`rgbaf16_to::<BE>(...)`) into the sinker dispatch
+/// (`MixedSinker<Rgbaf16<BE>>`), which monomorphizes the kernel call as
+/// `rgbaf16_to_*_row::<BE>(...)`.
+///
+/// Stride is in **f16 elements** (not bytes). Callers holding a byte buffer
+/// from FFmpeg should cast via `bytemuck::cast_slice` and divide
+/// `linesize[0]` by 2 before constructing.
+#[derive(Debug, Clone, Copy)]
+pub struct Rgbaf16Frame<'a, const BE: bool = false> {
+  rgba: &'a [half::f16],
+  width: u32,
+  height: u32,
+  stride: u32,
+}
+
+/// LE-encoded `Rgbaf16Frame` (`AV_PIX_FMT_RGBAF16LE`). Equivalent to the
+/// default `Rgbaf16Frame<'a>`; provided as an explicit alias for callers who
+/// want to document the endianness at the type level.
+pub type Rgbaf16LeFrame<'a> = Rgbaf16Frame<'a, false>;
+
+/// BE-encoded `Rgbaf16Frame` (`AV_PIX_FMT_RGBAF16BE`). Plane bytes are
+/// big-endian-encoded `half::f16` samples; downstream row kernels byte-swap
+/// under the hood.
+pub type Rgbaf16BeFrame<'a> = Rgbaf16Frame<'a, true>;
+
+impl<'a, const BE: bool> Rgbaf16Frame<'a, BE> {
+  /// Constructs a new [`Rgbaf16Frame`], validating dimensions and
+  /// plane length.
+  ///
+  /// The `<const BE: bool>` parameter selects whether the supplied `rgba`
+  /// slice is interpreted as LE-encoded bytes (`BE = false`, default) or
+  /// BE-encoded bytes (`BE = true`). The byte-swap is performed inside the
+  /// row kernels — this constructor does no I/O on the bytes.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn try_new(
+    rgba: &'a [half::f16],
+    width: u32,
+    height: u32,
+    stride: u32,
+  ) -> Result<Self, Rgbaf16FrameError> {
+    if width == 0 || height == 0 {
+      return Err(Rgbaf16FrameError::ZeroDimension(ZeroDimension::new(
+        width, height,
+      )));
+    }
+    let min_stride = match width.checked_mul(4) {
+      Some(v) => v,
+      None => return Err(Rgbaf16FrameError::WidthOverflow(WidthOverflow::new(width))),
+    };
+    if stride < min_stride {
+      return Err(Rgbaf16FrameError::InsufficientStride(
+        InsufficientStride::new(stride, min_stride),
+      ));
+    }
+    let plane_min = match (stride as usize).checked_mul(height as usize) {
+      Some(v) => v,
+      None => {
+        return Err(Rgbaf16FrameError::GeometryOverflow(GeometryOverflow::new(
+          stride, height,
+        )));
+      }
+    };
+    if rgba.len() < plane_min {
+      return Err(Rgbaf16FrameError::InsufficientPlane(
+        InsufficientPlane::new(plane_min, rgba.len()),
+      ));
+    }
+    Ok(Self {
+      rgba,
+      width,
+      height,
+      stride,
+    })
+  }
+
+  /// Constructs a new [`Rgbaf16Frame`], panicking on invalid inputs.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn new(rgba: &'a [half::f16], width: u32, height: u32, stride: u32) -> Self {
+    match Self::try_new(rgba, width, height, stride) {
+      Ok(frame) => frame,
+      Err(_) => panic!("invalid Rgbaf16Frame dimensions or plane length"),
+    }
+  }
+
+  /// Packed RGBA plane (`R, G, B, A, R, G, B, A, …` per row, each value a
+  /// `half::f16`). Length is at least `stride * height` elements.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn rgba(&self) -> &'a [half::f16] {
+    self.rgba
+  }
+  /// Frame width in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn width(&self) -> u32 {
+    self.width
+  }
+  /// Frame height in pixels.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn height(&self) -> u32 {
+    self.height
+  }
+  /// Stride in **`f16` elements** per row (`>= 4 * width`).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn stride(&self) -> u32 {
+    self.stride
+  }
+  /// Returns the compile-time BE flag — `true` if plane bytes are BE-encoded
+  /// (`AV_PIX_FMT_RGBAF16BE`), `false` if LE-encoded (`AV_PIX_FMT_RGBAF16LE`).
+  /// Runtime mirror of the `<const BE: bool>` type parameter.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_be(&self) -> bool {
+    BE
+  }
+}

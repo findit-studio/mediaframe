@@ -561,6 +561,18 @@ pub use bgra64::*;
 
 #[cfg(feature = "rgb")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rgb")))]
+mod rgb96;
+#[cfg(feature = "rgb")]
+pub use rgb96::*;
+
+#[cfg(feature = "rgb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb")))]
+mod rgba128;
+#[cfg(feature = "rgb")]
+pub use rgba128::*;
+
+#[cfg(feature = "rgb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb")))]
 mod x2rgb10;
 #[cfg(feature = "rgb")]
 pub use x2rgb10::*;
@@ -583,6 +595,18 @@ pub use rgbf32::*;
 mod rgbf16;
 #[cfg(feature = "rgb-float")]
 pub use rgbf16::*;
+
+#[cfg(feature = "rgb-float")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-float")))]
+mod rgbaf32;
+#[cfg(feature = "rgb-float")]
+pub use rgbaf32::*;
+
+#[cfg(feature = "rgb-float")]
+#[cfg_attr(docsrs, doc(cfg(feature = "rgb-float")))]
+mod rgbaf16;
+#[cfg(feature = "rgb-float")]
+pub use rgbaf16::*;
 
 // --- rgb-legacy ---
 #[cfg(feature = "rgb-legacy")]

@@ -119,3 +119,120 @@ fn rgbf32_be_frame_alias_constructs() {
   assert_eq!(f.width(), 16);
   assert_eq!(f.height(), 4);
 }
+
+// ---- Rgbaf32Frame ------------------------------------------------------
+//
+// Single-plane packed-float RGBA. `stride` is in **`f32` elements**
+// (≥ 4 * width); `plane.len() >= stride * height` `f32`s. No width
+// parity constraint. HDR / negative values are permitted in the buffer
+// — validation is purely shape-based. Alpha is real.
+
+#[test]
+fn rgbaf32_frame_try_new_accepts_valid_tight() {
+  let buf = vec![0.0_f32; 16 * 4 * 4];
+  Rgbaf32LeFrame::try_new(&buf, 16, 4, 64).expect("valid");
+}
+
+#[test]
+fn rgbaf32_frame_try_new_accepts_oversized_stride() {
+  let buf = vec![0.0_f32; 80 * 4];
+  Rgbaf32LeFrame::try_new(&buf, 16, 4, 80).expect("padded stride is valid");
+}
+
+#[test]
+fn rgbaf32_frame_try_new_accepts_hdr_and_negative_values() {
+  // Out-of-[0,1] f32 values are permitted; only shape is validated.
+  let buf = vec![10.0_f32; 16 * 4 * 4];
+  Rgbaf32LeFrame::try_new(&buf, 16, 4, 64).expect("HDR values allowed");
+  let neg = vec![-1.0_f32; 16 * 4 * 4];
+  Rgbaf32LeFrame::try_new(&neg, 16, 4, 64).expect("negative values allowed");
+}
+
+#[test]
+fn rgbaf32_frame_try_new_rejects_zero_dimension() {
+  let buf = vec![0.0_f32; 16 * 4 * 4];
+  assert!(matches!(
+    Rgbaf32LeFrame::try_new(&buf, 0, 4, 64),
+    Err(Rgbaf32FrameError::ZeroDimension(_))
+  ));
+  assert!(matches!(
+    Rgbaf32LeFrame::try_new(&buf, 16, 0, 64),
+    Err(Rgbaf32FrameError::ZeroDimension(_))
+  ));
+}
+
+#[test]
+fn rgbaf32_frame_try_new_rejects_stride_too_small() {
+  let buf = vec![0.0_f32; 16 * 4 * 4];
+  assert!(matches!(
+    Rgbaf32LeFrame::try_new(&buf, 16, 4, 63),
+    Err(Rgbaf32FrameError::InsufficientStride(_))
+  ));
+}
+
+#[test]
+fn rgbaf32_frame_try_new_rejects_short_plane() {
+  let small = vec![0.0_f32; 16 * 4];
+  assert!(matches!(
+    Rgbaf32LeFrame::try_new(&small, 16, 4, 64),
+    Err(Rgbaf32FrameError::InsufficientPlane(_))
+  ));
+}
+
+#[test]
+fn rgbaf32_frame_try_new_rejects_width_overflow() {
+  // 4 * width must fit in u32: width > u32::MAX / 4 trips WidthOverflow.
+  let buf = vec![0.0_f32; 0];
+  let too_big = (u32::MAX / 4) + 1;
+  assert!(matches!(
+    Rgbaf32LeFrame::try_new(&buf, too_big, 1, u32::MAX),
+    Err(Rgbaf32FrameError::WidthOverflow(p)) if p.width() == too_big
+  ));
+}
+
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn rgbaf32_frame_try_new_rejects_geometry_overflow() {
+  // Only meaningful on 32-bit targets (wasm32, i686) where
+  // `stride * height` as `usize` can overflow. Pick a width small
+  // enough that `4 * width <= stride` so we pass the InsufficientStride
+  // check and reach the geometry-overflow check.
+  let buf: [f32; 0] = [];
+  let width: u32 = 0x3FFF; // 4 * width = 0xFFFC, ≤ stride
+  let stride: u32 = 0x1_0000;
+  let height: u32 = 0x1_0000; // stride * height = 2^32 → overflows usize on 32-bit
+  let res = Rgbaf32LeFrame::try_new(&buf, width, height, stride);
+  assert!(
+    matches!(res, Err(Rgbaf32FrameError::GeometryOverflow(_))),
+    "expected GeometryOverflow, got {:?}",
+    res
+  );
+}
+
+#[test]
+#[should_panic(expected = "invalid Rgbaf32Frame")]
+fn rgbaf32_frame_new_panics_on_invalid() {
+  let buf = vec![0.0_f32; 10];
+  let _ = Rgbaf32LeFrame::new(&buf, 16, 4, 64);
+}
+
+#[test]
+fn rgbaf32_frame_accessors_round_trip() {
+  let buf = vec![0.25_f32; 8 * 2 * 4];
+  let frame = Rgbaf32LeFrame::try_new(&buf, 8, 2, 32).expect("valid");
+  assert_eq!(frame.width(), 8);
+  assert_eq!(frame.height(), 2);
+  assert_eq!(frame.stride(), 32);
+  assert_eq!(frame.rgba().len(), 64);
+  assert_eq!(frame.rgba()[0], 0.25);
+  assert!(!frame.is_be());
+}
+
+#[test]
+fn rgbaf32_be_frame_alias_constructs() {
+  let buf = vec![0.0_f32; 16 * 4 * 4];
+  let f = Rgbaf32BeFrame::try_new(&buf, 16, 4, 64).unwrap();
+  assert!(f.is_be());
+  assert_eq!(f.width(), 16);
+  assert_eq!(f.height(), 4);
+}

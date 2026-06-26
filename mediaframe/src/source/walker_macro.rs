@@ -54,8 +54,9 @@ macro_rules! walker {
   // Used by every single-plane source: packed YUV 4:2:2 (Yuyv422,
   // Uyvy422, Yvyu422), packed RGB (Rgb24, Bgr24, Rgba, Bgra, Abgr,
   // Argb, Xrgb, Xbgr, Rgbx, Bgrx), 10-bit packed RGB (X2Rgb10,
-  // X2Bgr10), packed YUV 4:4:4 (Vuya, Vuyx, V210, V30X, V410, Xv36,
-  // Ayuv64), packed YUV 4:2:2 high-bit (Y210, Y212, Y216).
+  // X2Bgr10), packed YUV 4:4:4 (Vuya, Vuyx, Ayuv, Uyva, Vyu444, V210,
+  // V30X, V410, Xv36, Ayuv64), packed YUV 4:2:2 high-bit (Y210, Y212,
+  // Y216).
   //
   // The walker computes `start = row * stride`, slices `row_elems`
   // out of the single plane, and hands the slice to the sink.

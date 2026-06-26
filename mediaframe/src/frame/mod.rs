@@ -23,7 +23,7 @@
 //! | `yuv-semi-planar` | NV12 / 16 / 21 / 24 / 42, P010 / 210 / 410 families  |
 //! | `yuva`            | YUVA planar 8-bit + high-bit                         |
 //! | `yuv-packed`      | YUYV422, UYVY422, YVYU422, UYYVYY411                 |
-//! | `yuv-444-packed`  | V410, XV30, XV36, AYUV64, VUYA, VUYX, V30X           |
+//! | `yuv-444-packed`  | V410/XV30/XV36/AYUV64/VUYA/VUYX/V30X/AYUV/UYVA/VYU444 |
 //! | `y2xx`            | Y210 / Y212 / Y216                                   |
 //! | `v210`            | V210                                                 |
 //! | `rgb`             | Rgb24/Bgr24/Rgba/Bgra + 16-bit family                |

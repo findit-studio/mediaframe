@@ -4,7 +4,30 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] / [0.1.5]
+## [Unreleased] / [0.1.6]
+
+### Added
+
+- **`PixelFormat::canonical()`** — `const fn` resolving a deprecated /
+  aliased pixel format to `(canonical_format, Option<DynamicRange>)`:
+  the non-deprecated format describing the same bytes, plus the dynamic
+  range the alias *pins* (or `None` when the range is stream-driven).
+  Centralises the alias table in the format authority so downstream
+  crates (e.g. `colconv`) consume one mapping instead of each
+  re-deriving it. Resolves the `yuvj{411,420,422,440,444}p` full-range
+  aliases → their `yuv*p` base + `DynamicRange::Full`, `Gray8a` /
+  `Y400a` → `Ya8`, and `Xv30Le` → `V410Le` (`XV30` is the FFmpeg rename
+  of the identical-bit-pattern `V410`). `Xv30Be` (big-endian V410) is
+  intentionally left unresolved: the enum exposes only a little-endian
+  `V410Le` variant — there is no `V410Be` — and collapsing `Xv30Be`
+  onto `V410Le` would silently drop the byte order (the `V410Frame<'a,
+  BE>` borrow view and `v410_to::<BE>` walker *can* decode BE, so a
+  future `V410Be` variant would let this map to `(V410Be, None)`). The
+  match is exhaustive without a wildcard, so a future alias variant
+  cannot silently fall through. Additive and non-breaking — every other
+  format (including `Unknown`) returns `(self, None)`.
+
+## [0.1.5]
 
 ### Added
 

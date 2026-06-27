@@ -4,7 +4,34 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] / [0.1.5]
+## [Unreleased] / [0.1.6]
+
+### Added
+
+- **`PixelFormat::V410Be`** — first-class big-endian counterpart of
+  `V410Le` for the packed YUV 4:4:4 10-bit `V410` layout (one 32-bit
+  word per sample). The big-endian decode path already existed — the
+  `V410Frame<'a, true>` / `V410BeFrame` borrow view, the `V410<true>`
+  source marker, and the endian-generic `v410_to::<true>` walker — and
+  is now exposed as a wire-stable enum variant (`as_str()` slug
+  `"v410be"`, discriminant `435`). Additive and non-breaking.
+- **`PixelFormat::canonical()`** — `const fn` resolving a deprecated /
+  aliased pixel format to `(canonical_format, Option<DynamicRange>)`:
+  the non-deprecated format describing the same bytes, plus the dynamic
+  range the alias *pins* (or `None` when the range is stream-driven).
+  Centralises the alias table in the format authority so downstream
+  crates (e.g. `colconv`) consume one mapping instead of each
+  re-deriving it. Resolves the `yuvj{411,420,422,440,444}p` full-range
+  aliases → their `yuv*p` base + `DynamicRange::Full`, `Gray8a` /
+  `Y400a` → `Ya8`, and the `XV30` byte-order pair onto its matching
+  `V410` variant — `Xv30Le` → `V410Le` and `Xv30Be` → `V410Be` (`XV30`
+  is the FFmpeg rename of the identical-bit-pattern `V410`; both endians
+  resolve while preserving byte order). The match is exhaustive without
+  a wildcard, so a future alias variant cannot silently fall through.
+  Additive and non-breaking — every other format (including `Unknown`)
+  returns `(self, None)`.
+
+## [0.1.5]
 
 ### Added
 

@@ -65,7 +65,7 @@ walker! {
 #[cfg(all(test, feature = "std"))]
 mod tests {
   use super::*;
-  use crate::{PixelSink, color::Matrix, frame::V410Frame};
+  use crate::{PixelSink, color::Matrix, frame::V410BeFrame, frame::V410Frame};
   use core::convert::Infallible;
 
   struct CountingSink {
@@ -87,6 +87,7 @@ mod tests {
     }
   }
   impl V410Sink for CountingSink {}
+  impl V410Sink<true> for CountingSink {}
 
   #[test]
   fn v410_walker_visits_every_row_once() {
@@ -98,6 +99,26 @@ mod tests {
       last_row_idx: 0,
     };
     v410_to(&frame, true, Matrix::Bt709, &mut sink).unwrap();
+    assert_eq!(sink.rows_seen, 4);
+    assert_eq!(sink.last_width, 4); // width u32 elements per row
+    assert_eq!(sink.last_row_idx, 3);
+  }
+
+  // Big-endian V410 (`PixelFormat::V410Be`): the endian-generic walker
+  // drives a `V410BeFrame` (= `V410Frame<'_, true>`) through `V410Sink<true>`,
+  // visiting every row. The per-word byte-swap is applied by the downstream
+  // sinker dispatch (which monomorphizes on `BE`).
+  #[test]
+  fn v410_be_walker_visits_every_row_once() {
+    let buf = std::vec![0u32; 4 * 4]; // 4 px × 4 rows = 16 u32 words
+    let frame = V410BeFrame::new(&buf, 4, 4, 4);
+    assert!(frame.is_be());
+    let mut sink = CountingSink {
+      rows_seen: 0,
+      last_width: 0,
+      last_row_idx: 0,
+    };
+    v410_to_endian::<_, true>(&frame, true, Matrix::Bt709, &mut sink).unwrap();
     assert_eq!(sink.rows_seen, 4);
     assert_eq!(sink.last_width, 4); // width u32 elements per row
     assert_eq!(sink.last_row_idx, 3);

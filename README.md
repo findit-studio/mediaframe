@@ -57,7 +57,11 @@ speak to without agreeing on anything heavier.
   pixel format in FFmpeg `n8.1`'s `AVPixelFormat` (254 variants
   excluding GPU-resident HW formats) plus cinema-RAW additions.
   Coverage is verified by `cargo xtask check` against vendored
-  `pixfmt.h` slugs — see [xtask](#xtask).
+  `pixfmt.h` slugs — see [xtask](#xtask). `PixelFormat::canonical()`
+  resolves a deprecated / aliased format to its
+  `(canonical_format, Option<DynamicRange>)` — e.g. `Yuvj420p` →
+  `(Yuv420p, Full)`, `Xv30` → `V410` (both endians), `Gray8a` →
+  `Ya8`.
 - **`frame`** — structural primitives (`Dimensions`, `Rect`,
   `Plane<B>`), exact-ratio building blocks (`Rational`,
   `FrameRate`, `SampleAspectRatio` as a `Rational` newtype), stream-

@@ -358,6 +358,9 @@ pub enum PixelFormat {
   V210,
   /// 4:4:4 packed 10-bit, one 32-bit word per sample (`AV_PIX_FMT_V410LE`).
   V410Le,
+  /// 4:4:4 packed 10-bit, one 32-bit word per sample (`AV_PIX_FMT_V410BE`),
+  /// big-endian.
+  V410Be,
   /// 4:4:4 packed 10-bit, alternative layout (`AV_PIX_FMT_XV30LE`),
   /// little-endian.
   Xv30Le,
@@ -899,6 +902,7 @@ impl PixelFormat {
       Self::Y216Be => 422,
       Self::V210 => 413,
       Self::V410Le => 414,
+      Self::V410Be => 435,
       Self::Xv30Le => 415,
       Self::Xv30Be => 423,
       Self::V30xLe => 433,
@@ -1218,6 +1222,7 @@ impl PixelFormat {
       430 => Self::Vyu444,
       431 => Self::Xyz12Le,
       432 => Self::Xyz12Be,
+      435 => Self::V410Be,
       // Packed RGB 8-bit.
       500 => Self::Rgb24,
       501 => Self::Bgr24,
@@ -1430,6 +1435,343 @@ impl PixelFormat {
         | Self::BayerGrbg16Be,
     )
   }
+
+  /// Resolves a deprecated / aliased pixel format to its **canonical
+  /// decode format** plus the [`DynamicRange`](crate::color::DynamicRange)
+  /// the alias *pins*, if any.
+  ///
+  /// mediaframe keeps FFmpeg's deprecated alias formats as distinct
+  /// variants so the wire round-trip ([`from_u32`](Self::from_u32) /
+  /// [`to_u32`](Self::to_u32) / [`as_str`](Self::as_str)) stays lossless.
+  /// Decoders and converters, however, want a *single* representative
+  /// format per pixel layout. `canonical()` is the format authority's
+  /// mapping from an alias to the non-deprecated format describing the
+  /// same bytes, so downstream crates (e.g. `colconv`) consume one table
+  /// here instead of each re-deriving the alias set.
+  ///
+  /// The second element is `Some(_)` only when the alias *carries* range
+  /// information the bare format does not — the `yuvj*` aliases, which
+  /// decode as their `yuv*p` base with the range pinned to
+  /// [`DynamicRange::Full`](crate::color::DynamicRange::Full). For every
+  /// other format the dynamic range is stream-driven (carried in
+  /// [`color::Info`](crate::color::Info), not implied by the format
+  /// identity), so the second element is `None`.
+  ///
+  /// # Mappings
+  ///
+  /// - `Yuvj{411,420,422,440,444}p` → the matching `Yuv*p` +
+  ///   `Some(DynamicRange::Full)` — FFmpeg's deprecated full-range
+  ///   ("JPEG") YUV aliases decode as the base planar format with the
+  ///   range pinned full.
+  /// - [`Gray8a`](Self::Gray8a) / [`Y400a`](Self::Y400a) →
+  ///   [`Ya8`](Self::Ya8) — both are FFmpeg aliases (`AV_PIX_FMT_GRAY8A`
+  ///   / `AV_PIX_FMT_Y400A`) of the same 8-bit grey-plus-alpha layout.
+  /// - [`Xv30Le`](Self::Xv30Le) → [`V410Le`](Self::V410Le) and
+  ///   [`Xv30Be`](Self::Xv30Be) → [`V410Be`](Self::V410Be) — `XV30` is
+  ///   the modern FFmpeg name for the identical-bit-pattern `V410` 4:4:4
+  ///   10-bit packed layout (the `AV_PIX_FMT_V410` symbol was renamed to
+  ///   `XV30`). Both endians resolve onto their matching `V410` variant,
+  ///   preserving byte order: the [`V410Frame<'a, BE>`](crate::frame::V410Frame)
+  ///   borrow view and the `v410_to::<BE>` walker decode either endian.
+  /// - Every other variant — including [`Unknown`](Self::Unknown) — is
+  ///   already canonical and maps to `(self, None)`.
+  ///
+  /// The match is intentionally **exhaustive without a wildcard**:
+  /// `#[non_exhaustive]` does not force a catch-all arm *inside* the
+  /// defining crate, so every future variant must be classified here
+  /// explicitly. The compiler then flags any newly added format that is
+  /// not yet routed, ensuring a new alias can never silently fall through
+  /// to the "already canonical" arm.
+  #[inline]
+  pub const fn canonical(self) -> (PixelFormat, Option<crate::color::DynamicRange>) {
+    use crate::color::DynamicRange;
+    match self {
+      Self::Yuvj411p => (Self::Yuv411p, Some(DynamicRange::Full)),
+      Self::Yuvj420p => (Self::Yuv420p, Some(DynamicRange::Full)),
+      Self::Yuvj422p => (Self::Yuv422p, Some(DynamicRange::Full)),
+      Self::Yuvj440p => (Self::Yuv440p, Some(DynamicRange::Full)),
+      Self::Yuvj444p => (Self::Yuv444p, Some(DynamicRange::Full)),
+      Self::Gray8a | Self::Y400a => (Self::Ya8, None),
+      Self::Xv30Le => (Self::V410Le, None),
+      Self::Xv30Be => (Self::V410Be, None),
+      Self::Unknown(_)
+      | Self::Yuv420p
+      | Self::Yuv422p
+      | Self::Yuv440p
+      | Self::Yuv444p
+      | Self::Yuv411p
+      | Self::Yuv410p
+      | Self::Yuv420p9Le
+      | Self::Yuv420p9Be
+      | Self::Yuv420p10Le
+      | Self::Yuv420p10Be
+      | Self::Yuv420p12Le
+      | Self::Yuv420p12Be
+      | Self::Yuv420p14Le
+      | Self::Yuv420p14Be
+      | Self::Yuv420p16Le
+      | Self::Yuv420p16Be
+      | Self::Yuv422p9Le
+      | Self::Yuv422p9Be
+      | Self::Yuv422p10Le
+      | Self::Yuv422p10Be
+      | Self::Yuv422p12Le
+      | Self::Yuv422p12Be
+      | Self::Yuv422p14Le
+      | Self::Yuv422p14Be
+      | Self::Yuv422p16Le
+      | Self::Yuv422p16Be
+      | Self::Yuv440p10Le
+      | Self::Yuv440p10Be
+      | Self::Yuv440p12Le
+      | Self::Yuv440p12Be
+      | Self::Yuv444p9Le
+      | Self::Yuv444p9Be
+      | Self::Yuv444p10Le
+      | Self::Yuv444p10Be
+      | Self::Yuv444p12Le
+      | Self::Yuv444p12Be
+      | Self::Yuv444p14Le
+      | Self::Yuv444p14Be
+      | Self::Yuv444p16Le
+      | Self::Yuv444p16Be
+      | Self::Yuv444p10MsbLe
+      | Self::Yuv444p10MsbBe
+      | Self::Yuv444p12MsbLe
+      | Self::Yuv444p12MsbBe
+      | Self::Yuva420p
+      | Self::Yuva422p
+      | Self::Yuva444p
+      | Self::Yuva420p9Le
+      | Self::Yuva420p9Be
+      | Self::Yuva422p9Le
+      | Self::Yuva422p9Be
+      | Self::Yuva444p9Le
+      | Self::Yuva444p9Be
+      | Self::Yuva420p10Le
+      | Self::Yuva420p10Be
+      | Self::Yuva422p10Le
+      | Self::Yuva422p10Be
+      | Self::Yuva444p10Le
+      | Self::Yuva444p10Be
+      | Self::Yuva420p12Le
+      | Self::Yuva420p12Be
+      | Self::Yuva422p12Le
+      | Self::Yuva422p12Be
+      | Self::Yuva444p12Le
+      | Self::Yuva444p12Be
+      | Self::Yuva444p14Le
+      | Self::Yuva420p16Le
+      | Self::Yuva420p16Be
+      | Self::Yuva422p16Le
+      | Self::Yuva422p16Be
+      | Self::Yuva444p16Le
+      | Self::Yuva444p16Be
+      | Self::Nv12
+      | Self::Nv21
+      | Self::Nv16
+      | Self::Nv24
+      | Self::Nv42
+      | Self::Nv20Le
+      | Self::Nv20Be
+      | Self::P010Le
+      | Self::P010Be
+      | Self::P012Le
+      | Self::P012Be
+      | Self::P016Le
+      | Self::P016Be
+      | Self::P210Le
+      | Self::P210Be
+      | Self::P212Le
+      | Self::P212Be
+      | Self::P216Le
+      | Self::P216Be
+      | Self::P410Le
+      | Self::P410Be
+      | Self::P412Le
+      | Self::P412Be
+      | Self::P416Le
+      | Self::P416Be
+      | Self::Yuyv422
+      | Self::Uyvy422
+      | Self::Yvyu422
+      | Self::Uyyvyy411
+      | Self::Y210Le
+      | Self::Y210Be
+      | Self::Y212Le
+      | Self::Y212Be
+      | Self::Y216Le
+      | Self::Y216Be
+      | Self::V210
+      | Self::V410Le
+      | Self::V410Be
+      | Self::V30xLe
+      | Self::V30xBe
+      | Self::Xv36Le
+      | Self::Xv36Be
+      | Self::Xv48Le
+      | Self::Xv48Be
+      | Self::Vuya
+      | Self::Vuyx
+      | Self::Ayuv
+      | Self::Ayuv64Le
+      | Self::Ayuv64Be
+      | Self::Uyva
+      | Self::Vyu444
+      | Self::Xyz12Le
+      | Self::Xyz12Be
+      | Self::Rgb24
+      | Self::Bgr24
+      | Self::Rgba
+      | Self::Bgra
+      | Self::Argb
+      | Self::Abgr
+      | Self::Rgbx
+      | Self::Bgrx
+      | Self::Xrgb
+      | Self::Xbgr
+      | Self::X2Rgb10Le
+      | Self::X2Rgb10Be
+      | Self::X2Bgr10Le
+      | Self::X2Bgr10Be
+      | Self::Gbr24p
+      | Self::Rgb4
+      | Self::Rgb4Byte
+      | Self::Rgb8
+      | Self::Bgr4
+      | Self::Bgr4Byte
+      | Self::Bgr8
+      | Self::Rgb444Le
+      | Self::Rgb444Be
+      | Self::Bgr444Le
+      | Self::Bgr444Be
+      | Self::Rgb555Le
+      | Self::Rgb555Be
+      | Self::Bgr555Le
+      | Self::Bgr555Be
+      | Self::Rgb565Le
+      | Self::Rgb565Be
+      | Self::Bgr565Le
+      | Self::Bgr565Be
+      | Self::Rgb48Le
+      | Self::Rgb48Be
+      | Self::Bgr48Le
+      | Self::Bgr48Be
+      | Self::Rgba64Le
+      | Self::Rgba64Be
+      | Self::Bgra64Le
+      | Self::Bgra64Be
+      | Self::Rgb96Le
+      | Self::Rgb96Be
+      | Self::Rgba128Le
+      | Self::Rgba128Be
+      | Self::Rgbf16Le
+      | Self::Rgbf16Be
+      | Self::Rgbf32Le
+      | Self::Rgbf32Be
+      | Self::Rgbaf16Le
+      | Self::Rgbaf16Be
+      | Self::Rgbaf32Le
+      | Self::Rgbaf32Be
+      | Self::Gbrp
+      | Self::Gbrp9Le
+      | Self::Gbrp9Be
+      | Self::Gbrp10Le
+      | Self::Gbrp10Be
+      | Self::Gbrp10MsbLe
+      | Self::Gbrp10MsbBe
+      | Self::Gbrp12Le
+      | Self::Gbrp12Be
+      | Self::Gbrp12MsbLe
+      | Self::Gbrp12MsbBe
+      | Self::Gbrp14Le
+      | Self::Gbrp14Be
+      | Self::Gbrp16Le
+      | Self::Gbrp16Be
+      | Self::Gbrpf16Le
+      | Self::Gbrpf16Be
+      | Self::Gbrpf32Le
+      | Self::Gbrpf32Be
+      | Self::Gbrap
+      | Self::Gbrap10Le
+      | Self::Gbrap10Be
+      | Self::Gbrap12Le
+      | Self::Gbrap12Be
+      | Self::Gbrap14Le
+      | Self::Gbrap14Be
+      | Self::Gbrap16Le
+      | Self::Gbrap16Be
+      | Self::Gbrap32Le
+      | Self::Gbrap32Be
+      | Self::Gbrapf16Le
+      | Self::Gbrapf16Be
+      | Self::Gbrapf32Le
+      | Self::Gbrapf32Be
+      | Self::Gray8
+      | Self::Gray9Le
+      | Self::Gray9Be
+      | Self::Gray10Le
+      | Self::Gray10Be
+      | Self::Gray12Le
+      | Self::Gray12Be
+      | Self::Gray14Le
+      | Self::Gray14Be
+      | Self::Gray16Le
+      | Self::Gray16Be
+      | Self::Gray32Le
+      | Self::Gray32Be
+      | Self::Grayf32Le
+      | Self::Grayf32Be
+      | Self::Grayf16Le
+      | Self::Grayf16Be
+      | Self::Ya8
+      | Self::Ya16Le
+      | Self::Ya16Be
+      | Self::Yaf16Le
+      | Self::Yaf16Be
+      | Self::Yaf32Le
+      | Self::Yaf32Be
+      | Self::Monowhite
+      | Self::Monoblack
+      | Self::Pal8
+      | Self::BayerBggr8
+      | Self::BayerRggb8
+      | Self::BayerGbrg8
+      | Self::BayerGrbg8
+      | Self::BayerBggr10Le
+      | Self::BayerBggr10Be
+      | Self::BayerRggb10Le
+      | Self::BayerRggb10Be
+      | Self::BayerGbrg10Le
+      | Self::BayerGbrg10Be
+      | Self::BayerGrbg10Le
+      | Self::BayerGrbg10Be
+      | Self::BayerBggr12Le
+      | Self::BayerBggr12Be
+      | Self::BayerRggb12Le
+      | Self::BayerRggb12Be
+      | Self::BayerGbrg12Le
+      | Self::BayerGbrg12Be
+      | Self::BayerGrbg12Le
+      | Self::BayerGrbg12Be
+      | Self::BayerBggr14Le
+      | Self::BayerBggr14Be
+      | Self::BayerRggb14Le
+      | Self::BayerRggb14Be
+      | Self::BayerGbrg14Le
+      | Self::BayerGbrg14Be
+      | Self::BayerGrbg14Le
+      | Self::BayerGrbg14Be
+      | Self::BayerBggr16Le
+      | Self::BayerBggr16Be
+      | Self::BayerRggb16Le
+      | Self::BayerRggb16Be
+      | Self::BayerGbrg16Le
+      | Self::BayerGbrg16Be
+      | Self::BayerGrbg16Le
+      | Self::BayerGrbg16Be => (self, None),
+    }
+  }
 }
 
 impl PixelFormat {
@@ -1557,6 +1899,7 @@ impl PixelFormat {
       Self::Y216Be => "y216be",
       Self::V210 => "v210",
       Self::V410Le => "v410le",
+      Self::V410Be => "v410be",
       Self::Xv30Le => "xv30le",
       Self::Xv30Be => "xv30be",
       Self::V30xLe => "v30xle",
@@ -1758,6 +2101,7 @@ mod tests {
       PixelFormat::P416Le,
       PixelFormat::Yuyv422,
       PixelFormat::V210,
+      PixelFormat::V410Be,
       PixelFormat::Ayuv64Le,
       PixelFormat::Rgb24,
       PixelFormat::Bgra,
@@ -1852,5 +2196,100 @@ mod tests {
     let q = p; // Copy
     assert_eq!(p, q);
     assert_ne!(p, PixelFormat::Yuv420p);
+  }
+
+  #[test]
+  fn canonical_resolves_yuvj_aliases_to_full_range() {
+    use crate::color::DynamicRange;
+    assert_eq!(
+      PixelFormat::Yuvj411p.canonical(),
+      (PixelFormat::Yuv411p, Some(DynamicRange::Full))
+    );
+    assert_eq!(
+      PixelFormat::Yuvj420p.canonical(),
+      (PixelFormat::Yuv420p, Some(DynamicRange::Full))
+    );
+    assert_eq!(
+      PixelFormat::Yuvj422p.canonical(),
+      (PixelFormat::Yuv422p, Some(DynamicRange::Full))
+    );
+    assert_eq!(
+      PixelFormat::Yuvj440p.canonical(),
+      (PixelFormat::Yuv440p, Some(DynamicRange::Full))
+    );
+    assert_eq!(
+      PixelFormat::Yuvj444p.canonical(),
+      (PixelFormat::Yuv444p, Some(DynamicRange::Full))
+    );
+  }
+
+  #[test]
+  fn canonical_resolves_gray_alpha_aliases_to_ya8() {
+    assert_eq!(PixelFormat::Gray8a.canonical(), (PixelFormat::Ya8, None));
+    assert_eq!(PixelFormat::Y400a.canonical(), (PixelFormat::Ya8, None));
+  }
+
+  #[test]
+  fn canonical_resolves_xv30le_to_v410le() {
+    assert_eq!(PixelFormat::Xv30Le.canonical(), (PixelFormat::V410Le, None));
+  }
+
+  // `Xv30Be` (big-endian V410) resolves to the matching `V410Be` variant,
+  // mirroring the LE `Xv30Le` → `V410Le` mapping and preserving byte order.
+  #[test]
+  fn canonical_resolves_xv30be_to_v410be() {
+    assert_eq!(PixelFormat::Xv30Be.canonical(), (PixelFormat::V410Be, None));
+    // `V410Be` is itself canonical — a fixed point with no pinned range.
+    assert_eq!(PixelFormat::V410Be.canonical(), (PixelFormat::V410Be, None));
+  }
+
+  #[test]
+  fn canonical_is_identity_for_non_aliases() {
+    for fmt in [
+      PixelFormat::Unknown(0),
+      PixelFormat::Unknown(99_999),
+      PixelFormat::Yuv420p,
+      PixelFormat::Yuv444p,
+      PixelFormat::V410Le,
+      PixelFormat::Ya8,
+      PixelFormat::Nv12,
+      PixelFormat::P010Le,
+      PixelFormat::Rgb24,
+      PixelFormat::Gray8,
+      PixelFormat::Gbrp,
+      PixelFormat::Pal8,
+      PixelFormat::BayerBggr8,
+    ] {
+      assert_eq!(
+        fmt.canonical(),
+        (fmt, None),
+        "non-alias {fmt:?} must be its own canonical form"
+      );
+    }
+  }
+
+  // Idempotence: resolving an alias yields a *canonical* format, and that
+  // canonical format is not itself an alias — `canonical()` on it returns
+  // itself with no pinned range (a fixed point).
+  #[test]
+  fn canonical_is_idempotent() {
+    let aliases = [
+      PixelFormat::Yuvj411p,
+      PixelFormat::Yuvj420p,
+      PixelFormat::Yuvj422p,
+      PixelFormat::Yuvj440p,
+      PixelFormat::Yuvj444p,
+      PixelFormat::Gray8a,
+      PixelFormat::Y400a,
+      PixelFormat::Xv30Le,
+    ];
+    for alias in aliases {
+      let (canon, _range) = alias.canonical();
+      assert_eq!(
+        canon.canonical(),
+        (canon, None),
+        "canonical form {canon:?} of alias {alias:?} must be a fixed point with no pinned range"
+      );
+    }
   }
 }

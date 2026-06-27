@@ -358,6 +358,9 @@ pub enum PixelFormat {
   V210,
   /// 4:4:4 packed 10-bit, one 32-bit word per sample (`AV_PIX_FMT_V410LE`).
   V410Le,
+  /// 4:4:4 packed 10-bit, one 32-bit word per sample (`AV_PIX_FMT_V410BE`),
+  /// big-endian.
+  V410Be,
   /// 4:4:4 packed 10-bit, alternative layout (`AV_PIX_FMT_XV30LE`),
   /// little-endian.
   Xv30Le,
@@ -899,6 +902,7 @@ impl PixelFormat {
       Self::Y216Be => 422,
       Self::V210 => 413,
       Self::V410Le => 414,
+      Self::V410Be => 435,
       Self::Xv30Le => 415,
       Self::Xv30Be => 423,
       Self::V30xLe => 433,
@@ -1218,6 +1222,7 @@ impl PixelFormat {
       430 => Self::Vyu444,
       431 => Self::Xyz12Le,
       432 => Self::Xyz12Be,
+      435 => Self::V410Be,
       // Packed RGB 8-bit.
       500 => Self::Rgb24,
       501 => Self::Bgr24,
@@ -1461,20 +1466,13 @@ impl PixelFormat {
   /// - [`Gray8a`](Self::Gray8a) / [`Y400a`](Self::Y400a) →
   ///   [`Ya8`](Self::Ya8) — both are FFmpeg aliases (`AV_PIX_FMT_GRAY8A`
   ///   / `AV_PIX_FMT_Y400A`) of the same 8-bit grey-plus-alpha layout.
-  /// - [`Xv30Le`](Self::Xv30Le) → [`V410Le`](Self::V410Le) — `XV30` is
+  /// - [`Xv30Le`](Self::Xv30Le) → [`V410Le`](Self::V410Le) and
+  ///   [`Xv30Be`](Self::Xv30Be) → [`V410Be`](Self::V410Be) — `XV30` is
   ///   the modern FFmpeg name for the identical-bit-pattern `V410` 4:4:4
   ///   10-bit packed layout (the `AV_PIX_FMT_V410` symbol was renamed to
-  ///   `XV30`).
-  /// - [`Xv30Be`](Self::Xv30Be) → **itself** (no canonical alias). The
-  ///   decode machinery *can* read big-endian V410 — the
-  ///   [`V410Frame<'a, BE>`](crate::frame::V410Frame) borrow view and the
-  ///   `v410_to::<BE>` walker are endian-generic — but the `PixelFormat`
-  ///   enum exposes only the little-endian [`V410Le`](Self::V410Le)
-  ///   variant; there is no `V410Be`. Mapping `Xv30Be` onto `V410Le`
-  ///   would silently drop the big-endian byte order, so `canonical()`
-  ///   leaves it unresolved. Adding a `V410Be` variant (for symmetry
-  ///   with the already-supported BE decode path) would let this map to
-  ///   `(V410Be, None)`; until then it stays `(Xv30Be, None)`.
+  ///   `XV30`). Both endians resolve onto their matching `V410` variant,
+  ///   preserving byte order: the [`V410Frame<'a, BE>`](crate::frame::V410Frame)
+  ///   borrow view and the `v410_to::<BE>` walker decode either endian.
   /// - Every other variant — including [`Unknown`](Self::Unknown) — is
   ///   already canonical and maps to `(self, None)`.
   ///
@@ -1495,7 +1493,7 @@ impl PixelFormat {
       Self::Yuvj444p => (Self::Yuv444p, Some(DynamicRange::Full)),
       Self::Gray8a | Self::Y400a => (Self::Ya8, None),
       Self::Xv30Le => (Self::V410Le, None),
-      Self::Xv30Be => (Self::Xv30Be, None),
+      Self::Xv30Be => (Self::V410Be, None),
       Self::Unknown(_)
       | Self::Yuv420p
       | Self::Yuv422p
@@ -1606,6 +1604,7 @@ impl PixelFormat {
       | Self::Y216Be
       | Self::V210
       | Self::V410Le
+      | Self::V410Be
       | Self::V30xLe
       | Self::V30xBe
       | Self::Xv36Le
@@ -1900,6 +1899,7 @@ impl PixelFormat {
       Self::Y216Be => "y216be",
       Self::V210 => "v210",
       Self::V410Le => "v410le",
+      Self::V410Be => "v410be",
       Self::Xv30Le => "xv30le",
       Self::Xv30Be => "xv30be",
       Self::V30xLe => "v30xle",
@@ -2101,6 +2101,7 @@ mod tests {
       PixelFormat::P416Le,
       PixelFormat::Yuyv422,
       PixelFormat::V210,
+      PixelFormat::V410Be,
       PixelFormat::Ayuv64Le,
       PixelFormat::Rgb24,
       PixelFormat::Bgra,
@@ -2233,12 +2234,13 @@ mod tests {
     assert_eq!(PixelFormat::Xv30Le.canonical(), (PixelFormat::V410Le, None));
   }
 
-  // `Xv30Be` (big-endian V410) has no `V410Be` enum variant to resolve
-  // to, so it stays unresolved rather than collapsing to the LE `V410Le`
-  // and silently dropping the byte order. See `canonical`'s doc comment.
+  // `Xv30Be` (big-endian V410) resolves to the matching `V410Be` variant,
+  // mirroring the LE `Xv30Le` → `V410Le` mapping and preserving byte order.
   #[test]
-  fn canonical_leaves_xv30be_unresolved() {
-    assert_eq!(PixelFormat::Xv30Be.canonical(), (PixelFormat::Xv30Be, None));
+  fn canonical_resolves_xv30be_to_v410be() {
+    assert_eq!(PixelFormat::Xv30Be.canonical(), (PixelFormat::V410Be, None));
+    // `V410Be` is itself canonical — a fixed point with no pinned range.
+    assert_eq!(PixelFormat::V410Be.canonical(), (PixelFormat::V410Be, None));
   }
 
   #[test]

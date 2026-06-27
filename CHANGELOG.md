@@ -8,6 +8,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`PixelFormat::V410Be`** — first-class big-endian counterpart of
+  `V410Le` for the packed YUV 4:4:4 10-bit `V410` layout (one 32-bit
+  word per sample). The big-endian decode path already existed — the
+  `V410Frame<'a, true>` / `V410BeFrame` borrow view, the `V410<true>`
+  source marker, and the endian-generic `v410_to::<true>` walker — and
+  is now exposed as a wire-stable enum variant (`as_str()` slug
+  `"v410be"`, discriminant `435`). Additive and non-breaking.
 - **`PixelFormat::canonical()`** — `const fn` resolving a deprecated /
   aliased pixel format to `(canonical_format, Option<DynamicRange>)`:
   the non-deprecated format describing the same bytes, plus the dynamic
@@ -16,16 +23,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   crates (e.g. `colconv`) consume one mapping instead of each
   re-deriving it. Resolves the `yuvj{411,420,422,440,444}p` full-range
   aliases → their `yuv*p` base + `DynamicRange::Full`, `Gray8a` /
-  `Y400a` → `Ya8`, and `Xv30Le` → `V410Le` (`XV30` is the FFmpeg rename
-  of the identical-bit-pattern `V410`). `Xv30Be` (big-endian V410) is
-  intentionally left unresolved: the enum exposes only a little-endian
-  `V410Le` variant — there is no `V410Be` — and collapsing `Xv30Be`
-  onto `V410Le` would silently drop the byte order (the `V410Frame<'a,
-  BE>` borrow view and `v410_to::<BE>` walker *can* decode BE, so a
-  future `V410Be` variant would let this map to `(V410Be, None)`). The
-  match is exhaustive without a wildcard, so a future alias variant
-  cannot silently fall through. Additive and non-breaking — every other
-  format (including `Unknown`) returns `(self, None)`.
+  `Y400a` → `Ya8`, and the `XV30` byte-order pair onto its matching
+  `V410` variant — `Xv30Le` → `V410Le` and `Xv30Be` → `V410Be` (`XV30`
+  is the FFmpeg rename of the identical-bit-pattern `V410`; both endians
+  resolve while preserving byte order). The match is exhaustive without
+  a wildcard, so a future alias variant cannot silently fall through.
+  Additive and non-breaking — every other format (including `Unknown`)
+  returns `(self, None)`.
 
 ## [0.1.5]
 

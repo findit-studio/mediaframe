@@ -4,7 +4,32 @@ All notable changes to this crate are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] / [0.1.6]
+## [Unreleased] / [0.1.7]
+
+### Added
+
+- **`Primaries::chromaticities()` / `Primaries::white_point()`** —
+  `const fn`s exposing the per-standard CIE 1931 `xy` reference data for
+  each defined `Primaries` variant: the R, G, B primaries as
+  `Option<[ChromaCoord; 3]>` (index `0` = red, `1` = green, `2` = blue)
+  and the reference white point as `Option<ChromaCoord>`, both in
+  `ChromaCoord`'s SMPTE ST 2086 fixed-point units (floating value =
+  `raw / 50000.0`, so BT.709 red `(0.640, 0.330)` is `(32000, 16500)`).
+  Values track FFmpeg's `av_csp_primaries_desc` (`libavutil/csp.c`)
+  across BT.709 / sRGB, BT.470 M/BG, SMPTE 170M/240M, Film, BT.2020,
+  SMPTE ST 428, DCI-P3 (RP 431-2), Display-P3 (EG 432-1), and EBU
+  3213-E, with white points D65 / CIE C / DCI / equal-energy E as each
+  standard dictates. `Unknown` and `Unspecified` return `None` (no
+  defined primaries); the within-crate match is exhaustive without a
+  wildcard, so a future primaries variant cannot silently fall through.
+  Puts the colorimetric reference data in the format authority so
+  downstream crates (e.g. `colconv`) consume one table instead of
+  re-hardcoding chromaticities, and unblocks chromaticity-derived matrix
+  work. Note that SMPTE ST 428 mirrors FFmpeg's tabulated D-Cinema
+  primaries (white point E), **not** the CIE XYZ identity that ITU-T
+  H.273 Table 2 lists for ST 428-1. Additive and non-breaking.
+
+## [0.1.6]
 
 ### Added
 

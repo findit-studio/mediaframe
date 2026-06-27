@@ -340,6 +340,115 @@ impl Primaries {
       _ => Self::Unknown(v),
     }
   }
+
+  // CIE 1931 xy white points in [`ChromaCoord`] SMPTE ST 2086 units
+  // (0.00002 increments; floating value = `raw / 50000.0`), matching
+  // FFmpeg `csp.c` `WP_*`. `WHITE_E` is the equal-energy point
+  // (exactly 1/3, 1/3); `50000 / 3` rounds to `16667`.
+  const WHITE_D65: ChromaCoord = ChromaCoord::new(15635, 16450);
+  const WHITE_C: ChromaCoord = ChromaCoord::new(15500, 15800);
+  const WHITE_DCI: ChromaCoord = ChromaCoord::new(15700, 17550);
+  const WHITE_E: ChromaCoord = ChromaCoord::new(16667, 16667);
+
+  /// CIE 1931 `xy` chromaticities of the **R, G, B** primaries (index
+  /// `0` = red, `1` = green, `2` = blue, matching FFmpeg's
+  /// `display_primaries` layout) defined by this colour-primaries
+  /// standard, per ITU-T H.273 ColourPrimaries / FFmpeg
+  /// `av_csp_primaries_desc` (`libavutil/csp.c`).
+  ///
+  /// Coordinates are in [`ChromaCoord`]'s SMPTE ST 2086 fixed-point
+  /// units (0.00002 increments; floating value = `raw / 50000.0`), so
+  /// BT.709 red `(0.640, 0.330)` is `(32000, 16500)`.
+  ///
+  /// Returns [`None`] for [`Self::Unknown`] and [`Self::Unspecified`],
+  /// which carry no defined primaries.
+  ///
+  /// [`Self::SmpteSt428`] reports FFmpeg's tabulated D-Cinema primaries
+  /// (white point E), **not** the CIE XYZ identity that ITU-T H.273
+  /// Table 2 lists for ST 428-1 — FFmpeg's `av_csp_primaries_desc` is
+  /// the authority here.
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn chromaticities(&self) -> Option<[ChromaCoord; 3]> {
+    match self {
+      Self::Unknown(_) | Self::Unspecified => None,
+      Self::Bt709 => Some([
+        ChromaCoord::new(32000, 16500),
+        ChromaCoord::new(15000, 30000),
+        ChromaCoord::new(7500, 3000),
+      ]),
+      Self::Bt470M => Some([
+        ChromaCoord::new(33500, 16500),
+        ChromaCoord::new(10500, 35500),
+        ChromaCoord::new(7000, 4000),
+      ]),
+      Self::Bt470Bg => Some([
+        ChromaCoord::new(32000, 16500),
+        ChromaCoord::new(14500, 30000),
+        ChromaCoord::new(7500, 3000),
+      ]),
+      // SMPTE 170M and 240M share identical primaries (D65).
+      Self::Smpte170M | Self::Smpte240M => Some([
+        ChromaCoord::new(31500, 17000),
+        ChromaCoord::new(15500, 29750),
+        ChromaCoord::new(7750, 3500),
+      ]),
+      Self::Film => Some([
+        ChromaCoord::new(34050, 15950),
+        ChromaCoord::new(12150, 34600),
+        ChromaCoord::new(7250, 2450),
+      ]),
+      Self::Bt2020 => Some([
+        ChromaCoord::new(35400, 14600),
+        ChromaCoord::new(8500, 39850),
+        ChromaCoord::new(6550, 2300),
+      ]),
+      Self::SmpteSt428 => Some([
+        ChromaCoord::new(36750, 13250),
+        ChromaCoord::new(13700, 35900),
+        ChromaCoord::new(8350, 450),
+      ]),
+      // DCI-P3 (RP 431-2) and Display-P3 (EG 432-1) share the P3
+      // primaries; they differ only in white point (DCI vs D65).
+      Self::SmpteRp431 | Self::SmpteEg432 => Some([
+        ChromaCoord::new(34000, 16000),
+        ChromaCoord::new(13250, 34500),
+        ChromaCoord::new(7500, 3000),
+      ]),
+      Self::Ebu3213E => Some([
+        ChromaCoord::new(31500, 17000),
+        ChromaCoord::new(14750, 30250),
+        ChromaCoord::new(7750, 3850),
+      ]),
+    }
+  }
+
+  /// CIE 1931 `xy` reference white point defined by this
+  /// colour-primaries standard, per ITU-T H.273 / FFmpeg
+  /// `av_csp_primaries_desc` (`libavutil/csp.c`).
+  ///
+  /// Most standards use D65 `(0.3127, 0.3290)`; the exceptions are
+  /// [`Self::Bt470M`] / [`Self::Film`] (CIE C), [`Self::SmpteRp431`]
+  /// (DCI white `(0.314, 0.351)`), and [`Self::SmpteSt428`]
+  /// (equal-energy E `(1/3, 1/3)`). Coordinates use the same
+  /// [`ChromaCoord`] ST 2086 units as [`Self::chromaticities`].
+  ///
+  /// Returns [`None`] for [`Self::Unknown`] and [`Self::Unspecified`].
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn white_point(&self) -> Option<ChromaCoord> {
+    match self {
+      Self::Unknown(_) | Self::Unspecified => None,
+      Self::Bt709
+      | Self::Bt470Bg
+      | Self::Smpte170M
+      | Self::Smpte240M
+      | Self::Bt2020
+      | Self::SmpteEg432
+      | Self::Ebu3213E => Some(Self::WHITE_D65),
+      Self::Bt470M | Self::Film => Some(Self::WHITE_C),
+      Self::SmpteRp431 => Some(Self::WHITE_DCI),
+      Self::SmpteSt428 => Some(Self::WHITE_E),
+    }
+  }
 }
 
 /// Transfer characteristics per ITU-T H.273 (Table 3).
@@ -1941,5 +2050,115 @@ mod tests {
     assert!(!c3.rpu_present());
     c3.update_rpu_present(true);
     assert!(c3.rpu_present());
+  }
+
+  #[test]
+  fn primaries_chromaticities_and_white_point() {
+    // Unknown / Unspecified carry no defined primaries.
+    assert!(Primaries::Unspecified.chromaticities().is_none());
+    assert!(Primaries::Unspecified.white_point().is_none());
+    assert!(Primaries::Unknown(123).chromaticities().is_none());
+    assert!(Primaries::Unknown(123).white_point().is_none());
+
+    // Every defined variant has both primaries and a white point.
+    for p in [
+      Primaries::Bt709,
+      Primaries::Bt470M,
+      Primaries::Bt470Bg,
+      Primaries::Smpte170M,
+      Primaries::Smpte240M,
+      Primaries::Film,
+      Primaries::Bt2020,
+      Primaries::SmpteSt428,
+      Primaries::SmpteRp431,
+      Primaries::SmpteEg432,
+      Primaries::Ebu3213E,
+    ] {
+      assert!(p.chromaticities().is_some(), "{p:?} missing primaries");
+      assert!(p.white_point().is_some(), "{p:?} missing white point");
+    }
+
+    // Coordinates are ST 2086 units (decimal × 50000), cross-checked
+    // against FFmpeg `av_csp_primaries_desc` (libavutil/csp.c).
+    // BT.709 / sRGB: R(0.640,0.330) G(0.300,0.600) B(0.150,0.060), D65.
+    assert_eq!(
+      Primaries::Bt709.chromaticities(),
+      Some([
+        ChromaCoord::new(32000, 16500),
+        ChromaCoord::new(15000, 30000),
+        ChromaCoord::new(7500, 3000),
+      ])
+    );
+    assert_eq!(
+      Primaries::Bt709.white_point(),
+      Some(ChromaCoord::new(15635, 16450))
+    );
+
+    // BT.2020: R(0.708,0.292) G(0.170,0.797) B(0.131,0.046), D65.
+    assert_eq!(
+      Primaries::Bt2020.chromaticities(),
+      Some([
+        ChromaCoord::new(35400, 14600),
+        ChromaCoord::new(8500, 39850),
+        ChromaCoord::new(6550, 2300),
+      ])
+    );
+    assert_eq!(
+      Primaries::Bt2020.white_point(),
+      Some(ChromaCoord::new(15635, 16450))
+    );
+
+    // DCI-P3 (RP 431-2): P3 primaries with DCI white (0.314, 0.351).
+    assert_eq!(
+      Primaries::SmpteRp431.chromaticities(),
+      Some([
+        ChromaCoord::new(34000, 16000),
+        ChromaCoord::new(13250, 34500),
+        ChromaCoord::new(7500, 3000),
+      ])
+    );
+    assert_eq!(
+      Primaries::SmpteRp431.white_point(),
+      Some(ChromaCoord::new(15700, 17550))
+    );
+
+    // Display-P3 (EG 432-1): identical P3 primaries, but D65 white.
+    assert_eq!(
+      Primaries::SmpteEg432.chromaticities(),
+      Primaries::SmpteRp431.chromaticities()
+    );
+    assert_eq!(
+      Primaries::SmpteEg432.white_point(),
+      Some(ChromaCoord::new(15635, 16450))
+    );
+    assert_ne!(
+      Primaries::SmpteEg432.white_point(),
+      Primaries::SmpteRp431.white_point()
+    );
+
+    // SMPTE 170M and 240M share primaries (and D65).
+    assert_eq!(
+      Primaries::Smpte170M.chromaticities(),
+      Primaries::Smpte240M.chromaticities()
+    );
+
+    // SMPTE ST 428 follows FFmpeg csp.c — D-Cinema primaries with the
+    // equal-energy white point E (1/3 → 16667), NOT the XYZ identity.
+    assert_eq!(
+      Primaries::SmpteSt428.chromaticities(),
+      Some([
+        ChromaCoord::new(36750, 13250),
+        ChromaCoord::new(13700, 35900),
+        ChromaCoord::new(8350, 450),
+      ])
+    );
+    assert_eq!(
+      Primaries::SmpteSt428.white_point(),
+      Some(ChromaCoord::new(16667, 16667))
+    );
+
+    // Usable in const context (mirrors the enum's other const fns).
+    const P3_WHITE: Option<ChromaCoord> = Primaries::SmpteEg432.white_point();
+    assert_eq!(P3_WHITE, Some(ChromaCoord::new(15635, 16450)));
   }
 }

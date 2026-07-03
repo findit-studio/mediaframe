@@ -250,7 +250,7 @@
 use core::num::NonZeroU32;
 
 use ::buffa::{
-  DecodeError, DefaultInstance, Message, SizeCache,
+  DecodeContext, DecodeError, DefaultInstance, Message, SizeCache,
   bytes::{Buf, BufMut},
   encoding::{Tag, WireType, encode_varint, skip_field_depth, varint_len},
   types::{
@@ -336,7 +336,7 @@ macro_rules! impl_enum_message {
         &mut self,
         tag: Tag,
         buf: &mut impl Buf,
-        depth: u32,
+        ctx: DecodeContext<'_>,
       ) -> Result<(), DecodeError> {
         match tag.field_number() {
           1 => {
@@ -350,7 +350,7 @@ macro_rules! impl_enum_message {
             let v = decode_uint32(buf)?;
             *self = $from(v);
           }
-          _ => skip_field_depth(tag, buf, depth)?,
+          _ => skip_field_depth(tag, buf, ctx.depth())?,
         }
         Ok(())
       }
@@ -451,7 +451,12 @@ impl Message for Dimensions {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -475,7 +480,7 @@ impl Message for Dimensions {
         let h = decode_uint32(buf)?;
         self.set_height(h);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -536,7 +541,12 @@ impl Message for Rect {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -582,7 +592,7 @@ impl Message for Rect {
         let v = decode_uint32(buf)?;
         self.set_height(v);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -621,7 +631,12 @@ impl Message for SampleAspectRatio {
     encode_uint32(self.den().get(), buf);
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -654,7 +669,7 @@ impl Message for SampleAspectRatio {
         let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
         self.set_den(den);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -695,7 +710,12 @@ impl Message for Rational {
     encode_uint32(self.den().get(), buf);
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -723,7 +743,7 @@ impl Message for Rational {
         let den = NonZeroU32::new(decode_uint32(buf)?).unwrap_or(NonZeroU32::MIN);
         self.set_den(den);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -780,7 +800,12 @@ impl Message for FrameRate {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -791,7 +816,7 @@ impl Message for FrameRate {
           });
         }
         let mut rate = self.rate();
-        buffa::Message::merge_length_delimited(&mut rate, buf, depth)?;
+        buffa::Message::merge_length_delimited(&mut rate, buf, ctx)?;
         self.set_rate(rate);
       }
       2 => {
@@ -804,7 +829,7 @@ impl Message for FrameRate {
         }
         self.update_is_vfr(decode_uint32(buf)? != 0);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -877,7 +902,12 @@ impl Message for DolbyVisionConfig {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -929,7 +959,7 @@ impl Message for DolbyVisionConfig {
         }
         self.set_bl_signal_compat_id(decode_uint32(buf)? as u8);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -977,7 +1007,12 @@ impl Message for Info {
     encode_uint32(self.chroma_location().to_u32(), buf);
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -1034,7 +1069,7 @@ impl Message for Info {
         let v = decode_uint32(buf)?;
         self.set_chroma_location(ChromaLocation::from_u32(v));
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1081,7 +1116,12 @@ impl Message for ContentLightLevel {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -1105,7 +1145,7 @@ impl Message for ContentLightLevel {
         let v = decode_uint32(buf)?;
         self.set_max_fall(v);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1155,7 +1195,12 @@ impl Message for ChromaCoord {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -1179,7 +1224,7 @@ impl Message for ChromaCoord {
         }
         self.set_y(decode_uint32(buf)?);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1258,7 +1303,12 @@ impl Message for MasteringDisplay {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       n @ 1..=3 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1270,7 +1320,7 @@ impl Message for MasteringDisplay {
         }
         let mut primaries = self.display_primaries();
         let mut cc = primaries[(n - 1) as usize];
-        buffa::Message::merge_length_delimited(&mut cc, buf, depth)?;
+        buffa::Message::merge_length_delimited(&mut cc, buf, ctx)?;
         primaries[(n - 1) as usize] = cc;
         self.set_display_primaries(primaries);
       }
@@ -1283,7 +1333,7 @@ impl Message for MasteringDisplay {
           });
         }
         let mut wp = self.white_point();
-        buffa::Message::merge_length_delimited(&mut wp, buf, depth)?;
+        buffa::Message::merge_length_delimited(&mut wp, buf, ctx)?;
         self.set_white_point(wp);
       }
       5 => {
@@ -1308,7 +1358,7 @@ impl Message for MasteringDisplay {
         let v = decode_uint32(buf)?;
         self.set_min_luminance(v);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1366,7 +1416,12 @@ impl Message for HdrStaticMetadata {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1377,7 +1432,7 @@ impl Message for HdrStaticMetadata {
           });
         }
         let mut md = self.mastering().unwrap_or_default();
-        buffa::Message::merge_length_delimited(&mut md, buf, depth)?;
+        buffa::Message::merge_length_delimited(&mut md, buf, ctx)?;
         self.set_mastering(Some(md));
       }
       2 => {
@@ -1389,10 +1444,10 @@ impl Message for HdrStaticMetadata {
           });
         }
         let mut cll = self.content_light().unwrap_or_default();
-        buffa::Message::merge_length_delimited(&mut cll, buf, depth)?;
+        buffa::Message::merge_length_delimited(&mut cll, buf, ctx)?;
         self.set_content_light(Some(cll));
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1453,7 +1508,7 @@ macro_rules! impl_string_enum_message {
         &mut self,
         tag: Tag,
         buf: &mut impl Buf,
-        depth: u32,
+        ctx: DecodeContext<'_>,
       ) -> Result<(), DecodeError> {
         match tag.field_number() {
           1 => {
@@ -1467,7 +1522,7 @@ macro_rules! impl_string_enum_message {
             let s = decode_string(buf)?;
             *self = <$ty as core::str::FromStr>::from_str(&s).unwrap_or_else(|_| unreachable!());
           }
-          _ => skip_field_depth(tag, buf, depth)?,
+          _ => skip_field_depth(tag, buf, ctx.depth())?,
         }
         Ok(())
       }
@@ -1522,7 +1577,12 @@ impl Message for BitRateMode {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -1534,7 +1594,7 @@ impl Message for BitRateMode {
         }
         *self = BitRateMode::from_u32(decode_uint32(buf)?);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1582,7 +1642,12 @@ impl Message for SampleFormat {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -1594,7 +1659,7 @@ impl Message for SampleFormat {
         }
         *self = SampleFormat::from_u32(decode_uint32(buf)?);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1658,7 +1723,12 @@ impl Message for Loudness {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       n @ 1..=4 => {
         if tag.wire_type() != WireType::Fixed32 {
@@ -1685,7 +1755,7 @@ impl Message for Loudness {
           _ => unreachable!(),
         }
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1749,7 +1819,12 @@ impl Message for ReplayGain {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       n @ 1..=4 => {
         if tag.wire_type() != WireType::Fixed32 {
@@ -1776,7 +1851,7 @@ impl Message for ReplayGain {
           _ => unreachable!(),
         }
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1828,7 +1903,12 @@ impl Message for Fingerprint {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1865,7 +1945,7 @@ impl Message for Fingerprint {
         let algo = SmolStr::from(self.algorithm());
         *self = Fingerprint::try_new(algo, bytes).unwrap_or_else(|_| audio_fingerprint_seed());
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -1912,7 +1992,12 @@ impl Message for CoverArt {
     encode_bytes(self.data(), buf);
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -1957,7 +2042,7 @@ impl Message for CoverArt {
         let mime = SmolStr::from(self.mime());
         *self = CoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -2084,7 +2169,12 @@ impl Message for Tags {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     let n = tag.field_number();
     match n {
       1..=7 | 13 => {
@@ -2164,7 +2254,7 @@ impl Message for Tags {
           _ => unreachable!(),
         }
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -2207,7 +2297,12 @@ impl Message for TrackDisposition {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Varint {
@@ -2220,7 +2315,7 @@ impl Message for TrackDisposition {
         let v = decode_uint32(buf)?;
         *self = TrackDisposition::from_u32(v);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -2279,7 +2374,12 @@ mod subtitle_impls {
       }
     }
 
-    fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    fn merge_field(
+      &mut self,
+      tag: Tag,
+      buf: &mut impl Buf,
+      ctx: DecodeContext<'_>,
+    ) -> Result<(), DecodeError> {
       match tag.field_number() {
         1 => {
           if tag.wire_type() != WireType::Varint {
@@ -2292,7 +2392,7 @@ mod subtitle_impls {
           let v = decode_uint32(buf)?;
           *self = TrackOrigin::from_u32(v);
         }
-        _ => skip_field_depth(tag, buf, depth)?,
+        _ => skip_field_depth(tag, buf, ctx.depth())?,
       }
       Ok(())
     }
@@ -2336,7 +2436,12 @@ mod subtitle_impls {
       encode_string(slug, buf);
     }
 
-    fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+    fn merge_field(
+      &mut self,
+      tag: Tag,
+      buf: &mut impl Buf,
+      ctx: DecodeContext<'_>,
+    ) -> Result<(), DecodeError> {
       match tag.field_number() {
         1 => {
           if tag.wire_type() != WireType::LengthDelimited {
@@ -2352,7 +2457,7 @@ mod subtitle_impls {
           let Ok(parsed) = Format::from_str(&s);
           *self = parsed;
         }
-        _ => skip_field_depth(tag, buf, depth)?,
+        _ => skip_field_depth(tag, buf, ctx.depth())?,
       }
       Ok(())
     }
@@ -2409,7 +2514,12 @@ impl Message for Device {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -2433,7 +2543,7 @@ impl Message for Device {
         let s = decode_string(buf)?;
         self.set_model(s.as_str());
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -2490,7 +2600,12 @@ impl Message for GeoLocation {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::Fixed64 {
@@ -2543,7 +2658,7 @@ impl Message for GeoLocation {
         let v = decode_float(buf)?;
         self.set_altitude(v);
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }
@@ -2591,7 +2706,12 @@ impl Message for Language {
     }
   }
 
-  fn merge_field(&mut self, tag: Tag, buf: &mut impl Buf, depth: u32) -> Result<(), DecodeError> {
+  fn merge_field(
+    &mut self,
+    tag: Tag,
+    buf: &mut impl Buf,
+    ctx: DecodeContext<'_>,
+  ) -> Result<(), DecodeError> {
     match tag.field_number() {
       1 => {
         if tag.wire_type() != WireType::LengthDelimited {
@@ -2612,7 +2732,7 @@ impl Message for Language {
         // already-existing sentinel is the least-bad choice.
         *self = Language::from_bcp47(&s).unwrap_or_default();
       }
-      _ => skip_field_depth(tag, buf, depth)?,
+      _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
     Ok(())
   }

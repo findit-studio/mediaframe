@@ -449,6 +449,25 @@ impl Primaries {
       Self::SmpteSt428 => Some(Self::WHITE_E),
     }
   }
+
+  /// Whether these primaries encode color directly in **CIE 1931 XYZ**
+  /// rather than an RGB gamut — i.e. the channels *are* X, Y, Z.
+  ///
+  /// True only for [`Self::SmpteSt428`] (SMPTE ST 428-1, Digital Cinema),
+  /// whose colorimetric primaries are the XYZ axes — chromaticities
+  /// `(1, 0)`, `(0, 1)`, `(0, 0)` — not a set of physical RGB primaries.
+  ///
+  /// This is the colorimetric *interpretation*, distinct from what
+  /// [`Self::chromaticities`] returns: that method reports FFmpeg's
+  /// tabulated D-Cinema RGB primaries for `SmpteSt428` (mirroring
+  /// `av_csp_primaries_desc`, the authority for that method), whereas a
+  /// consumer deriving an XYZ↔RGB relationship should treat ST 428-1 as
+  /// the XYZ identity. Use this predicate to branch on that distinction
+  /// (e.g. skip building an RGB-primaries-derived matrix for XYZ data).
+  #[cfg_attr(not(tarpaulin), inline(always))]
+  pub const fn is_cie_xyz(&self) -> bool {
+    matches!(self, Self::SmpteSt428)
+  }
 }
 
 /// Transfer characteristics per ITU-T H.273 (Table 3).
@@ -2160,5 +2179,38 @@ mod tests {
     // Usable in const context (mirrors the enum's other const fns).
     const P3_WHITE: Option<ChromaCoord> = Primaries::SmpteEg432.white_point();
     assert_eq!(P3_WHITE, Some(ChromaCoord::new(15635, 16450)));
+  }
+
+  #[test]
+  fn primaries_is_cie_xyz() {
+    // Only ST 428-1 encodes color directly in CIE XYZ.
+    assert!(Primaries::SmpteSt428.is_cie_xyz());
+
+    // Every other defined primary set (and the unknowns) is an RGB gamut.
+    for p in [
+      Primaries::Bt709,
+      Primaries::Bt470M,
+      Primaries::Bt470Bg,
+      Primaries::Smpte170M,
+      Primaries::Smpte240M,
+      Primaries::Film,
+      Primaries::Bt2020,
+      Primaries::SmpteRp431,
+      Primaries::SmpteEg432,
+      Primaries::Ebu3213E,
+      Primaries::Unspecified,
+      Primaries::Unknown(10),
+    ] {
+      assert!(!p.is_cie_xyz(), "{p:?} is an RGB gamut, not CIE XYZ");
+    }
+
+    // The XYZ interpretation is independent of `chromaticities()`, which
+    // still reports FFmpeg's tabulated RGB primaries for ST 428-1.
+    assert!(Primaries::SmpteSt428.chromaticities().is_some());
+
+    // Usable in a const context (mirrors the enum's other const fns) —
+    // proven at compile time.
+    const _: () = assert!(Primaries::SmpteSt428.is_cie_xyz());
+    const _: () = assert!(!Primaries::Bt2020.is_cie_xyz());
   }
 }

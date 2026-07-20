@@ -17,7 +17,7 @@ rust-version = "1.95.0"
 # for the same reason.
 proc-macro2  = "1"
 quote        = "1"
-syn          = { version = "2", features = ["full", "parsing"] }
+syn          = { version = "3", features = ["full", "parsing"] }
 prettyplease = "0.2"
 
 [[bin]]

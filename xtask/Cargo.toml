@@ -18,7 +18,7 @@ rust-version = "1.95.0"
 proc-macro2  = "1"
 quote        = "1"
 syn          = { version = "2", features = ["full", "parsing"] }
-prettyplease = "0.2"
+prettyplease = "0.3"
 
 [[bin]]
 name = "xtask"

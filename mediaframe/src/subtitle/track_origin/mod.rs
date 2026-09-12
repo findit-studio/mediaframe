@@ -2,7 +2,7 @@
 //! where the bytes come from relative to the media file.
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Where this subtitle track came from, relative to the media file
 /// it accompanies.
@@ -64,7 +64,7 @@ pub enum TrackOrigin {
   /// crate-wide extension idiom: a downstream classifier naming an
   /// origin mediaframe has never heard of keeps that **name**, and it
   /// round-trips through `as_str` / `FromStr` / `serde` intact.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl TrackOrigin {
@@ -206,7 +206,7 @@ impl core::str::FromStr for TrackOrigin {
       b"sidecar" => Self::Sidecar,
       b"external" => Self::External,
       b"derived" => Self::Derived,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

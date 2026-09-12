@@ -500,7 +500,7 @@ fn check_color(root: &Path) -> bool {
 ///    file) — fails on edits that didn't propagate through the
 ///    generator (variant order, doc comments, BITMAP_SUB set, …).
 ///
-/// The `Other(SmolStr)` arm is intentionally exempt from coverage —
+/// The `Other(Utf8Bytes)` arm is intentionally exempt from coverage —
 /// it's the escape hatch for unknown codecs, by design.
 fn check_codec(root: &Path) -> bool {
   let vendor = match fs::read_to_string(root.join(CODEC_VENDOR_PATH)) {
@@ -579,7 +579,7 @@ fn check_codec(root: &Path) -> bool {
     // Direction 2: every FFmpeg short name must have a matching mediaframe
     // named variant (catches a `cargo xtask sync` bump that added codecs
     // without re-running `cargo xtask gen-codec`). Without this, new
-    // codecs would silently parse to `Other(SmolStr)` and `is_*` predicates
+    // codecs would silently parse to `Other(Utf8Bytes)` and `is_*` predicates
     // would miss them — the generated-all-codecs invariant.
     let mf_canonicals: BTreeSet<&String> = mf_named.values().collect();
     let missing_from_mediaframe: BTreeSet<&String> = ff_names
@@ -606,7 +606,7 @@ fn check_codec(root: &Path) -> bool {
       eprintln!(
         "Action: either (a) the variant's canonical string disagrees with FFmpeg's \
                   short name (fix `as_str()`); or (b) the codec doesn't exist as a \
-                  separate FFmpeg codec ID (drop the named variant — `Other(SmolStr)` \
+                  separate FFmpeg codec ID (drop the named variant — `Other(Utf8Bytes)` \
                   still round-trips its string)."
       );
       ok = false;
@@ -615,7 +615,7 @@ fn check_codec(root: &Path) -> bool {
     if !missing_from_mediaframe.is_empty() {
       eprintln!(
         "FAIL: {} FFmpeg {FFMPEG_TAG} `{media_type}` codec(s) NOT covered by mediaframe \
-             `{enum_name}` (would silently fall through to `Other(SmolStr)`):",
+             `{enum_name}` (would silently fall through to `Other(Utf8Bytes)`):",
         missing_from_mediaframe.len()
       );
       for canonical in &missing_from_mediaframe {
@@ -1981,7 +1981,7 @@ fn build_codec_module(
     " [`AttachmentCodec`], whose roster comes from a different FFmpeg",
     " source; see its own doc comment for why. Every codec FFmpeg knows",
     " under media types `video` / `audio` / `subtitle` / `data` has a",
-    " named variant here; the `Other(SmolStr)` arm remains a lossless",
+    " named variant here; the `Other(Utf8Bytes)` arm remains a lossless",
     " escape for codecs added in a future FFmpeg release before this",
     " file is regenerated (or, for `AttachmentCodec`, before",
     " `ATTACHMENT_CODECS` is re-derived by hand).",
@@ -2013,7 +2013,7 @@ fn build_codec_module(
     use core::str::FromStr;
 
     use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-    use smol_str::SmolStr;
+    use smol_bytes::Utf8Bytes;
 
     #video_enum
 
@@ -2108,14 +2108,14 @@ fn build_codec_enum(
      (`ATTACHMENT_CODECS`; see its doc comment for the full census — \
      `libavcodec/codec_desc.c` has no `AVMEDIA_TYPE_ATTACHMENT` media type to \
      enumerate here the way `DataCodec` and the other vendored enums are).\n\n \
-     `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` \
+     `#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` \
      arm is the lossless escape for an attachment codec id this list does not \
      (yet) name."
       .to_string()
   } else {
     format!(
       " {} codec family — every codec FFmpeg {FFMPEG_TAG} knows under media type `{}`.\n\n \
-       `#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` \
+       `#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` \
        arm is the lossless escape for codecs added upstream before this file is \
        regenerated.",
       type_name.strip_suffix("Codec").unwrap_or(type_name),
@@ -2220,7 +2220,7 @@ fn build_codec_enum(
       #(#variant_decls)*
       /// A codec not enumerated above — carries the FFmpeg short name
       /// verbatim.
-      Other(SmolStr),
+      Other(Utf8Bytes),
     }
 
     impl #enum_ident {
@@ -2285,7 +2285,7 @@ fn build_codec_enum(
         let folded = crate::parse::lookup(crate::parse::Case::Insensitive, s, &mut buf);
         Ok(match folded {
           #(#from_str_arms)*
-          _ => Self::Other(SmolStr::new(s)),
+          _ => Self::Other(Utf8Bytes::from(s)),
         })
       }
     }
@@ -2605,7 +2605,7 @@ fn build_codec_tests(
         assert_eq!(DataCodec::Klv.to_string(), "klv");
         assert_eq!(AttachmentCodec::BinData.to_string(), "bin_data");
         assert_eq!(
-          VideoCodec::Other(SmolStr::new("custom_codec")).to_string(),
+          VideoCodec::Other(Utf8Bytes::from("custom_codec")).to_string(),
           "custom_codec"
         );
       }

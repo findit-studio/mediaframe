@@ -17,7 +17,7 @@
 //! **The name and the description are different things.**
 //! [`ChannelLayout`] is the *named* vocabulary — a closed-ish roster of
 //! the layouts FFmpeg's `channel_layout_map[]` spells (`"5.1"`,
-//! `"quad(side)"`, `"22.2"`), with an `Other(SmolStr)` escape for a name
+//! `"quad(side)"`, `"22.2"`), with an `Other(Utf8Bytes)` escape for a name
 //! it does not carry. It answers *which layout is this*. This household
 //! answers *what is this layout made of*, and holds the name as one
 //! field among six ([`known_kind`](ChannelLayoutDescription::known_kind)).
@@ -29,7 +29,7 @@
 //! name and no mask. Keeping them apart is what lets a value be honest
 //! about which of the two it actually knows.
 
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 use std::vec::Vec;
 
 use crate::audio::{ChannelLayout, ChannelOrder, ChannelSpec};
@@ -82,7 +82,7 @@ pub struct ChannelLayoutDescription {
   known_kind: ChannelLayout,
   native_mask: Option<u64>,
   custom_channels: Vec<ChannelSpec>,
-  text: SmolStr,
+  text: Utf8Bytes,
 }
 
 impl Default for ChannelLayoutDescription {
@@ -104,10 +104,10 @@ impl ChannelLayoutDescription {
     Self {
       order: ChannelOrder::Unspecified,
       channels,
-      known_kind: ChannelLayout::Other(SmolStr::new_inline("")),
+      known_kind: ChannelLayout::Other(Utf8Bytes::new()),
       native_mask: None,
       custom_channels: Vec::new(),
-      text: SmolStr::new_inline(""),
+      text: Utf8Bytes::new(),
     }
   }
 
@@ -126,7 +126,7 @@ impl ChannelLayoutDescription {
   /// The layout's name, or [`ChannelLayout::default`] — the `Other("")`
   /// absent sentinel — when no well-known shape matches.
   ///
-  /// Borrowed rather than copied: [`ChannelLayout`] carries a `SmolStr`
+  /// Borrowed rather than copied: [`ChannelLayout`] carries a `Utf8Bytes`
   /// in its escape arm and so is not `Copy`.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn known_kind(&self) -> &ChannelLayout {
@@ -215,9 +215,21 @@ impl ChannelLayoutDescription {
   }
 
   /// Sets the backend's rendering — consuming builder.
+  ///
+  /// Takes anything that converts into the [`Utf8Bytes`] seat: a `&str`, a
+  /// `String`, or a `Utf8Bytes` the caller already holds. The `String`
+  /// conversion takes ownership of the caller's buffer instead of copying it.
+  ///
+  /// **There is no fallible twin, and none is needed.** A backend
+  /// rendering an arbitrary layout name does the fallible part on its
+  /// own side — reserve (`Vec::try_reserve`), decode, build the
+  /// `String` — and hands the finished text here; this seat only stores
+  /// what it is given. That is why a long rendering no longer has to be
+  /// dropped as "absent": the length limit that forced the choice is
+  /// gone with the old carrier.
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_text(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_text(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.text = v.into();
     self
   }
@@ -257,9 +269,11 @@ impl ChannelLayoutDescription {
     self
   }
 
-  /// Sets the backend's rendering in place.
+  /// Sets the backend's rendering in place — same seat and same
+  /// conversions as [`Self::with_text`], including its note on
+  /// fallibility.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_text(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_text(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.text = v.into();
     self
   }

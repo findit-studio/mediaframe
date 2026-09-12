@@ -1,7 +1,7 @@
 //! One channel's entry in a custom-ordered layout — index, backend raw
 //! id, and an optional label.
 
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// One entry in a
 /// [`ChannelLayoutDescription::custom_channels`](crate::audio::ChannelLayoutDescription::custom_channels)
@@ -34,7 +34,7 @@ use smol_str::SmolStr;
 pub struct ChannelSpec {
   index: u32,
   raw_id: u32,
-  label: SmolStr,
+  label: Utf8Bytes,
 }
 
 impl Default for ChannelSpec {
@@ -55,7 +55,7 @@ impl ChannelSpec {
     Self {
       index,
       raw_id,
-      label: SmolStr::new_inline(""),
+      label: Utf8Bytes::new(),
     }
   }
 
@@ -94,9 +94,21 @@ impl ChannelSpec {
   }
 
   /// Sets the label — consuming builder.
+  ///
+  /// Takes anything that converts into the [`Utf8Bytes`] seat: a `&str`, a
+  /// `String`, or a `Utf8Bytes` the caller already holds. The `String`
+  /// conversion takes ownership of the caller's buffer instead of copying it.
+  ///
+  /// **There is no fallible twin, and none is needed.** A caller that
+  /// must not abort on a hostile or oversized label does the fallible
+  /// part on its own side — reserve (`Vec::try_reserve`), decode, build
+  /// the `String` — and hands the finished text here; this seat only
+  /// stores what it is given. That is why a backend no longer has to
+  /// drop a label it could not fit: the length limit that forced the
+  /// choice is gone with the old carrier.
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_label(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_label(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.label = v.into();
     self
   }
@@ -115,9 +127,10 @@ impl ChannelSpec {
     self
   }
 
-  /// Sets the label in place.
+  /// Sets the label in place — same seat and same conversions as
+  /// [`Self::with_label`], including its note on fallibility.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_label(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_label(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.label = v.into();
     self
   }

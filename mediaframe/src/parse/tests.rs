@@ -45,7 +45,7 @@ fn an_input_longer_than_any_slug_is_a_miss_not_a_panic() {
 //
 // The two `lookup` tests below are tier-agnostic (`Case` and `lookup`
 // compile at every capability tier, same as `fold`); the fourcc-shaped
-// proof further down needs `Other(SmolStr)`, so it is gated the same way
+// proof further down needs `Other(Utf8Bytes)`, so it is gated the same way
 // a real open household is.
 
 /// [`Case::Insensitive`] is [`lookup`] doing exactly what every existing
@@ -105,14 +105,14 @@ fn lookup_sensitive_has_no_fold_cap_limit() {
 }
 
 /// A test-only fourcc-shaped vocabulary, written in the exact shape a
-/// real household takes (roster, `Other(SmolStr)` escape, `other()`
+/// real household takes (roster, `Other(Utf8Bytes)` escape, `other()`
 /// delegating to `FromStr`) — proving `Case::Sensitive` end-to-end so the
 /// first real sensitive household inherits machinery already proven,
 /// rather than being the first thing to exercise it. No household
 /// declares `Sensitive` yet (see the module doc's census), so this is
 /// the axis's only current witness.
 ///
-/// `Other(SmolStr)` needs a heap, same as every real open household —
+/// `Other(Utf8Bytes)` needs a heap, same as every real open household —
 /// gated the same way.
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +125,7 @@ enum TestFourCc {
   H264,
   /// The open escape: an unrecognised — or wrongly-cased — spelling,
   /// carried verbatim.
-  Other(smol_str::SmolStr),
+  Other(smol_bytes::Utf8Bytes),
 }
 
 #[cfg(any(feature = "std", feature = "alloc"))]
@@ -159,7 +159,7 @@ impl core::str::FromStr for TestFourCc {
     Ok(match key {
       b"AVC1" => Self::Avc1,
       b"H264" => Self::H264,
-      _ => Self::Other(smol_str::SmolStr::new(s)),
+      _ => Self::Other(smol_bytes::Utf8Bytes::from(s)),
     })
   }
 }
@@ -184,7 +184,7 @@ fn sensitive_case_variant_of_a_roster_name_is_a_table_miss_not_a_healed_hit() {
     let v = spelling.parse::<TestFourCc>().unwrap();
     assert_eq!(
       v,
-      TestFourCc::Other(smol_str::SmolStr::new(spelling)),
+      TestFourCc::Other(smol_bytes::Utf8Bytes::from(spelling)),
       "{spelling:?} healed to a named variant under Case::Sensitive"
     );
     assert_eq!(v.as_str(), spelling);
@@ -198,7 +198,10 @@ fn sensitive_case_variant_of_a_roster_name_is_a_table_miss_not_a_healed_hit() {
 #[test]
 fn sensitive_stranger_round_trips_through_other_verbatim() {
   let v = "VeNdOr_Tag".parse::<TestFourCc>().unwrap();
-  assert_eq!(v, TestFourCc::Other(smol_str::SmolStr::new("VeNdOr_Tag")));
+  assert_eq!(
+    v,
+    TestFourCc::Other(smol_bytes::Utf8Bytes::from("VeNdOr_Tag"))
+  );
   assert_eq!(v.as_str(), "VeNdOr_Tag");
   assert_eq!(v.as_str().parse::<TestFourCc>().unwrap(), v);
 }
@@ -214,6 +217,6 @@ fn sensitive_other_inherits_the_declared_case_with_no_extra_wiring() {
   assert_eq!(TestFourCc::other("AVC1"), TestFourCc::Avc1);
   assert_eq!(
     TestFourCc::other("avc1"),
-    TestFourCc::Other(smol_str::SmolStr::new("avc1"))
+    TestFourCc::Other(smol_bytes::Utf8Bytes::from("avc1"))
   );
 }

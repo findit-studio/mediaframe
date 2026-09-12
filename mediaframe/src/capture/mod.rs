@@ -3,7 +3,7 @@
 //! lens, exposure (ISO/aperture/shutter).
 //!
 //! Requires the `alloc` feature (`std` implies it) because the
-//! constituent types lean on `SmolStr` and `std::string::String` for
+//! constituent types lean on `Utf8Bytes` and `std::string::String` for
 //! their text surface.
 
 pub mod device;

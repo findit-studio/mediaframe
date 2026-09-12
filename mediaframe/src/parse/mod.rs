@@ -20,7 +20,7 @@
 //!   ASCII case-folded, so `"BT709"`, `"Bt709"` and `"bt709"` are one
 //!   value, the same **named** variant. Only a genuine stranger — a
 //!   spelling the folded lookup still misses — reaches the
-//!   `Other(SmolStr)` escape, and it carries the caller's spelling
+//!   `Other(Utf8Bytes)` escape, and it carries the caller's spelling
 //!   **verbatim**: folding a name nobody claims would destroy
 //!   information (vendor fourccs and codec tags are routinely
 //!   case-sensitive) for no compensating benefit, now that the lookup

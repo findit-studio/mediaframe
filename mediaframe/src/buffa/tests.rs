@@ -889,14 +889,16 @@ fn channel_layout_round_trip_named_and_other() {
   // in memory. This one is FFmpeg's rendering of a layout its map has no
   // name for, so it cannot be promoted out of the escape by a later
   // release the way `"22.2"` was.
-  let v = ChannelLayout::Other(SmolStr::new("fl+fr+tfl"));
+  let v = ChannelLayout::Other(Utf8Bytes::from("fl+fr+tfl"));
   assert_eq!(
     ChannelLayout::decode_from_slice(&v.encode_to_vec()).unwrap(),
     v
   );
   assert_eq!(
-    ChannelLayout::decode_from_slice(&ChannelLayout::Other(SmolStr::new("22.2")).encode_to_vec())
-      .unwrap(),
+    ChannelLayout::decode_from_slice(
+      &ChannelLayout::Other(Utf8Bytes::from("22.2")).encode_to_vec()
+    )
+    .unwrap(),
     ChannelLayout::Ch22_2
   );
   // Default (Other("")) elides to empty bytes.
@@ -914,7 +916,7 @@ fn audio_container_round_trip() {
     ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
     v
   );
-  let v = ContainerFormat::Other(SmolStr::new("snd"));
+  let v = ContainerFormat::Other(Utf8Bytes::from("snd"));
   assert_eq!(
     ContainerFormat::decode_from_slice(&v.encode_to_vec()).unwrap(),
     v

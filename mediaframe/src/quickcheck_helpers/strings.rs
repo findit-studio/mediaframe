@@ -1,4 +1,4 @@
-//! Cluster A — open string enums w/ `Other(SmolStr)` and total `FromStr`.
+//! Cluster A — open string enums w/ `Other(Utf8Bytes)` and total `FromStr`.
 //!
 //! One `pub(crate) fn name(g: &mut Gen) -> T` per type, referenced from each
 //! type's container-level `#[quickcheck(arbitrary = "crate::quickcheck_helpers::strings::name")]`.

@@ -26,7 +26,7 @@ fn open_enum_serializes_as_slug() {
   );
   round_trip(&VideoCodec::H264);
   // Unknown slug rides the `Other` arm losslessly.
-  let custom = VideoCodec::Other(smol_str::SmolStr::new("zzcodec"));
+  let custom = VideoCodec::Other(smol_bytes::Utf8Bytes::from("zzcodec"));
   assert_eq!(serde_json::to_string(&custom).unwrap(), "\"zzcodec\"");
   round_trip(&custom);
   round_trip(&ChannelLayout::default());
@@ -500,7 +500,7 @@ fn sparse_json_uses_serde_default_on_default_backed_structs() {
 
   // Tags: only `title` present; the rest fall back to absent sentinels.
   let t: Tags = serde_json::from_str(r#"{"title":"hello"}"#).unwrap();
-  let expected = Tags::new().with_title(smol_str::SmolStr::new("hello"));
+  let expected = Tags::new().with_title(smol_bytes::Utf8Bytes::from("hello"));
   assert_eq!(t, expected);
 
   // Tags: completely empty object → fully-default value (no missing-field error).
@@ -509,7 +509,7 @@ fn sparse_json_uses_serde_default_on_default_backed_structs() {
 
   // Device: only `make` present.
   let d: Device = serde_json::from_str(r#"{"make":"Apple"}"#).unwrap();
-  let expected = Device::new().with_make(smol_str::SmolStr::new("Apple"));
+  let expected = Device::new().with_make(smol_bytes::Utf8Bytes::from("Apple"));
   assert_eq!(d, expected);
 
   // Loudness: partial measurement.

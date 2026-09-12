@@ -28,7 +28,10 @@ fn display_matches_as_str() {
   assert_eq!(Format::M2ts.to_string(), "m2ts");
   assert_eq!(Format::Threegp.to_string(), "3gp");
   assert_eq!(Format::Threeg2.to_string(), "3g2");
-  assert_eq!(Format::Other(SmolStr::new("custom")).to_string(), "custom");
+  assert_eq!(
+    Format::Other(Utf8Bytes::from("custom")).to_string(),
+    "custom"
+  );
 }
 
 #[test]
@@ -45,14 +48,14 @@ fn is_variant_predicates() {
   assert!(!Format::MpegTs.is_m2ts());
   assert!(Format::Threeg2.is_threeg2());
   assert!(!Format::Threegp.is_threeg2());
-  assert!(Format::Other(SmolStr::new("x")).is_other());
+  assert!(Format::Other(Utf8Bytes::from("x")).is_other());
 }
 
 #[test]
 fn unwrap_other_borrowed_view() {
-  // `Other(SmolStr)` carries data — golden-rule §2 mandates
+  // `Other(Utf8Bytes)` carries data — golden-rule §2 mandates
   // unwrap/try_unwrap accessors for data-carrying variants.
-  let v = Format::Other(SmolStr::new("custom"));
+  let v = Format::Other(Utf8Bytes::from("custom"));
   assert_eq!(v.unwrap_other_ref().as_str(), "custom");
   assert!(v.try_unwrap_other_ref().is_ok());
   let named = Format::Mp4;
@@ -77,7 +80,7 @@ fn as_extension_matches_disk_form() {
   assert_eq!(Format::Ogg.as_str(), "ogg");
   assert_eq!(Format::Ogg.as_extension(), "ogv");
   // Other has no known extension.
-  assert_eq!(Format::Other(SmolStr::new("weird")).as_extension(), "");
+  assert_eq!(Format::Other(Utf8Bytes::from("weird")).as_extension(), "");
 }
 
 /// The extension face's own contract: `as_extension()` is always
@@ -104,7 +107,7 @@ fn extensions_are_canonical_first_and_every_alias_parses() {
     }
   }
   assert_eq!(
-    Format::Other(SmolStr::new("weird")).extensions(),
+    Format::Other(Utf8Bytes::from("weird")).extensions(),
     &[] as &[&str]
   );
 

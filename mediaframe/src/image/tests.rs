@@ -26,7 +26,10 @@ fn unknown_slug_lands_in_other() {
 fn display_matches_as_str() {
   assert_eq!(Format::Jpeg.to_string(), "jpeg");
   assert_eq!(Format::Threefr.to_string(), "3fr");
-  assert_eq!(Format::Other(SmolStr::new("custom")).to_string(), "custom");
+  assert_eq!(
+    Format::Other(Utf8Bytes::from("custom")).to_string(),
+    "custom"
+  );
 }
 
 #[test]
@@ -35,7 +38,7 @@ fn is_variant_predicates() {
   assert!(Format::Jpeg.is_jpeg());
   assert!(!Format::Png.is_jpeg());
   assert!(Format::Threefr.is_threefr());
-  assert!(Format::Other(SmolStr::new("x")).is_other());
+  assert!(Format::Other(Utf8Bytes::from("x")).is_other());
   // Hand-written overrides (see the `#[is_variant(ignore)]` attributes on
   // the digit-suffixed variants — the auto-derived name would be
   // digit-snake-case).
@@ -48,9 +51,9 @@ fn is_variant_predicates() {
 
 #[test]
 fn unwrap_other_borrowed_view() {
-  // `Other(SmolStr)` carries data — golden-rule §2 mandates unwrap /
+  // `Other(Utf8Bytes)` carries data — golden-rule §2 mandates unwrap /
   // try_unwrap accessors for data-carrying variants.
-  let v = Format::Other(SmolStr::new("custom"));
+  let v = Format::Other(Utf8Bytes::from("custom"));
   assert_eq!(v.unwrap_other_ref().as_str(), "custom");
   assert!(v.try_unwrap_other_ref().is_ok());
   let named = Format::Jpeg;
@@ -90,7 +93,7 @@ fn as_extension_matches_disk_form() {
     assert_eq!(variant.as_extension(), ext, "{variant:?}");
   }
   // Other has no known extension.
-  assert_eq!(Format::Other(SmolStr::new("weird")).as_extension(), "");
+  assert_eq!(Format::Other(Utf8Bytes::from("weird")).as_extension(), "");
 }
 
 /// The extension face's own contract: `as_extension()` is always
@@ -117,7 +120,7 @@ fn extensions_are_canonical_first_and_every_alias_parses() {
     }
   }
   assert_eq!(
-    Format::Other(SmolStr::new("weird")).extensions(),
+    Format::Other(Utf8Bytes::from("weird")).extensions(),
     &[] as &[&str]
   );
 

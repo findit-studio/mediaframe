@@ -9,13 +9,13 @@
 use core::str::FromStr;
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Top-level multimedia container format.
 ///
 /// Closed-ish vocabulary covering the containers a typical
 /// media-ingest pipeline encounters — not FFmpeg-coded, so there is
-/// no `to_u32`/`from_u32`; the `Other(SmolStr)` arm preserves
+/// no `to_u32`/`from_u32`; the `Other(Utf8Bytes)` arm preserves
 /// unknown slugs losslessly.
 ///
 /// `as_str` returns the canonical extension-style slug (`"mov"`,
@@ -217,7 +217,7 @@ pub enum Format {
   Threeg2,
   /// A container not enumerated above — carries the
   /// extension-style slug verbatim. Lossless escape.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Format {
@@ -227,7 +227,7 @@ impl Default for Format {
   /// (`Format::Mp4` is the common one).
   #[inline]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -403,7 +403,7 @@ impl FromStr for Format {
       b"gxf" => Self::Gxf,
       b"3gp" | b"3gpp" => Self::Threegp,
       b"3g2" | b"3gp2" => Self::Threeg2,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

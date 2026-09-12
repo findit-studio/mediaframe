@@ -13,7 +13,7 @@ use derive_more::{Display, IsVariant};
 /// text form.
 ///
 /// **Closed** — deliberately *not* `#[non_exhaustive]`, and with no
-/// `Other(SmolStr)` escape. `AVChannelOrder` is itself a closed
+/// `Other(Utf8Bytes)` escape. `AVChannelOrder` is itself a closed
 /// taxonomy: every layout FFmpeg can describe is unspecified, native,
 /// custom or ambisonic, so there is no vendor space for an escape arm to
 /// preserve. A raw discriminant outside the four is a corrupt read, not

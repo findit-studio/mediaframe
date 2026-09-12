@@ -5,7 +5,7 @@
 use core::str::FromStr;
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Audio sample format — FFmpeg `AVSampleFormat`.
 ///
@@ -57,7 +57,7 @@ pub enum SampleFormat {
   S64p,
   /// A format slug not enumerated above — carries the slug verbatim
   /// (the [`Self::from_str`] lossless escape).
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for SampleFormat {
@@ -67,7 +67,7 @@ impl Default for SampleFormat {
   /// slug is the one that round-trips.
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -190,7 +190,7 @@ impl FromStr for SampleFormat {
       b"dblp" => Self::Dblp,
       b"s64" => Self::S64,
       b"s64p" => Self::S64p,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }
@@ -203,7 +203,7 @@ impl FromStr for SampleFormat {
 /// live on [`crate::container::Format`]; this enum
 /// enumerates the **audio-only** containers (one audio stream, no
 /// video). Closed-ish vocabulary — not FFmpeg-coded, so there is no
-/// `to_u32`/`from_u32`; the `Other(SmolStr)` arm preserves unknown
+/// `to_u32`/`from_u32`; the `Other(Utf8Bytes)` arm preserves unknown
 /// slugs losslessly.
 ///
 /// `as_str` returns the file-extension-style slug (`"mp3"`, `"aac"`,
@@ -361,7 +361,7 @@ pub enum ContainerFormat {
   Caf,
   /// A container not enumerated above — carries the
   /// extension-style slug verbatim. Lossless escape.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for ContainerFormat {
@@ -371,7 +371,7 @@ impl Default for ContainerFormat {
   /// explicit.
   #[inline]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -527,7 +527,7 @@ impl FromStr for ContainerFormat {
       b"mka" => Self::Mka,
       b"m4a" => Self::M4a,
       b"caf" => Self::Caf,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

@@ -1,11 +1,11 @@
-// Cluster A — open string enums w/ `Other(SmolStr)` and total `FromStr`.
+// Cluster A — open string enums w/ `Other(Utf8Bytes)` and total `FromStr`.
 //
 // Every type covered here has:
-//   - an `Other(SmolStr)` lossless-escape arm, and
+//   - an `Other(Utf8Bytes)` lossless-escape arm, and
 //   - an `impl FromStr` whose `Err = core::convert::Infallible`,
 // so the shared `arb_open_string_enum!` macro applies directly. The 50/50
 // branch in the macro flips between a curated slug (round-tripped through
-// `FromStr` to exercise the named arms) and `Other(SmolStr::from(<arbitrary
+// `FromStr` to exercise the named arms) and `Other(Utf8Bytes::from(<arbitrary
 // String>))` (exercises the lossless escape — including empty strings,
 // pre-known slugs, and arbitrary bytes — for fuzz coverage).
 //

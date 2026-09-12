@@ -3,7 +3,7 @@
 
 use derive_more::{Display, IsVariant};
 #[cfg(any(feature = "std", feature = "alloc"))]
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Base id for **mediaframe-domain** colour concepts that have no
 /// ITU-T H.273 / FFmpeg `AVCol*` code point.
@@ -118,7 +118,7 @@ pub enum Matrix {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Matrix {
@@ -335,7 +335,7 @@ impl core::str::FromStr for Matrix {
       b"unknown" => Self::Unspecified,
 
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseMatrixError),
     })
@@ -572,7 +572,7 @@ pub enum Primaries {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Primaries {
@@ -882,7 +882,7 @@ impl core::str::FromStr for Primaries {
       b"unknown" => Self::Unspecified,
 
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParsePrimariesError),
     })
@@ -965,7 +965,7 @@ pub enum Transfer {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Transfer {
@@ -1170,7 +1170,7 @@ impl core::str::FromStr for Transfer {
       b"bt470bg" => Self::Gamma28,
 
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseTransferError),
     })
@@ -1225,7 +1225,7 @@ pub enum DynamicRange {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for DynamicRange {
@@ -1357,7 +1357,7 @@ impl core::str::FromStr for DynamicRange {
       b"unknown" => Self::Unspecified,
 
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseDynamicRangeError),
     })
@@ -1417,7 +1417,7 @@ pub enum ChromaLocation {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for ChromaLocation {
@@ -1562,7 +1562,7 @@ impl core::str::FromStr for ChromaLocation {
       b"bottomleft" => Self::BottomLeft,
       b"bottom" => Self::Bottom,
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseChromaLocationError),
     })
@@ -1803,7 +1803,7 @@ pub enum DcpTargetGamut {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for DcpTargetGamut {
@@ -2002,7 +2002,7 @@ impl core::str::FromStr for DcpTargetGamut {
       b"rec709" => Self::Rec709,
       b"rec2020" => Self::Rec2020,
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseDcpTargetGamutError),
     })

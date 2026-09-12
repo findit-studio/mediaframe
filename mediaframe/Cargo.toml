@@ -1,6 +1,6 @@
 [package]
 name        = "mediaframe"
-version     = "0.10.0"
+version     = "0.11.0"
 edition     = "2024"
 license     = "MIT OR Apache-2.0"
 repository  = "https://github.com/findit-studio/mediaframe"
@@ -13,10 +13,10 @@ rust-version = "1.95.0"
 
 [features]
 default = ["std"]
-alloc   = ["dep:smol_str", "dep:smol-bytes", "smol-bytes/alloc", "dep:simdutf8", "dep:bytes", "derive_more/unwrap", "derive_more/try_unwrap"]
-std     = ["alloc", "thiserror/default", "smol_str?/std", "bytes?/std", "smol-bytes?/std", "simdutf8?/std"]
+alloc   = ["dep:smol-bytes", "smol-bytes/alloc", "dep:simdutf8", "dep:bytes", "derive_more/unwrap", "derive_more/try_unwrap"]
+std     = ["alloc", "thiserror/default", "bytes?/std", "smol-bytes?/std", "simdutf8?/std"]
 buffa   = ["dep:buffa", "mediatime/buffa", "alloc"]
-serde   = ["dep:serde", "smol_str?/serde", "bytes?/serde"]
+serde   = ["dep:serde", "smol-bytes?/serde", "bytes?/serde"]
 arbitrary  = ["std", "dep:arbitrary"]
 quickcheck = ["std", "dep:quickcheck", "dep:quickcheck-richderive"]
 
@@ -52,7 +52,6 @@ smol-bytes  = { version = "0.1", default-features = false, optional = true }
 simdutf8    = { version = "0.1", default-features = false, optional = true }
 bytes       = { version = "1", default-features = false, optional = true }
 buffa       = { version = "0.9", default-features = false, optional = true }
-smol_str    = { version = "0.3", default-features = false, optional = true }
 
 serde       = { version = "1", default-features = false, optional = true, features = ["derive"] }
 

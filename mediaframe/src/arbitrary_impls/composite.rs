@@ -36,7 +36,7 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::ChannelSpec {
         <u32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
         <u32 as ::arbitrary::Arbitrary>::arbitrary(u)?,
       )
-      .with_label(::smol_str::SmolStr::from(
+      .with_label(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       )),
     )
@@ -61,7 +61,7 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::ChannelLayoutDescription {
         .with_custom_channels(
           <::std::vec::Vec<crate::audio::ChannelSpec> as ::arbitrary::Arbitrary>::arbitrary(u)?,
         )
-        .with_text(::smol_str::SmolStr::from(
+        .with_text(::smol_bytes::Utf8Bytes::from(
           <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
         )),
     )
@@ -111,8 +111,8 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Fingerprint {
     // `try_new` rejects empty `algorithm`; ensure non-empty with a fallback
     // so the expect below is sound. Empty `value` is allowed.
     let algo_s = <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?;
-    let algo: ::smol_str::SmolStr = if algo_s.is_empty() {
-      ::smol_str::SmolStr::new_inline("x")
+    let algo: ::smol_bytes::Utf8Bytes = if algo_s.is_empty() {
+      ::smol_bytes::Utf8Bytes::from_static("x")
     } else {
       algo_s.into()
     };
@@ -128,8 +128,8 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::CoverArt {
     // `try_new` rejects empty `mime` and empty `data`; supply both with
     // valid fallbacks so the expect below is sound.
     let mime_s = <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?;
-    let mime: ::smol_str::SmolStr = if mime_s.is_empty() {
-      ::smol_str::SmolStr::new_static("application/octet-stream")
+    let mime: ::smol_bytes::Utf8Bytes = if mime_s.is_empty() {
+      ::smol_bytes::Utf8Bytes::from_static("application/octet-stream")
     } else {
       mime_s.into()
     };
@@ -145,30 +145,30 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::CoverArt {
 
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
-    // Every builder field: the seven `SmolStr` strings (empty = absent), the
+    // Every builder field: the seven `Utf8Bytes` strings (empty = absent), the
     // five bare-`u16` numerics (`0` = absent — generated freely, including
     // `0`, since type + buffa codec now agree), and `language`
     // (`Option<Language>`, from the curated BCP-47 generator).
     let t = crate::audio::Tags::new()
-      .with_title(::smol_str::SmolStr::from(
+      .with_title(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_artist(::smol_str::SmolStr::from(
+      .with_artist(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_album_artist(::smol_str::SmolStr::from(
+      .with_album_artist(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_album(::smol_str::SmolStr::from(
+      .with_album(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_composer(::smol_str::SmolStr::from(
+      .with_composer(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_genre(::smol_str::SmolStr::from(
+      .with_genre(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_comment(::smol_str::SmolStr::from(
+      .with_comment(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
       .with_year(<u16 as ::arbitrary::Arbitrary>::arbitrary(u)?)
@@ -189,13 +189,13 @@ impl<'a> ::arbitrary::Arbitrary<'a> for crate::audio::Tags {
 
 impl<'a> ::arbitrary::Arbitrary<'a> for crate::capture::Device {
   fn arbitrary(u: &mut ::arbitrary::Unstructured<'a>) -> ::arbitrary::Result<Self> {
-    // Both fields are `SmolStr` with empty-string-means-absent semantics;
+    // Both fields are `Utf8Bytes` with empty-string-means-absent semantics;
     // pass arbitrary strings straight through.
     let d = crate::capture::Device::new()
-      .with_make(::smol_str::SmolStr::from(
+      .with_make(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ))
-      .with_model(::smol_str::SmolStr::from(
+      .with_model(::smol_bytes::Utf8Bytes::from(
         <::std::string::String as ::arbitrary::Arbitrary>::arbitrary(u)?,
       ));
     Ok(d)

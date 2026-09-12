@@ -29,7 +29,7 @@ fn is_variant_helpers_compile_for_each_enum() {
 
 #[test]
 fn clone_and_eq() {
-  // `Copy` went with `Other(SmolStr)` — the escape carries a name, and
+  // `Copy` went with `Other(Utf8Bytes)` — the escape carries a name, and
   // a name is not a register-sized value.
   let m1 = Matrix::Bt709;
   let m2 = m1.clone();
@@ -535,8 +535,17 @@ fn primaries_chromaticities_and_white_point() {
     Some(ChromaCoord::new(16667, 16667))
   );
 
-  // Usable in const context (mirrors the enum's other const fns).
-  const P3_WHITE: Option<ChromaCoord> = Primaries::SmpteEg432.white_point();
+  // Usable in const context (mirrors the enum's other const fns). The
+  // value is reached through a `const` **reference**, not built as a
+  // temporary: at the `alloc` tier `Other(Utf8Bytes)` gives this enum a
+  // destructor const-eval cannot run — the carrier's heap arm holds a
+  // `bytes::Bytes`, whose inline `AtomicPtr` makes the type non-`freeze`,
+  // so the temporary cannot be promoted and its drop lands inside the
+  // const body (`E0493`). A `&'static` const drops nothing, so the call
+  // is what it always was: a `const fn` evaluated at compile time, here
+  // and at the no-alloc tier alike.
+  const P3: &Primaries = &Primaries::SmpteEg432;
+  const P3_WHITE: Option<ChromaCoord> = P3.white_point();
   assert_eq!(P3_WHITE, Some(ChromaCoord::new(15635, 16450)));
 }
 
@@ -567,9 +576,12 @@ fn primaries_is_cie_xyz() {
   assert!(Primaries::SmpteSt428.chromaticities().is_some());
 
   // Usable in a const context (mirrors the enum's other const fns) —
-  // proven at compile time.
-  const _: () = assert!(Primaries::SmpteSt428.is_cie_xyz());
-  const _: () = assert!(!Primaries::Bt2020.is_cie_xyz());
+  // proven at compile time. Through `const` references, for the reason
+  // spelled out in `primaries_chromaticities_and_white_points`.
+  const ST428: &Primaries = &Primaries::SmpteSt428;
+  const BT2020: &Primaries = &Primaries::Bt2020;
+  const _: () = assert!(ST428.is_cie_xyz());
+  const _: () = assert!(!BT2020.is_cie_xyz());
 }
 
 /// Every **named** variant of every coded colour enum must survive

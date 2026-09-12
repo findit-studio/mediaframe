@@ -723,7 +723,7 @@ pub enum Rotation {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Rotation {
@@ -841,7 +841,7 @@ impl core::str::FromStr for Rotation {
       b"180" => Self::D180,
       b"270" => Self::D270,
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseRotationError),
     })
@@ -1484,7 +1484,7 @@ pub enum FieldOrder {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for FieldOrder {
@@ -1620,7 +1620,7 @@ impl core::str::FromStr for FieldOrder {
       b"tb" => Self::Tb,
       b"bt" => Self::Bt,
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseFieldOrderError),
     })
@@ -1685,7 +1685,7 @@ pub enum StereoMode {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for StereoMode {
@@ -1839,7 +1839,7 @@ impl core::str::FromStr for StereoMode {
       b"lines" => Self::Lines,
       b"columns" => Self::Columns,
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParseStereoModeError),
     })
@@ -2245,7 +2245,7 @@ use derive_more::{Display, IsVariant};
 #[cfg(feature = "yuv-planar")]
 pub use planar_8bit::*;
 #[cfg(any(feature = "std", feature = "alloc"))]
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 #[cfg(feature = "yuv-planar")]
 pub use subsampled_high_bit_planar::*;
 

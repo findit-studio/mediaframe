@@ -3,7 +3,7 @@
 //! FLAC `PICTURE` blocks.
 
 use bytes::Bytes;
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Embedded cover-art image for an audio stream.
 ///
@@ -20,7 +20,7 @@ use smol_str::SmolStr;
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CoverArt {
-  mime: SmolStr,
+  mime: Utf8Bytes,
   data: Bytes,
 }
 
@@ -45,7 +45,7 @@ const _: () = {
   // invariants hold instead of being bypassed by a field derive.
   #[derive(Deserialize)]
   struct Shadow {
-    mime: SmolStr,
+    mime: Utf8Bytes,
     data: Bytes,
   }
 
@@ -66,7 +66,7 @@ impl Default for CoverArt {
   /// cover art — go through [`Self::try_new`].
   fn default() -> Self {
     Self {
-      mime: SmolStr::new_static("application/octet-stream"),
+      mime: Utf8Bytes::from_static("application/octet-stream"),
       data: Bytes::from_static(&[0u8]),
     }
   }
@@ -89,7 +89,10 @@ impl CoverArt {
   /// Constructs an `CoverArt` from a mime type and raw bytes.
   /// Rejects empty `mime` with [`CoverArtError::EmptyMime`] and
   /// empty `data` with [`CoverArtError::EmptyData`].
-  pub fn try_new(mime: impl Into<SmolStr>, data: impl Into<Bytes>) -> Result<Self, CoverArtError> {
+  pub fn try_new(
+    mime: impl Into<Utf8Bytes>,
+    data: impl Into<Bytes>,
+  ) -> Result<Self, CoverArtError> {
     let mime = mime.into();
     if mime.is_empty() {
       return Err(CoverArtError::EmptyMime);

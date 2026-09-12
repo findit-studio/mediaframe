@@ -1,5 +1,5 @@
 //! Audio channel layout vocabulary — the common named layouts plus
-//! an `Other(SmolStr)` lossless escape for anything outside the
+//! an `Other(Utf8Bytes)` lossless escape for anything outside the
 //! closed set.
 //!
 //! The named variants cover **every** entry in FFmpeg n9.0's
@@ -55,10 +55,10 @@
 use core::str::FromStr;
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Audio channel layout — the common named layouts plus an
-/// `Other(SmolStr)` lossless escape.
+/// `Other(Utf8Bytes)` lossless escape.
 ///
 /// Read from FFmpeg `AV_CH_LAYOUT_*` constants (`AVChannelLayout`'s
 /// canonical name) / WebCodecs `AudioData.channelLayout`. Layouts FFmpeg
@@ -273,7 +273,7 @@ pub enum ChannelLayout {
   ///
   /// Every entry in FFmpeg n9.0's `channel_layout_map[]` is named above,
   /// so nothing this release can classify lands here.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for ChannelLayout {
@@ -285,7 +285,7 @@ impl Default for ChannelLayout {
   /// common one).
   #[inline]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -466,7 +466,7 @@ impl FromStr for ChannelLayout {
       b"ambisonic1" => Self::Ambisonic1,
       b"ambisonic2" => Self::Ambisonic2,
       b"ambisonic3" => Self::Ambisonic3,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

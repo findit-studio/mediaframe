@@ -1,7 +1,7 @@
 //! Audio fingerprint — algorithm-tagged raw bytes.
 
 use bytes::Bytes;
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Audio fingerprint value object — a free-text algorithm label
 /// (`"chromaprint"`, `"acoustid"`, `"audiocrc32"`, …) plus the raw
@@ -21,7 +21,7 @@ use smol_str::SmolStr;
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Fingerprint {
-  algorithm: SmolStr,
+  algorithm: Utf8Bytes,
   value: Bytes,
 }
 
@@ -46,7 +46,7 @@ const _: () = {
   // invariant holds instead of being bypassed by a field derive.
   #[derive(Deserialize)]
   struct Shadow {
-    algorithm: SmolStr,
+    algorithm: Utf8Bytes,
     value: Bytes,
   }
 
@@ -67,7 +67,7 @@ impl Default for Fingerprint {
   /// fingerprints — go through [`Self::try_new`].
   fn default() -> Self {
     Self {
-      algorithm: SmolStr::new_inline("default"),
+      algorithm: Utf8Bytes::from_static("default"),
       value: Bytes::new(),
     }
   }
@@ -91,7 +91,7 @@ impl Fingerprint {
   /// allowed (some algorithms emit no bytes for silence / very
   /// short clips).
   pub fn try_new(
-    algorithm: impl Into<SmolStr>,
+    algorithm: impl Into<Utf8Bytes>,
     value: impl Into<Bytes>,
   ) -> Result<Self, FingerprintError> {
     let algorithm = algorithm.into();

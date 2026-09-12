@@ -1,7 +1,7 @@
 //! Embedded audio metadata tags — FFmpeg / Vorbis-Comment / iTunes
 //! atom-style key-value side data (artist, album, year, genre, …).
 
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 use crate::lang::LanguageId;
 
@@ -16,7 +16,7 @@ use crate::lang::LanguageId;
 /// **Absent-vs-present convention** — every field carries its own
 /// "absent" sentinel; there is no per-field `Option` wrapper except for
 /// `language` (which has no natural zero value):
-/// - **String** fields use `SmolStr`; the empty string `""` means absent.
+/// - **String** fields use `Utf8Bytes`; the empty string `""` means absent.
 /// - **Numeric** fields use `u16`; `0` means absent. Track / disc numbers
 ///   are 1-based and a release year is never `0`, so `0` is unambiguous —
 ///   and it matches the proto3 zero-elision the buffa wire codec applies
@@ -48,13 +48,13 @@ use crate::lang::LanguageId;
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tags {
-  title: SmolStr,
-  artist: SmolStr,
-  album_artist: SmolStr,
-  album: SmolStr,
-  composer: SmolStr,
-  genre: SmolStr,
-  comment: SmolStr,
+  title: Utf8Bytes,
+  artist: Utf8Bytes,
+  album_artist: Utf8Bytes,
+  album: Utf8Bytes,
+  composer: Utf8Bytes,
+  genre: Utf8Bytes,
+  comment: Utf8Bytes,
   /// Release year; `0` means absent.
   year: u16,
   /// 1-based track number; `0` means absent.
@@ -86,13 +86,13 @@ impl Tags {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self {
-      title: SmolStr::new_inline(""),
-      artist: SmolStr::new_inline(""),
-      album_artist: SmolStr::new_inline(""),
-      album: SmolStr::new_inline(""),
-      composer: SmolStr::new_inline(""),
-      genre: SmolStr::new_inline(""),
-      comment: SmolStr::new_inline(""),
+      title: Utf8Bytes::new(),
+      artist: Utf8Bytes::new(),
+      album_artist: Utf8Bytes::new(),
+      album: Utf8Bytes::new(),
+      composer: Utf8Bytes::new(),
+      genre: Utf8Bytes::new(),
+      comment: Utf8Bytes::new(),
       year: 0,
       track_number: 0,
       track_total: 0,
@@ -178,49 +178,49 @@ impl Tags {
   /// Sets the title (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_title(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_title(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.title = v.into();
     self
   }
   /// Sets the artist (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_artist(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_artist(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.artist = v.into();
     self
   }
   /// Sets the album artist (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_album_artist(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_album_artist(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.album_artist = v.into();
     self
   }
   /// Sets the album (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_album(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_album(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.album = v.into();
     self
   }
   /// Sets the composer (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_composer(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_composer(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.composer = v.into();
     self
   }
   /// Sets the genre (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_genre(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_genre(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.genre = v.into();
     self
   }
   /// Sets the comment (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_comment(mut self, v: impl Into<SmolStr>) -> Self {
+  pub fn with_comment(mut self, v: impl Into<Utf8Bytes>) -> Self {
     self.comment = v.into();
     self
   }
@@ -267,7 +267,7 @@ impl Tags {
   /// heap-backed tail — so the drop glue is real and cannot run at compile
   /// time (`E0493`). Read against this type's other setters the rule is the
   /// same one: the `u16` fields overwrite a value with no destructor and
-  /// stay `const`, and the `SmolStr` fields drop a possibly-heap-backed
+  /// stay `const`, and the `Utf8Bytes` fields drop a possibly-heap-backed
   /// string and never were. It is the tail, and only the tail, that puts
   /// `language` on the second list.
   #[must_use]
@@ -286,43 +286,43 @@ impl Tags {
 
   /// Sets the title in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_title(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_title(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.title = v.into();
     self
   }
   /// Sets the artist in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_artist(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_artist(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.artist = v.into();
     self
   }
   /// Sets the album artist in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_album_artist(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_album_artist(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.album_artist = v.into();
     self
   }
   /// Sets the album in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_album(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_album(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.album = v.into();
     self
   }
   /// Sets the composer in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_composer(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_composer(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.composer = v.into();
     self
   }
   /// Sets the genre in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_genre(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_genre(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.genre = v.into();
     self
   }
   /// Sets the comment in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_comment(&mut self, v: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_comment(&mut self, v: impl Into<Utf8Bytes>) -> &mut Self {
     self.comment = v.into();
     self
   }

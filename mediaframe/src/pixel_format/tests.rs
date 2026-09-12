@@ -110,7 +110,7 @@ fn is_variant_helpers_compile() {
 
 #[test]
 fn clone_and_eq() {
-  // `Copy` went with `Other(SmolStr)` — the escape carries a name.
+  // `Copy` went with `Other(Utf8Bytes)` — the escape carries a name.
   let p = PixelFormat::Nv12;
   let q = p.clone();
   assert_eq!(p, q);

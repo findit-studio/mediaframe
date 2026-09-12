@@ -8,10 +8,10 @@
 //! | Tier | Features | Vocabularies |
 //! |---|---|---|
 //! | no-alloc | (none) | **closed** — an unrecognised slug is rejected |
-//! | alloc | `alloc` | open — an unrecognised slug rides `Other(SmolStr)` |
+//! | alloc | `alloc` | open — an unrecognised slug rides `Other(Utf8Bytes)` |
 //! | std | `std` (implies `alloc`) | as `alloc`, plus `std::error::Error` |
 //!
-//! `Other(SmolStr)` needs a heap, so it exists only at the `alloc` /
+//! `Other(Utf8Bytes)` needs a heap, so it exists only at the `alloc` /
 //! `std` tier. At the no-alloc tier the same enums are closed and their
 //! [`FromStr`](core::str::FromStr) returns the vocabulary's own error
 //! instead: **an error beats a wrong value**, and collapsing an unknown
@@ -192,11 +192,11 @@ mod arbitrary_impls;
 /// channel layout description (the structure: order, mask, per-channel
 /// list), sample / container format, bit-rate mode, EBU R128 loudness,
 /// fingerprint, embedded metadata tags + cover art. Requires the `alloc`
-/// feature (`std` includes it) for the `Other(SmolStr)` escape arms and
+/// feature (`std` includes it) for the `Other(Utf8Bytes)` escape arms and
 /// the `Vec<u8>` payloads.
 ///
 /// **Derive threshold.** Every open enum here carries `Unwrap` /
-/// `TryUnwrap` for its `Other(SmolStr)` arm. The pair generates three
+/// `TryUnwrap` for its `Other(Utf8Bytes)` arm. The pair generates three
 /// methods per variant, so an enum in the hundreds pays that in compile
 /// time for one reachable payload arm; the two 200-plus-variant codec
 /// enums in [`codec`] are the crate's only exemptions. The line is
@@ -209,19 +209,19 @@ mod buffa;
 /// EXIF / capture-metadata vocabulary — capture device, geographic
 /// location (with ISO-6709 parse/format). Requires the `alloc`
 /// feature (`std` includes it) because the constituent types lean on
-/// `SmolStr` / `std::string::String` for their text surface.
+/// `Utf8Bytes` / `std::string::String` for their text surface.
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
 pub mod capture;
 /// Stream-descriptor codec/format/layout vocabulary for video, audio, and
 /// subtitle tracks. Requires the `alloc` feature (`std` includes it) for
-/// the `Other(SmolStr)` escape arms.
+/// the `Other(Utf8Bytes)` escape arms.
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
 pub mod codec;
 pub mod color;
 /// Top-level multimedia container-format vocabulary. Requires the
-/// `alloc` feature (`std` includes it) for the `Other(SmolStr)`
+/// `alloc` feature (`std` includes it) for the `Other(Utf8Bytes)`
 /// escape arm.
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
@@ -233,7 +233,7 @@ pub mod frame;
 /// Still-image vocabulary — standard photo formats (`jpeg`, `png`, `heif`,
 /// …) plus a curated camera-RAW family (`dng`, `cr2`, `nef`, `arw`, …).
 /// Requires the `alloc` feature (`std` includes it) for the
-/// `Other(SmolStr)` escape arm — same tier as [`container`] and [`audio`],
+/// `Other(Utf8Bytes)` escape arm — same tier as [`container`] and [`audio`],
 /// which this household's own module doc explains it exists to sit
 /// beside.
 #[cfg(any(feature = "std", feature = "alloc"))]
@@ -283,7 +283,7 @@ pub mod source;
 /// Subtitle-stream descriptor vocabulary — file / demuxer format
 /// ([`subtitle::Format`]) and track-origin axis
 /// ([`subtitle::TrackOrigin`]). Requires the `alloc`
-/// feature (`std` includes it) for both types' `Other(SmolStr)`
+/// feature (`std` includes it) for both types' `Other(Utf8Bytes)`
 /// escape arms.
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]

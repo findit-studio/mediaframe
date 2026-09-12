@@ -6,7 +6,7 @@
 //! — which is the form findit-proto stores location in on
 //! `MediaMeta.location_iso6709`.
 
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Geographic location — decimal-degree latitude / longitude with an
 /// optional altitude in metres above the WGS84 reference ellipsoid.
@@ -204,18 +204,18 @@ impl GeoLocation {
   ///   when the parsed numeric values fall outside their legal ranges.
   pub fn from_iso6709(s: &str) -> Result<Self, GeoLocationError> {
     let Some(body) = s.strip_suffix('/') else {
-      return Err(GeoLocationError::Iso6709Malformed(SmolStr::from(s)));
+      return Err(GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s)));
     };
 
     // Lat token: must start with `+`/`-`. The next sign character
     // (after byte index 0) terminates it.
     let bytes = body.as_bytes();
     if bytes.is_empty() || (bytes[0] != b'+' && bytes[0] != b'-') {
-      return Err(GeoLocationError::Iso6709Malformed(SmolStr::from(s)));
+      return Err(GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s)));
     }
     let lon_start = match next_sign(bytes, 1) {
       Some(i) => i,
-      None => return Err(GeoLocationError::Iso6709Malformed(SmolStr::from(s))),
+      None => return Err(GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s))),
     };
 
     let lat_tok = &body[..lon_start];
@@ -229,13 +229,13 @@ impl GeoLocation {
     };
 
     let lat = parse_signed_fixed(lat_tok, 2)
-      .ok_or_else(|| GeoLocationError::Iso6709Malformed(SmolStr::from(s)))?;
+      .ok_or_else(|| GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s)))?;
     let lon = parse_signed_fixed(lon_tok, 3)
-      .ok_or_else(|| GeoLocationError::Iso6709Malformed(SmolStr::from(s)))?;
+      .ok_or_else(|| GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s)))?;
     let altitude = match alt_tok {
       Some(tok) => Some(
         parse_signed_altitude(tok)
-          .ok_or_else(|| GeoLocationError::Iso6709Malformed(SmolStr::from(s)))? as f32,
+          .ok_or_else(|| GeoLocationError::Iso6709Malformed(Utf8Bytes::from(s)))? as f32,
       ),
       None => None,
     };
@@ -338,7 +338,7 @@ pub enum GeoLocationError {
   /// The input string is not a recognisable ISO 6709 degrees-only
   /// location (the offending input is wrapped verbatim).
   #[error("malformed ISO 6709 location string: {0:?}")]
-  Iso6709Malformed(SmolStr),
+  Iso6709Malformed(Utf8Bytes),
 }
 
 // ----------------------------------------------------------------------------

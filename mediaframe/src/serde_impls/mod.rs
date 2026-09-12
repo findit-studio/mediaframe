@@ -11,7 +11,7 @@
 //! a fallback for the other.
 //!
 //! The reason the two laws differ is the escape arm, not taste. An open
-//! vocabulary's `Other(SmolStr)` holds a name and *only* a name: there
+//! vocabulary's `Other(Utf8Bytes)` holds a name and *only* a name: there
 //! is no code to fall back to for a value this build has never heard
 //! of, so a numeric leg could not carry one and the slug is the only
 //! honest wire at either end. A closed vocabulary has no such value —
@@ -26,7 +26,7 @@
 //!   canonical `as_str()` slug: `VideoCodec::H264` ⇄ `"h264"`,
 //!   `color::Matrix::Bt709` ⇄ `"bt709"`, `Other("x265")` ⇄ `"x265"` (no
 //!   `{"Other": …}` wrapper). One extension idiom, one wire shape, every
-//!   format. Round-trip total wherever the `Other(SmolStr)` arm exists
+//!   format. Round-trip total wherever the `Other(Utf8Bytes)` arm exists
 //!   (the `alloc` tier); at the no-alloc tier the same enums are closed,
 //!   so an unrecognised slug is a serde error rather than a
 //!   silently-invented value. Deserialization goes through the type's
@@ -165,7 +165,7 @@ macro_rules! serde_via_code {
 ///
 /// An open vocabulary does **not** get this treatment — see
 /// [`serde_via_str!`] and the two laws in the module docs. Its
-/// `Other(SmolStr)` holds a name with no code behind it, so a numeric
+/// `Other(Utf8Bytes)` holds a name with no code behind it, so a numeric
 /// leg would have nothing to write.
 // Both invocations are heap-tier — gated on
 // `any(feature = "std", feature = "alloc")`. Under bare `--features serde`

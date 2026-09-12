@@ -20,7 +20,7 @@ use ::quickcheck::Arbitrary;
 /// through — nothing here folds or canonicalises.
 pub(crate) fn channel_spec(g: &mut ::quickcheck::Gen) -> crate::audio::ChannelSpec {
   crate::audio::ChannelSpec::new(u32::arbitrary(g), u32::arbitrary(g)).with_label(
-    ::smol_str::SmolStr::from(<::std::string::String as Arbitrary>::arbitrary(g)),
+    ::smol_bytes::Utf8Bytes::from(<::std::string::String as Arbitrary>::arbitrary(g)),
   )
 }
 
@@ -41,7 +41,7 @@ pub(crate) fn channel_layout_description(
     .with_known_kind(Arbitrary::arbitrary(g))
     .with_native_mask(<::core::option::Option<u64> as Arbitrary>::arbitrary(g))
     .with_custom_channels(<::std::vec::Vec<crate::audio::ChannelSpec> as Arbitrary>::arbitrary(g))
-    .with_text(::smol_str::SmolStr::from(
+    .with_text(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
 }
@@ -86,8 +86,8 @@ pub(crate) fn replay_gain(g: &mut ::quickcheck::Gen) -> crate::audio::ReplayGain
 /// back to `"x"` so the `expect` is sound. Empty `value` is allowed.
 pub(crate) fn fingerprint(g: &mut ::quickcheck::Gen) -> crate::audio::Fingerprint {
   let algo_s = <::std::string::String as Arbitrary>::arbitrary(g);
-  let algo: ::smol_str::SmolStr = if algo_s.is_empty() {
-    ::smol_str::SmolStr::new_inline("x")
+  let algo: ::smol_bytes::Utf8Bytes = if algo_s.is_empty() {
+    ::smol_bytes::Utf8Bytes::from_static("x")
   } else {
     algo_s.into()
   };
@@ -99,8 +99,8 @@ pub(crate) fn fingerprint(g: &mut ::quickcheck::Gen) -> crate::audio::Fingerprin
 /// empty `data`; supply both with valid fallbacks so the `expect` is sound.
 pub(crate) fn cover_art(g: &mut ::quickcheck::Gen) -> crate::audio::CoverArt {
   let mime_s = <::std::string::String as Arbitrary>::arbitrary(g);
-  let mime: ::smol_str::SmolStr = if mime_s.is_empty() {
-    ::smol_str::SmolStr::new_static("application/octet-stream")
+  let mime: ::smol_bytes::Utf8Bytes = if mime_s.is_empty() {
+    ::smol_bytes::Utf8Bytes::from_static("application/octet-stream")
   } else {
     mime_s.into()
   };
@@ -113,32 +113,32 @@ pub(crate) fn cover_art(g: &mut ::quickcheck::Gen) -> crate::audio::CoverArt {
   crate::audio::CoverArt::try_new(mime, data).expect("mime + data non-empty by construction")
 }
 
-/// `audio::Tags` — `new()` + every builder setter: the seven `SmolStr`
+/// `audio::Tags` — `new()` + every builder setter: the seven `Utf8Bytes`
 /// string fields, the five bare-`u16` numeric fields (`0` = absent —
 /// generated freely incl. `0`, since the type + buffa codec agree), and
 /// `language` (`Option<Language>`, from the curated BCP-47 `language`
 /// helper).
 pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
   crate::audio::Tags::new()
-    .with_title(::smol_str::SmolStr::from(
+    .with_title(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_artist(::smol_str::SmolStr::from(
+    .with_artist(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_album_artist(::smol_str::SmolStr::from(
+    .with_album_artist(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_album(::smol_str::SmolStr::from(
+    .with_album(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_composer(::smol_str::SmolStr::from(
+    .with_composer(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_genre(::smol_str::SmolStr::from(
+    .with_genre(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_comment(::smol_str::SmolStr::from(
+    .with_comment(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
     .with_year(<u16 as Arbitrary>::arbitrary(g))
@@ -156,14 +156,14 @@ pub(crate) fn tags(g: &mut ::quickcheck::Gen) -> crate::audio::Tags {
 }
 
 /// `capture::Device` — `new()` + `with_make` / `with_model`. Both fields are
-/// `SmolStr` with empty-string-means-absent semantics; pass arbitrary strings
+/// `Utf8Bytes` with empty-string-means-absent semantics; pass arbitrary strings
 /// straight through.
 pub(crate) fn capture_device(g: &mut ::quickcheck::Gen) -> crate::capture::Device {
   crate::capture::Device::new()
-    .with_make(::smol_str::SmolStr::from(
+    .with_make(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
-    .with_model(::smol_str::SmolStr::from(
+    .with_model(::smol_bytes::Utf8Bytes::from(
       <::std::string::String as Arbitrary>::arbitrary(g),
     ))
 }

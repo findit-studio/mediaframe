@@ -2,12 +2,12 @@
 //! capture device) that produced a media file.
 //!
 //! Mirrors the long-standing `MediaMeta.device_make` / `device_model`
-//! free-form `SmolStr` fields on findit-proto: a pair of small inline
+//! free-form `Utf8Bytes` fields on findit-proto: a pair of small inline
 //! strings holding e.g. `"Apple"` / `"iPhone 15 Pro"` or `"Sony"` /
-//! `"ILCE-7M4"`. Empty string means absent (never `Option<SmolStr>`)
+//! `"ILCE-7M4"`. Empty string means absent (never `Option<Utf8Bytes>`)
 //! per the mediaframe convention shared with the codec module.
 
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// EXIF-style capture device descriptor — manufacturer + model.
 ///
@@ -15,10 +15,10 @@ use smol_str::SmolStr;
 /// still images and from `com.apple.quicktime.make` /
 /// `com.apple.quicktime.model` (and equivalent vendor) atoms on
 /// MOV/MP4 video, as well as findit-proto's `MediaMeta.device_*`
-/// `SmolStr` fields.
+/// `Utf8Bytes` fields.
 ///
-/// Both fields are private `SmolStr`s — the empty string is the
-/// sentinel for "absent" so callers never need `Option<SmolStr>`
+/// Both fields are private `Utf8Bytes`s — the empty string is the
+/// sentinel for "absent" so callers never need `Option<Utf8Bytes>`
 /// (matches the codec / source-tagging convention elsewhere in this
 /// crate). Use [`Self::is_empty`] to detect the fully-absent state.
 // `serde(default)` keeps sparse / older-schema JSON deserializable: missing
@@ -36,8 +36,8 @@ use smol_str::SmolStr;
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Device {
-  make: SmolStr,
-  model: SmolStr,
+  make: Utf8Bytes,
+  model: Utf8Bytes,
 }
 
 impl Default for Device {
@@ -58,8 +58,8 @@ impl Device {
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn new() -> Self {
     Self {
-      make: SmolStr::new_static(""),
-      model: SmolStr::new_static(""),
+      make: Utf8Bytes::new(),
+      model: Utf8Bytes::new(),
     }
   }
 
@@ -80,14 +80,14 @@ impl Device {
   /// Sets the manufacturer (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_make(mut self, make: impl Into<SmolStr>) -> Self {
+  pub fn with_make(mut self, make: impl Into<Utf8Bytes>) -> Self {
     self.make = make.into();
     self
   }
 
   /// Sets the manufacturer in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_make(&mut self, make: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_make(&mut self, make: impl Into<Utf8Bytes>) -> &mut Self {
     self.make = make.into();
     self
   }
@@ -95,14 +95,14 @@ impl Device {
   /// Sets the camera model (consuming builder).
   #[must_use]
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn with_model(mut self, model: impl Into<SmolStr>) -> Self {
+  pub fn with_model(mut self, model: impl Into<Utf8Bytes>) -> Self {
     self.model = model.into();
     self
   }
 
   /// Sets the camera model in place.
   #[cfg_attr(not(tarpaulin), inline(always))]
-  pub fn set_model(&mut self, model: impl Into<SmolStr>) -> &mut Self {
+  pub fn set_model(&mut self, model: impl Into<Utf8Bytes>) -> &mut Self {
     self.model = model.into();
     self
   }

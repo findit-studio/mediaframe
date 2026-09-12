@@ -61,7 +61,7 @@ impl BitRateMode {
 
   /// Decode from the wire id produced by [`Self::to_u32`].
   /// Unrecognised values map to the [`Self::default`] (`Cbr`) — the
-  /// set is closed (`Other(SmolStr)`-free); unrecognised codes are
+  /// set is closed (`Other(Utf8Bytes)`-free); unrecognised codes are
   /// not preserved.
   #[cfg_attr(not(tarpaulin), inline(always))]
   pub const fn from_u32(v: u32) -> Self {

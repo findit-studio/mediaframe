@@ -6,7 +6,7 @@
 //! [`AttachmentCodec`], whose roster comes from a different FFmpeg
 //! source; see its own doc comment for why. Every codec FFmpeg knows
 //! under media types `video` / `audio` / `subtitle` / `data` has a
-//! named variant here; the `Other(SmolStr)` arm remains a lossless
+//! named variant here; the `Other(Utf8Bytes)` arm remains a lossless
 //! escape for codecs added in a future FFmpeg release before this
 //! file is regenerated (or, for `AttachmentCodec`, before
 //! `ATTACHMENT_CODECS` is re-derived by hand).
@@ -29,10 +29,10 @@
 //! with a `match` or [`IsVariant`](derive_more::IsVariant)'s `is_other`.
 use core::str::FromStr;
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 /** Video codec family — every codec FFmpeg n9.0 knows under media type `video`.
 
-`#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+`#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -602,7 +602,7 @@ pub enum VideoCodec {
   Zmbv,
   /// A codec not enumerated above — carries the FFmpeg short name
   /// verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 impl VideoCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
@@ -1770,13 +1770,13 @@ impl FromStr for VideoCodec {
       b"zerocodec" => Self::Zerocodec,
       b"zlib" => Self::Zlib,
       b"zmbv" => Self::Zmbv,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }
 /** Audio codec family — every codec FFmpeg n9.0 knows under media type `audio`.
 
-`#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+`#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -2232,7 +2232,7 @@ pub enum AudioCodec {
   Xma2,
   /// A codec not enumerated above — carries the FFmpeg short name
   /// verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 impl AudioCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
@@ -3172,13 +3172,13 @@ impl FromStr for AudioCodec {
       b"xan_dpcm" => Self::XanDpcm,
       b"xma1" => Self::Xma1,
       b"xma2" => Self::Xma2,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }
 /** Subtitle codec family — every codec FFmpeg n9.0 knows under media type `subtitle`.
 
-`#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+`#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -3246,7 +3246,7 @@ pub enum SubtitleCodec {
   Xsub,
   /// A codec not enumerated above — carries the FFmpeg short name
   /// verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 impl SubtitleCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
@@ -3446,13 +3446,13 @@ impl FromStr for SubtitleCodec {
       b"vplayer" => Self::Vplayer,
       b"webvtt" => Self::Webvtt,
       b"xsub" => Self::Xsub,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }
 /** Data codec family — every codec FFmpeg n9.0 knows under media type `data`.
 
-`#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
+`#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` arm is the lossless escape for codecs added upstream before this file is regenerated.*/
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -3488,7 +3488,7 @@ pub enum DataCodec {
   Ttf,
   /// A codec not enumerated above — carries the FFmpeg short name
   /// verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 impl DataCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
@@ -3584,13 +3584,13 @@ impl FromStr for DataCodec {
       b"smpte_436m_anc" => Self::Smpte436mAnc,
       b"timed_id3" => Self::TimedId3,
       b"ttf" => Self::Ttf,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }
 /** Attachment codec family — the FFmpeg codec ids `libavformat/matroskadec.c`'s `mkv_mime_tags` table assigns to an `AVMEDIA_TYPE_ATTACHMENT` stream (`ATTACHMENT_CODECS`; see its doc comment for the full census — `libavcodec/codec_desc.c` has no `AVMEDIA_TYPE_ATTACHMENT` media type to enumerate here the way `DataCodec` and the other vendored enums are).
 
-`#[non_exhaustive]` keeps future additions non-breaking; the `Other(SmolStr)` arm is the lossless escape for an attachment codec id this list does not (yet) name.*/
+`#[non_exhaustive]` keeps future additions non-breaking; the `Other(Utf8Bytes)` arm is the lossless escape for an attachment codec id this list does not (yet) name.*/
 #[cfg_attr(
   feature = "quickcheck",
   derive(::quickcheck_richderive::Arbitrary),
@@ -3610,7 +3610,7 @@ pub enum AttachmentCodec {
   Ttf,
   /// A codec not enumerated above — carries the FFmpeg short name
   /// verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 impl AttachmentCodec {
   /// Canonical FFmpeg short name (matches `ffmpeg -codecs` column 2).
@@ -3668,7 +3668,7 @@ impl FromStr for AttachmentCodec {
       b"bin_data" => Self::BinData,
       b"otf" => Self::Otf,
       b"ttf" => Self::Ttf,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

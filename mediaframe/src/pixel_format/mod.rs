@@ -49,7 +49,7 @@
 
 use derive_more::{Display, IsVariant};
 #[cfg(any(feature = "std", feature = "alloc"))]
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Pixel format identifier covering FFmpeg + Bayer + cinema-RAW.
 ///
@@ -808,7 +808,7 @@ pub enum PixelFormat {
   /// heap-capable. At the no-alloc tier the vocabulary is closed and an
   /// unrecognised slug is rejected instead.
   #[cfg(any(feature = "std", feature = "alloc"))]
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for PixelFormat {
@@ -2187,7 +2187,7 @@ impl core::str::FromStr for PixelFormat {
       b"monow" => Self::Monowhite,
 
       #[cfg(any(feature = "std", feature = "alloc"))]
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
       #[cfg(not(any(feature = "std", feature = "alloc")))]
       _ => return Err(ParsePixelFormatError),
     })

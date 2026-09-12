@@ -6,7 +6,7 @@
 // re-exported via the module's `impl` items so cross-cluster cascades just
 // resolve naturally.
 //
-//   strings.rs   — open string enums w/ `Other(SmolStr)` (codec×3, container,
+//   strings.rs   — open string enums w/ `Other(Utf8Bytes)` (codec×3, container,
 //                  image, subtitle::Format, audio open formats).
 //   coded.rs     — the FFmpeg-coded name vocabularies + colour / frame /
 //                  pixel-format / disposition structs and enums.
@@ -63,7 +63,7 @@ pub(crate) use arb_via_named_variants;
 ///
 /// `FromStr` is the canonicalising constructor: a named slug yields the
 /// named variant, only a non-named slug yields `Other`. Going through it
-/// (rather than `Other(SmolStr::from(s))` directly) guarantees every
+/// (rather than `Other(Utf8Bytes::from(s))` directly) guarantees every
 /// generated value is canonical / round-trippable — a string that happens
 /// to equal a named slug becomes that named variant, never a malformed
 /// `Other("h264")` that serde would canonicalise to `H264` on the round

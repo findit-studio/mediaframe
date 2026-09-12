@@ -50,7 +50,7 @@ arb_via_code! {
 }
 
 // The colour / frame / pixel-format vocabularies are open string enums now:
-// `Other(SmolStr)` is their escape, so they generate the way the codec
+// `Other(Utf8Bytes)` is their escape, so they generate the way the codec
 // family does. The numeric generators these replaced existed to reach
 // `Unknown(u32)`, which no longer exists. `Matrix::Bt601` is in the curated
 // slugs deliberately — it is the one mediaframe-domain variant, and the

@@ -250,7 +250,7 @@ fn display_matches_as_str() {
   assert_eq!(ChannelLayout::Stereo.to_string(), "stereo");
   assert_eq!(ChannelLayout::Ch5_1.to_string(), "5.1(side)");
   assert_eq!(
-    ChannelLayout::Other(SmolStr::new("custom_layout")).to_string(),
+    ChannelLayout::Other(Utf8Bytes::from("custom_layout")).to_string(),
     "custom_layout"
   );
 }
@@ -262,7 +262,7 @@ fn is_variant_predicates() {
   assert!(ChannelLayout::Ch5_1.is_ch_5_1());
   assert!(ChannelLayout::Ch5_1_2Back.is_ch_5_1_2_back());
   assert!(ChannelLayout::QuadSide.is_quad_side());
-  assert!(ChannelLayout::Other(SmolStr::new("x")).is_other());
+  assert!(ChannelLayout::Other(Utf8Bytes::from("x")).is_other());
 }
 
 /// Lowercase-canonical, collision-free once folded, and read

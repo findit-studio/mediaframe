@@ -806,7 +806,7 @@ fn display_matches_as_str() {
   assert_eq!(DataCodec::Klv.to_string(), "klv");
   assert_eq!(AttachmentCodec::BinData.to_string(), "bin_data");
   assert_eq!(
-    VideoCodec::Other(SmolStr::new("custom_codec")).to_string(),
+    VideoCodec::Other(Utf8Bytes::from("custom_codec")).to_string(),
     "custom_codec"
   );
 }

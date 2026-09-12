@@ -107,7 +107,7 @@
 use core::str::FromStr;
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Still-image format — standard photo formats plus curated camera-RAW.
 ///
@@ -288,7 +288,7 @@ pub enum Format {
   Gpr,
   /// A format not enumerated above — carries the extension-style slug
   /// verbatim. Lossless escape.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Format {
@@ -296,7 +296,7 @@ impl Default for Format {
   /// other open format vocabulary in the crate.
   #[inline]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -514,7 +514,7 @@ impl FromStr for Format {
       b"x3f" => Self::X3f,
       b"mrw" => Self::Mrw,
       b"gpr" => Self::Gpr,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

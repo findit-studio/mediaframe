@@ -5,7 +5,7 @@
 //! Split across three cluster files for parallel ownership (same axis as
 //! [`arbitrary_impls`](crate::arbitrary_impls)):
 //!
-//!   strings.rs   — open string enums w/ `Other(SmolStr)` (codec×3, container,
+//!   strings.rs   — open string enums w/ `Other(Utf8Bytes)` (codec×3, container,
 //!                  image, subtitle::Format, audio open formats).
 //!   coded.rs     — closed FFmpeg-coded enums w/ `from_u32` + colour / frame /
 //!                  pixel-format / disposition structs and enums.
@@ -22,7 +22,7 @@
 ///
 /// `FromStr` is the canonicalising constructor: a named slug yields the
 /// named variant, only a non-named slug yields `Other`. Routing the
-/// arbitrary-string branch through it too (rather than `Other(SmolStr)`
+/// arbitrary-string branch through it too (rather than `Other(Utf8Bytes)`
 /// directly) guarantees a string equal to a named slug becomes that named
 /// variant — never a malformed `Other("h264")` that serde would
 /// canonicalise to `H264` on the round trip. An arbitrary string is

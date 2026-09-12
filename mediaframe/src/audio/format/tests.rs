@@ -92,16 +92,16 @@ fn audio_container_display_matches_as_str() {
   assert_eq!(ContainerFormat::Mp3.to_string(), "mp3");
   assert_eq!(ContainerFormat::Flac.to_string(), "flac");
   assert_eq!(
-    ContainerFormat::Other(SmolStr::new("snd")).to_string(),
+    ContainerFormat::Other(Utf8Bytes::from("snd")).to_string(),
     "snd"
   );
 }
 
 #[test]
 fn audio_container_unwrap_other_borrowed_view() {
-  // `Other(SmolStr)` carries data — golden-rule §2 mandates
+  // `Other(Utf8Bytes)` carries data — golden-rule §2 mandates
   // unwrap/try_unwrap accessors for data-carrying variants.
-  let v = ContainerFormat::Other(SmolStr::new("custom_audio"));
+  let v = ContainerFormat::Other(Utf8Bytes::from("custom_audio"));
   assert_eq!(v.unwrap_other_ref().as_str(), "custom_audio");
   assert!(v.try_unwrap_other_ref().is_ok());
   let named = ContainerFormat::Flac;
@@ -134,7 +134,7 @@ fn audio_container_as_extension_matches_disk_form() {
   assert_eq!(ContainerFormat::Alac.as_extension(), "m4a");
   // Other has no known extension.
   assert_eq!(
-    ContainerFormat::Other(SmolStr::new("weird")).as_extension(),
+    ContainerFormat::Other(Utf8Bytes::from("weird")).as_extension(),
     ""
   );
 }
@@ -180,7 +180,7 @@ fn audio_container_extensions_are_canonical_first_and_every_alias_parses() {
     }
   }
   assert_eq!(
-    ContainerFormat::Other(SmolStr::new("weird")).extensions(),
+    ContainerFormat::Other(Utf8Bytes::from("weird")).extensions(),
     &[] as &[&str]
   );
 
@@ -314,7 +314,7 @@ fn audio_slugs_are_lowercase_canonical_and_fold() {
 }
 #[test]
 fn sample_format_unwrap_other_borrowed_view() {
-  // `Other(SmolStr)` carries data — golden-rule §2 mandates
+  // `Other(Utf8Bytes)` carries data — golden-rule §2 mandates
   // unwrap/try_unwrap accessors for data-carrying variants, and this
   // type's 12 variants are far under the compile-time threshold that
   // exempts the 200-plus codec enums.

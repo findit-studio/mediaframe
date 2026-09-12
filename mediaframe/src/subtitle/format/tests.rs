@@ -61,7 +61,10 @@ fn is_image_based_classifies_known_variants() {
   assert_eq!(Format::Ass.is_image_based(), Some(false));
   assert_eq!(Format::MovText.is_image_based(), Some(false));
   // Unknown.
-  assert_eq!(Format::Other(SmolStr::new("weird")).is_image_based(), None,);
+  assert_eq!(
+    Format::Other(Utf8Bytes::from("weird")).is_image_based(),
+    None,
+  );
 }
 
 #[test]
@@ -70,7 +73,7 @@ fn display_matches_as_str() {
     assert_eq!(variant.to_string(), variant.as_str());
   }
   assert_eq!(
-    Format::Other(SmolStr::new("custom_fmt")).to_string(),
+    Format::Other(Utf8Bytes::from("custom_fmt")).to_string(),
     "custom_fmt",
   );
 }
@@ -79,7 +82,7 @@ fn display_matches_as_str() {
 fn is_variant_predicates() {
   assert!(Format::Srt.is_srt());
   assert!(!Format::Srt.is_web_vtt());
-  assert!(Format::Other(SmolStr::new("x")).is_other());
+  assert!(Format::Other(Utf8Bytes::from("x")).is_other());
 }
 
 #[test]
@@ -112,7 +115,7 @@ fn as_extension_matches_disk_form() {
     assert_eq!(variant.as_extension(), "", "{variant:?}");
   }
   // Other: unknown.
-  assert_eq!(Format::Other(SmolStr::new("custom")).as_extension(), "");
+  assert_eq!(Format::Other(Utf8Bytes::from("custom")).as_extension(), "");
 }
 
 /// Lowercase-canonical, collision-free once folded, and read

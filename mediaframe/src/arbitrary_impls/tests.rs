@@ -177,9 +177,9 @@ fn reachability_track_origin_hits_all_named_and_escape() {
   assert!(saw_other, "TrackOrigin `Other` arm never generated");
 }
 
-// Reachability — a small name vocabulary with an `Other(SmolStr)` arm
+// Reachability — a small name vocabulary with an `Other(Utf8Bytes)` arm
 // (`arb_via_code_weighted!`) MUST visit every named variant AND the
-// `Other(_)` arm. `Rotation` is a typical 4-named + `Other(SmolStr)`
+// `Other(_)` arm. `Rotation` is a typical 4-named + `Other(Utf8Bytes)`
 // case; uniform raw `u32` previously almost never landed on `0..=3`.
 #[test]
 fn reachability_weighted_coded_enum_hits_all_named_and_unknown() {

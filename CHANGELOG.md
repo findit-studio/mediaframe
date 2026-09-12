@@ -6,6 +6,99 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-12
+
+### Changed
+
+- **Every text seat in the crate now carries `smol_bytes::Utf8Bytes`;
+  `smol_str` is gone.** One carrier for text, crate-wide — the same seat
+  the `lang` household has held since 0.9.0, now also under the
+  `Other(...)` escape arm of all twenty-two open vocabularies
+  (`color::{Matrix, Primaries, Transfer, DynamicRange, ChromaLocation,
+  DcpTargetGamut}`, `codec::{VideoCodec, AudioCodec, SubtitleCodec,
+  DataCodec, AttachmentCodec}`, `container::Format`, `frame::{Rotation,
+  FieldOrder, StereoMode}`, `pixel_format::PixelFormat`,
+  `audio::{ChannelLayout, SampleFormat, ContainerFormat}`,
+  `image::Format`, `subtitle::{Format, TrackOrigin}`), under the record
+  text fields (`audio::Tags`' seven strings, `audio::ChannelSpec::label`,
+  `audio::ChannelLayoutDescription::text`, `audio::CoverArt::mime`,
+  `audio::Fingerprint::algorithm`, `capture::Device::{make, model}`), and
+  in `capture::GeoLocationError::Iso6709Malformed`'s payload.
+
+  **Breaking**, in exactly two shapes: code that names the escape arm's
+  payload type (`Type::Other(SmolStr::new(s))`, a `let _: SmolStr` bound
+  off a destructured `Other`) and code that hands a `SmolStr` to one of
+  the text setters. Both are one-line fixes — `Utf8Bytes::from(s)`, and
+  `&str` / `String` arguments keep working untouched, since every setter
+  takes `impl Into<Utf8Bytes>` exactly as it took `impl Into<SmolStr>`.
+  No method was added, removed or renamed; no getter changed its return
+  type (they all still hand back `&str`).
+
+  **One further break, found by this crate's own tests and worth calling
+  out on its own: at the `alloc` / `std` tier a value of one of the
+  twenty-two open vocabularies can no longer be created *and dropped*
+  inside a `const` body.** `Utf8Bytes`' heap arm holds a `bytes::Bytes`,
+  whose inline `AtomicPtr` makes the whole enum non-`freeze`; a const
+  temporary of a non-`freeze` type cannot be promoted, so its drop lands
+  in the const body and `rustc` rejects it with `E0493` ("destructor
+  cannot be evaluated at compile-time"). `SmolStr`'s heap arm was an
+  `Arc<str>`, which is `freeze`, so the same temporary used to promote.
+  Every `const fn` on these types is still a `const fn` and still
+  evaluates at compile time — what changed is where the value may live:
+
+  ```rust
+  // 0.10: compiled. 0.11 at the alloc tier: E0493.
+  const W: Option<ChromaCoord> = Primaries::SmpteEg432.white_point();
+
+  // 0.11: hold the value in a `&'static` const — nothing is dropped.
+  const P3: &Primaries = &Primaries::SmpteEg432;
+  const W: Option<ChromaCoord> = P3.white_point();
+  ```
+
+  Const items *of* these types (`const ROSTER: &'static [Self]`,
+  `color::Info::UNSPECIFIED`) are unaffected, and so is the no-alloc
+  tier, where the escape arm does not exist and the enums are plain
+  fieldless vocabularies.
+
+  **No wire or text form moved.** The open vocabularies serialize as
+  their `as_str()` slug, as before; the record fields serialize as JSON
+  strings, as before; `Display`, `FromStr` and the ignore-case parse
+  tiers are untouched, and `GeoLocationError`'s `{0:?}` rendering is
+  byte-identical (both carriers' `Debug` delegate to `str`'s). The
+  existing serde, buffa and text-form tests pin all of it.
+
+  **Why.** `SmolStr` stores up to 23 bytes inline and heap-allocates
+  infallibly past that, so a caller that must not abort on a large or
+  hostile string had no way to hand one over — a downstream decoder was
+  dropping over-long channel labels and layout renderings as "absent"
+  rather than risk the allocation. `Utf8Bytes::from(String)` takes
+  ownership of a buffer the caller already built, so the fallible part
+  (`Vec::try_reserve`, then the decode) happens on the caller's side and
+  the value arrives here complete. mediaframe itself gains no fallible
+  constructor: the seats store what they are given, and
+  `ChannelSpec::with_label` / `ChannelLayoutDescription::with_text` now
+  say so in their own docs.
+
+  This reverses the note 0.9.0 attached to the `lang` seat, which kept
+  `Utf8Bytes` for subtags and left `SmolStr` under the escape arms on the
+  grounds that a subtag is a value with a grammar and an escape is a name
+  carried verbatim. That distinction is real, and it was never about the
+  *carrier*: both hold text the retrieval layer downstream addresses rows
+  by. One carrier for all of it is what the crate settles on here.
+
+### Removed
+
+- **The `smol_str` dependency**, with its three feature rows
+  (`alloc = [... "dep:smol_str" ...]`, `std = [... "smol_str?/std" ...]`,
+  `serde = [... "smol_str?/serde" ...]`). `smol-bytes` — already a
+  dependency since 0.9.0 — now carries all three: `alloc` enables it
+  (`dep:smol-bytes`, `smol-bytes/alloc`), `std` forwards
+  `smol-bytes?/std`, and `serde` forwards `smol-bytes?/serde` where
+  `smol_str?/serde` stood. The capability tiers are unchanged: `Utf8Bytes`
+  needs a heap exactly as `SmolStr` did, so every escape arm and every
+  text field keeps its `any(feature = "std", feature = "alloc")` gate, and
+  nothing that compiled at the no-alloc tier now requires `alloc`.
+
 ## [0.10.0] - 2026-09-02
 
 ### Added

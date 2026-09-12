@@ -13,7 +13,7 @@
 use core::str::FromStr;
 
 use derive_more::{Display, IsVariant, TryUnwrap, Unwrap};
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 /// Subtitle file / track *format* — the demuxer-tag axis of a subtitle
 /// stream (`"srt"` / `"webvtt"` / `"ass"` / image-based `"pgs"` / …).
@@ -80,7 +80,7 @@ pub enum Format {
   XSub,
   /// A format not enumerated above — carries the FFmpeg-style short
   /// name verbatim.
-  Other(SmolStr),
+  Other(Utf8Bytes),
 }
 
 impl Default for Format {
@@ -90,7 +90,7 @@ impl Default for Format {
   /// `audio::ChannelLayout`).
   #[cfg_attr(not(tarpaulin), inline(always))]
   fn default() -> Self {
-    Self::Other(SmolStr::new_inline(""))
+    Self::Other(Utf8Bytes::new())
   }
 }
 
@@ -256,7 +256,7 @@ impl FromStr for Format {
       b"hdmv_pgs_subtitle" => Self::HdmvPgs,
       b"dvb_subtitle" => Self::DvbSub,
       b"xsub" => Self::XSub,
-      _ => Self::Other(SmolStr::new(s)),
+      _ => Self::Other(Utf8Bytes::from(s)),
     })
   }
 }

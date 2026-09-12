@@ -8,7 +8,7 @@ use super::{arb_via_code, arb_via_named_variants};
 arb_via_code!(crate::disposition::TrackDisposition);
 
 // The colour / frame / pixel-format vocabularies are open string enums now:
-// `Other(SmolStr)` is their escape, so they generate the same way the codec
+// `Other(Utf8Bytes)` is their escape, so they generate the same way the codec
 // family does — a curated slug, or an arbitrary string, both routed through
 // `FromStr` so every generated value is canonical. The old numeric
 // generators (`arb_via_code_weighted*`) existed to reach `Unknown(u32)`,

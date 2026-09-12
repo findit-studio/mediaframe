@@ -28,7 +28,7 @@
 //!
 //! Each enum encodes its `as_str()` slug as a single `string` at
 //! field #1, decoded via `FromStr` — the same shape the codec family
-//! has always used. The slug is the spelling because `Other(SmolStr)`
+//! has always used. The slug is the spelling because `Other(Utf8Bytes)`
 //! is the crate's one extension idiom: a value this build does not
 //! name still has a *name*, and a number would not carry it.
 //!
@@ -163,7 +163,7 @@
 //!
 //! - **String-bearing enums** (`ChannelLayout`, `ContainerFormat`,
 //!   `Format`, `SampleFormat`) encode their `as_str()` slug. Default
-//!   (where defined) elides; `Other(SmolStr)` round-trips losslessly.
+//!   (where defined) elides; `Other(Utf8Bytes)` round-trips losslessly.
 //!   `BitRateMode` and `ChannelOrder` are strictly closed and encode
 //!   their `to_u32()` id. Zero-elision is sound for both: each one's
 //!   `Default` (`Cbr` / `Unspecified`) *is* code `0`, so an absent field
@@ -234,7 +234,7 @@
 //! TrackDisposition    { uint32 bits  = 1; }   // bits = to_u32() (= raw bitflags bits)
 //! ```
 //!
-//! - **`Format`** — a closed-ish enum with an `Other(SmolStr)`
+//! - **`Format`** — a closed-ish enum with an `Other(Utf8Bytes)`
 //!   escape arm has no stable numeric id, so it encodes the
 //!   FFmpeg-style slug (`"srt"` / `"webvtt"` / `"hdmv_pgs_subtitle"` /
 //!   …) as a `string`. The decoder funnels through `FromStr` (total —
@@ -245,7 +245,7 @@
 //!   always-encode the slug so an empty string can never be conflated
 //!   with `Srt`; on decode an empty string maps to `Other("")`,
 //!   matching `FromStr`.
-//! - **`TrackOrigin`** — an open enum since 0.5.0 (`Other(SmolStr)`),
+//! - **`TrackOrigin`** — an open enum since 0.5.0 (`Other(Utf8Bytes)`),
 //!   so its stable ids no longer span the value space and it encodes
 //!   the slug as a `string`, like `Format` above. Always-encoded for
 //!   the same reason: the empty string is `Other("")` on decode, a
@@ -311,7 +311,7 @@ use ::buffa::{
     string_encoded_len, uint32_encoded_len, uint64_encoded_len,
   },
 };
-use smol_str::SmolStr;
+use smol_bytes::Utf8Bytes;
 
 use crate::{
   audio::{
@@ -337,7 +337,7 @@ const VARINT: u8 = WireType::Varint as u8;
 const LEN: u8 = WireType::LengthDelimited as u8;
 
 // The colour / frame / pixel-format vocabularies carry names, not numbers:
-// `Other(SmolStr)` is the escape, so the slug is the only spelling that
+// `Other(Utf8Bytes)` is the escape, so the slug is the only spelling that
 // survives a value this build has never heard of. They therefore ride the
 // same one-field `{ string value = 1; }` shape as the codec family — see
 // `impl_string_enum_message!` below. The declarations sit there, beside it.
@@ -927,7 +927,7 @@ impl Message for DolbyVisionConfig {
 // default is `Bt709`) decouples the wire round-trip from the field's own
 // default — the `mediatime` always-encode-nontrivial-default stance.
 // Tags #1–#5 single-byte. The slug is the spelling because the member
-// enums' only escape is `Other(SmolStr)`.
+// enums' only escape is `Other(Utf8Bytes)`.
 // ----------------------------------------------------------------------------
 
 impl DefaultInstance for Info {
@@ -1498,12 +1498,9 @@ macro_rules! impl_string_enum_message {
 // Closed-vocabulary string-bearing enums. They don't have a
 // `Default` impl, so the decoder seed is the wire-zero `Other("")`
 // (round-trips losslessly through the slug codec).
-impl_string_enum_message!(ChannelLayout, ChannelLayout::Other(SmolStr::new_inline("")));
-impl_string_enum_message!(
-  ContainerFormat,
-  ContainerFormat::Other(SmolStr::new_inline(""))
-);
-impl_string_enum_message!(Format, Format::Other(SmolStr::new_inline("")));
+impl_string_enum_message!(ChannelLayout, ChannelLayout::Other(Utf8Bytes::new()));
+impl_string_enum_message!(ContainerFormat, ContainerFormat::Other(Utf8Bytes::new()));
+impl_string_enum_message!(Format, Format::Other(Utf8Bytes::new()));
 
 // Name vocabularies with a real `Default`: the seed is that default, and
 // every value writes its slug. `Unknown(u32)` is gone, so a number is no
@@ -1720,7 +1717,7 @@ impl Message for ChannelSpec {
           });
         }
         let s = decode_string(buf)?;
-        self.set_label(SmolStr::new(s));
+        self.set_label(Utf8Bytes::from(s));
       }
       _ => skip_field_depth(tag, buf, ctx.depth())?,
     }
@@ -1871,7 +1868,7 @@ impl Message for ChannelLayoutDescription {
           }
           6 => {
             let s = decode_string(buf)?;
-            self.set_text(SmolStr::new(s));
+            self.set_text(Utf8Bytes::from(s));
           }
           _ => unreachable!(),
         }
@@ -2091,7 +2088,7 @@ impl Message for ReplayGain {
 
 fn audio_fingerprint_seed() -> Fingerprint {
   // Safety: the literal is non-empty so `try_new` cannot fail.
-  Fingerprint::try_new(SmolStr::new_inline("default"), std::vec::Vec::new())
+  Fingerprint::try_new(Utf8Bytes::from_static("default"), std::vec::Vec::new())
     .unwrap_or_else(|_| unreachable!())
 }
 
@@ -2140,9 +2137,9 @@ impl Message for Fingerprint {
         // invariant forbids it); clamp to the seed's `"default"`
         // sentinel to keep decode total.
         let algo = if algo.is_empty() {
-          SmolStr::new_inline("default")
+          Utf8Bytes::from_static("default")
         } else {
-          SmolStr::new(&algo)
+          Utf8Bytes::from(algo)
         };
         // Preserve existing `value`, swap `algorithm`. `try_new`
         // moves the bytes back in unchanged.
@@ -2159,7 +2156,7 @@ impl Message for Fingerprint {
         }
         let bytes = decode_bytes(buf)?;
         // Preserve `algorithm`, replace `value`.
-        let algo = SmolStr::from(self.algorithm());
+        let algo = Utf8Bytes::from(self.algorithm());
         *self = Fingerprint::try_new(algo, bytes).unwrap_or_else(|_| audio_fingerprint_seed());
       }
       _ => skip_field_depth(tag, buf, ctx.depth())?,
@@ -2184,7 +2181,7 @@ impl Message for Fingerprint {
 
 fn audio_cover_art_seed() -> CoverArt {
   CoverArt::try_new(
-    SmolStr::new_static("application/octet-stream"),
+    Utf8Bytes::from_static("application/octet-stream"),
     std::vec![0u8],
   )
   .unwrap_or_else(|_| unreachable!())
@@ -2228,9 +2225,9 @@ impl Message for CoverArt {
         // Empty mime on the wire violates the invariant; clamp to
         // the sentinel to keep decode total.
         let mime = if mime.is_empty() {
-          SmolStr::new_static("application/octet-stream")
+          Utf8Bytes::from_static("application/octet-stream")
         } else {
-          SmolStr::new(&mime)
+          Utf8Bytes::from(mime)
         };
         let data = self.data().to_vec();
         let data = if data.is_empty() {
@@ -2256,7 +2253,7 @@ impl Message for CoverArt {
         } else {
           data
         };
-        let mime = SmolStr::from(self.mime());
+        let mime = Utf8Bytes::from(self.mime());
         *self = CoverArt::try_new(mime, data).unwrap_or_else(|_| audio_cover_art_seed());
       }
       _ => skip_field_depth(tag, buf, ctx.depth())?,
@@ -2403,7 +2400,7 @@ impl Message for Tags {
           });
         }
         let s = decode_string(buf)?;
-        let s = SmolStr::new(&s);
+        let s = Utf8Bytes::from(s);
         match n {
           1 => {
             self.set_title(s);
@@ -2544,7 +2541,7 @@ impl Message for TrackDisposition {
 
 // ----------------------------------------------------------------------------
 // TrackOrigin + Format live in `crate::subtitle`, which is
-// `cfg`-gated on the `alloc` feature (the `Other(SmolStr)` escape on
+// `cfg`-gated on the `alloc` feature (the `Other(Utf8Bytes)` escape on
 // `Format`). Mirror that gate on the wire impls so a
 // `--no-default-features --features buffa` build (no `alloc`) still compiles.
 // ----------------------------------------------------------------------------
@@ -2559,7 +2556,7 @@ mod subtitle_impls {
 
   // ----------------------------------------------------------------------------
   // TrackOrigin — { string value = 1; }
-  // Open since 0.5.0 (`Other(SmolStr)`), so there is no total numeric id;
+  // Open since 0.5.0 (`Other(Utf8Bytes)`), so there is no total numeric id;
   // encodes the slug from `as_str()`, exactly like `Format` below.
   // Always-encoded (NOT default-elision): the empty string decodes to
   // `Other("")`, a distinct legal value, so eliding would conflate it with

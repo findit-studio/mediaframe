@@ -6,6 +6,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+**Breaking:** the public dependency `mediatime` crosses 0.4 → 0.5. The
+release is 0.12.0 (the manifest already says so).
+
+### Changed
+
+- **`mediatime` 0.4 → 0.5.** This crate re-exports no `mediatime` item, and
+  `Timestamp` is the only `mediatime` type its public API carries —
+  `frame::TimestampedFrame`'s `pts`/`duration` fields and its
+  `pts`/`duration`/`with_pts`/`maybe_pts`/`set_pts`/`update_pts`/
+  `with_duration`/`maybe_duration`/`set_duration`/`update_duration`
+  accessors and builders. `Timestamp` itself did not change; a caller
+  holding a `mediatime 0.4` `Timestamp` no longer type-checks against these
+  signatures, which is Breaking as the 0.1 → 0.2, 0.2 → 0.3 and 0.3 → 0.4
+  crossings were. What moved upstream (`mediatime`'s own changelog is the
+  authority) reaches nothing here: `TimeRange`'s unchecked
+  `with_start`/`with_end`/`set_start`/`set_end` gave way to checked moves,
+  and `TimeRange` is not in this crate's API.
+- **The `buffa` feature still forwards `mediatime/buffa`, which now brings
+  `mediatime::wire`.** `mediatime` 0.5 no longer implements buffa's
+  `Message` on its domain types: a buffa-generated crate holding a
+  `.mediatime.v1` field beside a mediaframe type maps that package onto
+  `::mediatime::wire` and converts at the edge (`TryFrom`/`From`). This
+  crate's own encodings are unchanged, byte for byte. The comments that
+  cited `mediatime`'s always-encode and clamp-on-decode stance as their
+  precedent now cite it as of 0.4: `mediatime`'s `wire` types write
+  proto3's canonical form and refuse a malformed value by name, so the
+  clamp `SampleAspectRatio` and `Rational` apply on decode is this crate's
+  own policy.
+
+No other source line changed. Verified on the stable toolchain: `cargo test
+--all-features`, `cargo clippy --all-features -- -D warnings`, `cargo hack
+check --each-feature` and `cargo hack clippy --each-feature` over the
+crate, `cargo xtask check`, and `cargo +nightly fmt --all -- --check`.
+
 ## [0.11.0] - 2026-09-12
 
 ### Changed

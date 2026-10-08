@@ -4,9 +4,10 @@
 //! mediaframe type without redefining it.
 //!
 //! These are hand-written inherent-trait impls — there is **no**
-//! codegen and **no** `.proto` in this crate (mirrors the
-//! `mediatime` design). The module needs no re-export: the impls are
-//! `impl Trait for crate::Type`.
+//! codegen and **no** `.proto` in this crate (the design `mediatime`'s
+//! own impls had through 0.4; `mediatime` 0.5 maps `.mediatime.v1`
+//! onto its `wire` types instead). The module needs no re-export: the
+//! impls are `impl Trait for crate::Type`.
 //!
 //! # Wire format (clean redesign — no compatibility with any prior
 //! encoding is required)
@@ -81,7 +82,8 @@
 //! `Default`/`new`) is the proto-zero for that field
 //! (`Dimensions`, `Rect`, `ContentLightLevel`, `ChromaCoord`, the
 //! `*_luminance` scalars). Where `Default` ≠ proto-zero the field is
-//! **always encoded** (the `mediatime::Timebase` reasoning):
+//! **always encoded** (the reasoning `mediatime::Timebase`'s own impl
+//! followed through `mediatime` 0.4):
 //!
 //! - `SampleAspectRatio` — `Default` is `1:1`. `num`'s default is
 //!   `1` (≠ 0) and `den` is `NonZeroI64` (never 0), so eliding a
@@ -100,8 +102,8 @@
 //!   same way.
 //! - `FrameRate` — `rate` is an always-encoded length-delimited
 //!   `Rational` sub-message (its inner `Default` is `1/1` ≠
-//!   proto-zero, so the nested-message-always-encoded
-//!   `mediatime::Timebase` stance applies, like `MasteringDisplay`'s
+//!   proto-zero, so the nested-message-always-encoded stance
+//!   `mediatime::Timebase` took through 0.4 applies, like `MasteringDisplay`'s
 //!   coords); `is_vfr` defaults to `false` == proto-zero so it uses
 //!   proto3 zero-elision.
 //! - `Info` — **all five enum fields are always encoded** as
@@ -112,12 +114,12 @@
 //!   FFmpeg code a field holds — in particular `matrix ==
 //!   Matrix::Rgb` (FFmpeg code `0`) survives because the id is
 //!   written unconditionally, never elided — the same defensive
-//!   `mediatime::Timebase` always-encode stance.
+//!   always-encode stance `mediatime::Timebase` took through 0.4.
 //! - `MasteringDisplay` — the three primaries and the white point
 //!   are always-encoded length-delimited sub-messages so presence
 //!   is unambiguous and `decode(encode(x)) == x` holds regardless of
 //!   `ChromaCoord` content (nested-message presence, like
-//!   `mediatime`'s always-encoded `Timebase`).
+//!   `mediatime`'s always-encoded `Timebase` through 0.4).
 //! - `HdrStaticMetadata` — the two `Option` fields are
 //!   presence-encoded length-delimited messages, omitted entirely
 //!   when `None`.
@@ -537,7 +539,8 @@ impl Message for Rect {
 // The decoder seeds from `SampleAspectRatio::default()` (1:1), NOT
 // proto-zero. Eliding `num == 0` would decode back as `num == 1`;
 // `den` is `NonZeroI64` and can never legitimately be 0. (Exactly
-// the `mediatime::Timebase` reasoning.) Both tags are single-byte.
+// the reasoning `mediatime::Timebase`'s own impl followed through 0.4.)
+// Both tags are single-byte.
 //
 // The fields were `uint32` before `Rational` became signed and 64-bit.
 // Protobuf's `int64` and `uint32` are the same plain (non-ZigZag)
@@ -604,13 +607,16 @@ impl Message for SampleAspectRatio {
         // `den` is NonZeroI64; a malformed den — zero, or negative by
         // the same route as `num` above — is clamped to 1. Since
         // `NonZeroI64::MIN` is `i64::MIN`, the clamp target is spelled
-        // out as `DEN_ONE`. This is the same decode policy as
-        // `mediatime::Timebase`'s in the published `mediatime` extern
-        // that SAR mirrors, and upholds the codec family's
+        // out as `DEN_ONE`. This was the decode policy of
+        // `mediatime::Timebase`'s own impl through `mediatime` 0.4,
+        // which SAR mirrors, and it upholds the codec family's
         // total-scalar-decode invariant (scalar values never raise
         // decode errors; only structural errors do). Codex
-        // adversarial-review F6: resolved as a coordinated
-        // mediatime/buffa policy, NOT a mediaframe-only divergence.
+        // adversarial-review F6 resolved it as a coordinated
+        // mediatime/buffa policy; `mediatime` 0.5 moved its own mapping
+        // to `mediatime::wire`, which keeps what it reads and refuses a
+        // malformed value by name at the conversion, so the clamp is
+        // this crate's own policy now.
         let den = NonZeroI64::new(decode_int64(buf)?)
           .filter(|d| d.get() > 0)
           .unwrap_or(DEN_ONE);
@@ -710,9 +716,10 @@ impl Message for Rational {
 //
 // `rate` is an always-encoded length-delimited `Rational`
 // sub-message: its inner `Default` is `1/1` ≠ proto-zero, so the
-// nested-message-always-encoded `mediatime::Timebase` stance applies
-// (like `MasteringDisplay`'s coords) — presence is unambiguous and
-// `decode(encode(x)) == x` holds regardless of the inner ratio.
+// nested-message-always-encoded stance `mediatime::Timebase` took
+// through 0.4 applies (like `MasteringDisplay`'s coords) — presence is
+// unambiguous and `decode(encode(x)) == x` holds regardless of the inner
+// ratio.
 // `is_vfr` defaults to `false` == proto-zero, so it uses sound proto3
 // zero-elision (only `true` is written).
 // ----------------------------------------------------------------------------
@@ -925,7 +932,8 @@ impl Message for DolbyVisionConfig {
 // Info — five enum slugs, each a bare `string`, ALL always encoded.
 // See the module doc: always-encoding (esp. `matrix`, whose semantic
 // default is `Bt709`) decouples the wire round-trip from the field's own
-// default — the `mediatime` always-encode-nontrivial-default stance.
+// default — the always-encode-nontrivial-default stance `mediatime`
+// took through 0.4.
 // Tags #1–#5 single-byte. The slug is the spelling because the member
 // enums' only escape is `Other(Utf8Bytes)`.
 // ----------------------------------------------------------------------------
@@ -1194,7 +1202,8 @@ impl Message for ChromaCoord {
 //
 // The four nested ChromaCoords are ALWAYS encoded (length-delimited)
 // so presence is unambiguous and round-trip holds regardless of
-// content (the `mediatime` always-encoded-nested-message stance).
+// content (the always-encoded-nested-message stance `mediatime` took
+// through 0.4).
 // The two luminance scalars default to 0 == proto-zero so they use
 // proto3 zero-elision.
 // ----------------------------------------------------------------------------
@@ -2770,7 +2779,7 @@ impl Message for Device {
 // `lat` and `lon` are always encoded: the default `(0.0, 0.0)` is
 // "Null Island" — a real, legal coordinate. Proto3 zero-elision would
 // conflate it with an absent field, which is unsound (same defensive
-// `mediatime::Timebase` stance as `SampleAspectRatio`).
+// stance as `SampleAspectRatio`, `mediatime::Timebase`'s through 0.4).
 //
 // `altitude` is presence-encoded: field #3 is written iff
 // `Some(_)`, including for an explicit `Some(0.0)` (sea level); an

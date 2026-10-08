@@ -6,8 +6,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-**Breaking:** the public dependency `mediatime` crosses 0.4 → 0.5. The
-release is 0.12.0 (the manifest already says so).
+## [0.12.0] — 2026-10-08
+
+**Breaking:** the public dependency `mediatime` crosses 0.4 → 0.5.
 
 ### Changed
 

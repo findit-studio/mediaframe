@@ -185,6 +185,33 @@ jobs:
       run: cargo hack test --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
       working-directory: mediaframe
 
+  # The `target_pointer_width = "32"` tests compile only for a 32-bit target, and the `test` job
+  # runs 64-bit hosts. 32-bit binaries run natively on the x86_64 runner with gcc-multilib.
+  test-i686:
+    name: test-i686
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Cache cargo build and registry
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-i686-test-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-i686-test-
+    - name: Install Rust
+      run: rustup update stable && rustup default stable && rustup target add i686-unknown-linux-gnu
+    - name: Install gcc-multilib
+      run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+    - name: Install cargo-hack
+      run: cargo install cargo-hack
+    - name: Run test
+      run: cargo hack test --target i686-unknown-linux-gnu --feature-powerset --group-features yuv-planar,yuv-semi-planar,yuva,yuv-packed,yuv-444-packed,y2xx,v210,rgb,rgb-float,rgb-legacy,gbr,gray,bayer,xyz,mono,frame
+      working-directory: mediaframe
+
   sanitizer:
     name: sanitizer
     runs-on: ubuntu-latest
@@ -216,7 +243,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-          # i686 is not run under miri: a rustc ICE made it red at random (owner-ruled 2026-10-09)
+          # No i686 under miri: the whole-registry lang::tests thread exhausts miri's interpreted 32-bit
+          # address space on every run ("resource exhaustion"; once as a rustc ICE at validity.rs:1638).
+          # Owner-ruled 2026-10-09. The i686 tests run natively in test-i686.
           - os: ubuntu-latest
             target: powerpc64-unknown-linux-gnu
           - os: ubuntu-latest
@@ -251,7 +280,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-          # i686 is not run under miri: a rustc ICE made it red at random (owner-ruled 2026-10-09)
+          # No i686 under miri: the whole-registry lang::tests thread exhausts miri's interpreted 32-bit
+          # address space on every run ("resource exhaustion"; once as a rustc ICE at validity.rs:1638).
+          # Owner-ruled 2026-10-09. The i686 tests run natively in test-i686.
           - os: ubuntu-latest
             target: powerpc64-unknown-linux-gnu
           - os: ubuntu-latest

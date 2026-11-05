@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-11-05
+
+**Breaking:** the public dependency `smol-bytes` crosses 0.1 → 0.2.
+
+### Changed
+
+- **`smol-bytes` 0.1 → 0.2.** `smol_bytes::Utf8Bytes` is the type of every
+  text field this crate's public API carries: the `Other(Utf8Bytes)` escape
+  arms, the `lang` subtags' conversions and `LanguageId::rest`,
+  `ChannelSpec`'s label, `ChannelLayoutDescription`'s text, `Tags`, `Device`
+  and the rest. 0.2's `Utf8Bytes` is a different type from 0.1's, so a
+  caller holding a `smol-bytes` 0.1 value no longer type-checks against
+  these signatures, which is Breaking as the `mediatime` crossings were.
+  What moved upstream (`smol-bytes`' own changelog is the authority)
+  reaches nothing here: this crate uses no `smol-bytes` API that 0.2
+  removed or changed, and it enables only the `alloc`, `std` and `serde`
+  features, which 0.2 keeps. The serde form of `Utf8Bytes` is unchanged, so
+  this crate's serde and buffa encodings are unchanged, byte for byte.
+
+No source line changed.
+
 ## [0.12.0] — 2026-10-08
 
 **Breaking:** the public dependency `mediatime` crosses 0.4 → 0.5.
